@@ -1,36 +1,30 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
-from PyQt5.QtCore import QDateTime, QTimer
+from .mod_selector_widget import ModSelectorWidget
 
 class HomeView(QWidget):
-    def __init__(self):
-        super().__init__()
+    """ホーム画面のビュー"""
+    def __init__(self, parent=None, app_settings=None):
+        super().__init__(parent)
+        self.app_settings = app_settings
         self.initUI()
 
     def initUI(self):
         layout = QVBoxLayout(self)
 
-        # 時刻表示
-        self.time_label = QLabel()
-        self.updateTime()  # 初期時刻設定
-
-        # 時刻更新用タイマー
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.updateTime)
-        self.timer.start(1000)  # 1秒ごとに更新
-
-        # ようこそメッセージ
-        welcome_label = QLabel("ようこそ Naval Design System へ")
-        welcome_label.setStyleSheet("font-size: 18px;")
-
-        description_label = QLabel("Hearts of Iron IVのmod支援用艦艇設計ツールです。このアプリケーションで、リアルなデータに基づいた艦艇設計が可能です。")
-        description_label.setWordWrap(True)
-
-        layout.addWidget(self.time_label)
+        # ウェルカムメッセージ
+        welcome_label = QLabel("Naval Design System へようこそ", self)
+        welcome_label.setStyleSheet("font-size: 18px; font-weight: bold;")
         layout.addWidget(welcome_label)
-        layout.addWidget(description_label)
-        layout.addStretch()  # 残りのスペースを埋める
 
-    def updateTime(self):
-        current_time = QDateTime.currentDateTime()
-        formatted_time = current_time.toString("yyyy/MM/dd hh:mm:ss")
-        self.time_label.setText(f"現在時刻: {formatted_time}")
+        description_label = QLabel("Hearts of Iron IV向け艦艇設計ツール", self)
+        layout.addWidget(description_label)
+
+        # MOD選択リストを追加
+        mod_label = QLabel("編集対象MODを選択", self)
+        mod_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        layout.addWidget(mod_label)
+
+        self.mod_selector = ModSelectorWidget(self, app_settings=self.app_settings)
+        layout.addWidget(self.mod_selector)
+
+        self.setLayout(layout)

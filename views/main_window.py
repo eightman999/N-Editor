@@ -1,97 +1,98 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QStackedWidget, QLabel
-from PyQt5.QtCore import QDateTime, QTimer, Qt
-
-from .home_view import HomeView
-from .equipment_form import EquipmentForm
-from .hull_form import HullForm
-from .design_view import DesignView
-from .fleet_view import FleetView
-from .settings_view import SettingsView
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout,
+                             QHBoxLayout, QPushButton, QStackedWidget,
+                             QLabel, QFrame)
+from PyQt5.QtCore import Qt, QDateTime, QTimer
+from PyQt5.QtGui import QCloseEvent, QFont
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    """アプリケーションのメインウィンドウ"""
+    def __init__(self, controller, app_settings):
         super().__init__()
+        self.controller = controller
+        self.app_settings = app_settings
         self.initUI()
 
+        # 時計更新用タイマー
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_clock)
+        self.timer.start(1000)  # 1秒ごとに更新
+
     def initUI(self):
+        """UIの初期化"""
         self.setWindowTitle("Naval Design System")
-        self.setFixedSize(800, 600)  # Windows 95アプリは通常固定サイズ
+        self.setMinimumSize(800, 600)
 
-        # メインウィジェットとレイアウトの設定
-        central_widget = QWidget()
-        main_layout = QHBoxLayout(central_widget)
+        # メインウィジェット
+        main_widget = QWidget()
+        self.setCentralWidget(main_widget)
 
-        # サイドメニューの作成
-        self.side_menu = QListWidget()
-        self.side_menu.addItems(["ホーム", "装備登録", "船体登録", "船体設計", "艦隊配備", "設定"])
-        self.side_menu.setFixedWidth(200)  # サイドメニューの幅を固定
+        # メインレイアウト
+        main_layout = QHBoxLayout(main_widget)
 
-        # メインビューの作成
-        self.main_view = QStackedWidget()
+        # サイドバー
+        sidebar = QFrame()
+        sidebar.setFrameShape(QFrame.StyledPanel)
+        sidebar.setFixedWidth(200)
+        sidebar_layout = QVBoxLayout(sidebar)
 
-        # 各画面を作成してスタックに追加
-        self.home_view = HomeView()
-        self.equipment_form = EquipmentForm()
-        self.hull_form = HullForm()
-        self.design_view = DesignView()
-        self.fleet_view = FleetView()
-        self.settings_view = SettingsView()
+        # タイトルラベル
+        title_label = QLabel("Naval Design System")
+        title_label.setFont(QFont("Arial", 14, QFont.Bold))
+        title_label.setAlignment(Qt.AlignCenter)
+        sidebar_layout.addWidget(title_label)
 
-        self.main_view.addWidget(self.home_view)
-        self.main_view.addWidget(self.equipment_form)
-        self.main_view.addWidget(self.hull_form)
-        self.main_view.addWidget(self.design_view)
-        self.main_view.addWidget(self.fleet_view)
-        self.main_view.addWidget(self.settings_view)
+        # 時計表示
+        self.clock_label = QLabel()
+        self.clock_label.setAlignment(Qt.AlignCenter)
+        self.update_clock()  # 初期表示
+        sidebar_layout.addWidget(self.clock_label)
 
-        # サイドメニューの選択変更シグナルを接続
-        self.side_menu.currentRowChanged.connect(self.main_view.setCurrentIndex)
+        # メニューボタン
+        self.create_menu_button("ホーム", "home", sidebar_layout)
+        self.create_menu_button("装備登録", "equipment", sidebar_layout)
+        self.create_menu_button("船体登録", "hull", sidebar_layout)
+        self.create_menu_button("船体設計", "design", sidebar_layout)
+        self.create_menu_button("艦隊配備", "fleet", sidebar_layout)
 
-        # レイアウトにウィジェットを追加
-        main_layout.addWidget(self.side_menu)
-        main_layout.addWidget(self.main_view)
+        # スペーサー
+        sidebar_layout.addStretch(1)
 
-        self.setCentralWidget(central_widget)
+        # 設定ボタン
+        self.create_menu_button("設定", "settings", sidebar_layout)
 
-        # Windows 95スタイルを適用
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #c0c0c0;
-            }
-            QListWidget {
-                background-color: #cccccc;
-                border: 2px solid #808080;
-                border-style: inset;
-            }
-            QListWidget::item {
-                padding: 5px;
-            }
-            QListWidget::item:selected {
-                background-color: #0a246a;
-                color: white;
-            }
-            QLabel {
-                color: black;
-                font-family: "MS Sans Serif", Arial;
-            }
-            QWidget {
-                background-color: #cccccc;
-            }
-            QPushButton {
-                background-color: #cccccc;
-                border: 2px solid #808080;
-                border-style: outset;
-                padding: 5px;
-            }
-            QPushButton:pressed {
-                border-style: inset;
-            }
-            QLineEdit, QTextEdit {
-                background-color: white;
-                border: 2px solid #808080;
-                border-style: inset;
-            }
-        """)
+        # スタックウィジェット（メインコンテンツ表示用）
+        self.stack = QStackedWidget()
 
-        # 初期選択をホームにする
-        self.side_menu.setCurrentRow(0)
+        # レイアウトに追加
+        main_layout.addWidget(sidebar)
+        main_layout.addWidget(self.stack)
+
+    def create_menu_button(self, text, view_name, layout):
+        """メニューボタンを作成してレイアウトに追加"""
+        button = QPushButton(text)
+        button.setFixedHeight(40)
+        button.clicked.connect(lambda: self.controller.navigate_to(view_name))
+        layout.addWidget(button)
+        return button
+
+    def add_view(self, name, widget):
+        """ビューをスタックウィジェットに追加"""
+        self.stack.addWidget(widget)
+        setattr(self, f"{name}_index", self.stack.count() - 1)
+
+    def show_view(self, name):
+        """指定した名前のビューを表示"""
+        index = getattr(self, f"{name}_index", -1)
+        if index >= 0:
+            self.stack.setCurrentIndex(index)
+
+    def update_clock(self):
+        """時計表示を更新"""
+        current_time = QDateTime.currentDateTime()
+        time_str = current_time.toString("yyyy/MM/dd HH:mm:ss")
+        self.clock_label.setText(time_str)
+
+    def closeEvent(self, event: QCloseEvent):
+        """ウィンドウが閉じられるときの処理"""
+        self.controller.on_quit()
+        event.accept()
