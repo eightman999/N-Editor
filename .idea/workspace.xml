@@ -5,6 +5,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e49128cf-ccc2-46fc-97ad-f395874b0dab" name="変更" comment="">
+      <change afterPath="$PROJECT_DIR$/controllers/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/controllers/app_controller.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/models/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/models/data_models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/design_view.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/equipment_form.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/fleet_view.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/home_view.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/hull_form.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/main_window.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/views/settings_view.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -65,7 +78,7 @@
       <recent name="$PROJECT_DIR$/data" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.equipment_form">
+  <component name="RunManager" selected="Python.main">
     <configuration name="equipment_form" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="N-Editor" />
       <option name="ENV_FILES" value="" />
@@ -114,8 +127,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.equipment_form" />
         <item itemvalue="Python.main" />
+        <item itemvalue="Python.equipment_form" />
       </list>
     </recent_temporary>
   </component>
@@ -136,6 +149,7 @@
       <option name="presentableId" value="Default" />
       <updated>1747143842416</updated>
       <workItem from="1747143843698" duration="1393000" />
+      <workItem from="1747226210844" duration="573000" />
     </task>
     <servers />
   </component>
