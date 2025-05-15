@@ -308,10 +308,142 @@ class AppController:
             return ""
 
     def save_hull(self, hull_data):
-        """船体データの保存（モデルとの連携）"""
-        # 例: self.hull_model.save_hull(hull_data)
-        pass
+        """
+        船体データの保存
 
+        Args:
+            hull_data: 船体データ辞書
+
+        Returns:
+            bool: 保存成功時はTrue、失敗時はFalse
+        """
+        try:
+            # モデルを使って船体データを保存
+            result = self.hull_model.save_hull(hull_data)
+
+            # 保存結果をログに出力
+            if result:
+                hull_id = hull_data.get('id', '不明')
+                hull_name = hull_data.get('name', '不明')
+                print(f"船体「{hull_name}」(ID: {hull_id})を保存しました。")
+            else:
+                print("船体データの保存に失敗しました。")
+
+            return result
+        except Exception as e:
+            print(f"船体データ保存中にエラーが発生しました: {e}")
+            return False
+
+    def load_hull(self, hull_id):
+        """
+        船体データの読み込み
+
+        Args:
+            hull_id: 読み込む船体のID
+
+        Returns:
+            dict or None: 船体データ辞書、存在しない場合はNone
+        """
+        try:
+            # モデルを使って船体データを読み込み
+            hull_data = self.hull_model.load_hull(hull_id)
+
+            if hull_data:
+                hull_name = hull_data.get('name', '不明')
+                print(f"船体「{hull_name}」(ID: {hull_id})を読み込みました。")
+            else:
+                print(f"船体ID '{hull_id}' のデータが見つかりません。")
+
+            return hull_data
+        except Exception as e:
+            print(f"船体データ読み込み中にエラーが発生しました: {e}")
+            return None
+
+    def get_all_hulls(self):
+        """
+        全船体データを取得
+
+        Returns:
+            list: 船体データのリスト
+        """
+        try:
+            return self.hull_model.get_all_hulls()
+        except Exception as e:
+            print(f"船体データ取得中にエラーが発生しました: {e}")
+            return []
+
+    def delete_hull(self, hull_id):
+        """
+        船体データの削除
+
+        Args:
+            hull_id: 削除する船体のID
+
+        Returns:
+            bool: 削除成功時はTrue、失敗時はFalse
+        """
+        try:
+            result = self.hull_model.delete_hull(hull_id)
+
+            if result:
+                print(f"船体ID '{hull_id}' のデータを削除しました。")
+            else:
+                print(f"船体ID '{hull_id}' のデータ削除に失敗しました。")
+
+            return result
+        except Exception as e:
+            print(f"船体データ削除中にエラーが発生しました: {e}")
+            return False
+
+    def import_from_csv(self, file_path):
+        """
+        CSVファイルから船体データをインポート
+
+        Args:
+            file_path: CSVファイルのパス
+
+        Returns:
+            list: インポートされた船体データのリスト
+        """
+        try:
+            imported_hulls = self.hull_model.import_from_csv(file_path)
+            print(f"{len(imported_hulls)}件の船体データをインポートしました。")
+            return imported_hulls
+        except Exception as e:
+            print(f"CSVインポート中にエラーが発生しました: {e}")
+            return []
+
+    def import_first_hull_from_csv(self, file_path):
+        """
+        CSVファイルから最初の船体データのみインポート
+
+        Args:
+            file_path: CSVファイルのパス
+
+        Returns:
+            dict or None: 最初の船体データ、エラー時はNone
+        """
+        try:
+            import csv
+
+            with open(file_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                try:
+                    # 最初の行を取得
+                    row = next(reader)
+                    # データ変換
+                    hull_data = self.hull_model._convert_csv_row_to_hull_data(row)
+                    if hull_data:
+                        print(f"CSVファイルから最初の行のデータをインポートしました: {hull_data.get('name')}")
+                        return hull_data
+                except StopIteration:
+                    print("CSVファイルにデータがありません。")
+                    return None
+
+            return None
+        except Exception as e:
+            print(f"CSVからの最初のデータインポート中にエラーが発生しました: {e}")
+            return None
     def calculate_design_stats(self, hull_id, equipment_list):
         """艦艇設計の性能計算"""
         # 設計計算ロジックを実装

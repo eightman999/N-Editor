@@ -26,24 +26,69 @@
   "stats": {
     "add_stats": {
       "build_cost_ic": 0.0,
+      "manpower": 0.0,
       "reliability": 0.0,
       "naval_speed": 0.0,
+      "fire_range": 0.0,
+      "lg_armor_piercing": 0.0,
       "lg_attack": 0.0,
-      "hg_attack": 0.0
+      "hg_armor_piercing": 0.0,
+      "hg_attack": 0.0,
+      "torpedo_attack": 0.0,
+      "anti_air_attack": 0.0,
+      "shore_bombardment": 0.0,
+      "evasion": 0.0,
+      "surface_detection": 0.0,
+      "sub_attack": 0.0,
+      "sub_detection": 0.0,
+      "surface_visibility": 0.0,
+      "sub_visibility": 0.0,
+      "naval_range": 0.0,
+      "port_capacity_usage": 0.0
     },
     "multiply_stats": {
       "build_cost_ic": 0.0,
+      "manpower": 0.0,
       "reliability": 0.0,
       "naval_speed": 0.0,
+      "fire_range": 0.0,
+      "lg_armor_piercing": 0.0,
       "lg_attack": 0.0,
-      "hg_attack": 0.0
+      "hg_armor_piercing": 0.0,
+      "hg_attack": 0.0,
+      "torpedo_attack": 0.0,
+      "anti_air_attack": 0.0,
+      "shore_bombardment": 0.0,
+      "evasion": 0.0,
+      "surface_detection": 0.0,
+      "sub_attack": 0.0,
+      "sub_detection": 0.0,
+      "surface_visibility": 0.0,
+      "sub_visibility": 0.0,
+      "naval_range": 0.0,
+      "port_capacity_usage": 0.0
     },
     "add_average_stats": {
       "build_cost_ic": 0.0,
+      "manpower": 0.0,
       "reliability": 0.0,
       "naval_speed": 0.0,
+      "fire_range": 0.0,
+      "lg_armor_piercing": 0.0,
       "lg_attack": 0.0,
-      "hg_attack": 0.0
+      "hg_armor_piercing": 0.0,
+      "hg_attack": 0.0,
+      "torpedo_attack": 0.0,
+      "anti_air_attack": 0.0,
+      "shore_bombardment": 0.0,
+      "evasion": 0.0,
+      "surface_detection": 0.0,
+      "sub_attack": 0.0,
+      "sub_detection": 0.0,
+      "surface_visibility": 0.0,
+      "sub_visibility": 0.0,
+      "naval_range": 0.0,
+      "port_capacity_usage": 0.0
     }
   }
 }

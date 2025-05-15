@@ -1,0 +1,33 @@
+{
+  "name": "定遠級",
+  "id": "USH_CHI_IC_Teien_Class",
+  "type": "IC",
+  "class": "IC",
+  "year": 1900,
+  "country": "CHI",
+  "archetype": "heavy",
+  "weight": 7144.0,
+  "length": 94.5,
+  "width": 18.4,
+  "crew": 365,
+  "power": 6200.0,
+  "speed": 14.5,
+  "range": 4500.0,
+  "cruise_speed": 10.0,
+  "fuel_type": "重油",
+  "fuel_capacity": 1000.0,
+  "armor_max": 355.0,
+  "armor_min": 0.0,
+  "hull_structure": "ライト",
+  "hull_structure_id": 0.8,
+  "armor_type": "装甲なし",
+  "armor_type_id": 1.0,
+  "slots": {
+    "PA": " ",
+    "SA": "-",
+    "PSA": "-",
+    "SSA": "-",
+    "PLA": "-",
+    "SLA": "-"
+  }
+}
