@@ -1,7 +1,12 @@
 import os
 import json
 import csv
+import re
+import time
 from typing import Dict, List, Any, Optional, Union
+
+from tools.japanese_tools import convert_name
+
 
 class HullModel:
     """船体データモデル"""
@@ -25,6 +30,148 @@ class HullModel:
         # キャッシュ（ID -> 船体データ）
         self.hull_cache = {}
 
+        # 艦種の種別データベース
+        self.ship_type_mapping = {
+            # 掃海艦艇
+            "AM": "AM - 掃海艇",
+            "CMC": "CMC - 沿岸敷設艇",
+            "MCM": "MCM - 掃海艦",
+            "MCS": "MCS - 掃海母艦",
+
+            # 空母系
+            "AV": "AV - 水上機母艦",
+            "CV": "CV - 航空母艦",
+            "CVE": "CVE - 護衛空母",
+            "CVL": "CVL - 軽空母",
+            "CVS": "CVS - 対潜空母",
+            "SV": "SV - 飛行艇母艦",
+
+            # 揚陸艦艇
+            "LCSL": "LCSL - 上陸支援艇",
+
+            # 小型艦艇（哨戒・砲艦など）
+            "PC": "PC - 哨戒艇、駆潜艇",
+            "PT": "PT - 高速魚雷艇",
+            "FF": "FF - フリゲート",
+            "K": "K - コルベット",
+            "MB": "MB - ミサイル艇",
+            "PF": "PF - 哨戒フリゲート",
+            "PG": "PG - 砲艦",
+            "TB": "TB - 魚雷艇",
+
+            # 駆逐艦系
+            "D": "D - 水雷駆逐艦",
+            "DB": "DB - 通報艦",
+            "DD": "DD - 駆逐艦",
+            "DDE": "DDE - 対潜護衛駆逐艦",
+            "DDG": "DDG - ミサイル駆逐艦",
+            "DDR": "DDR - レーダーピケット駆逐艦",
+            "DE": "DE - 護衛駆逐艦",
+            "DL": "DL - 嚮導駆逐艦",
+            "DM": "DM - 敷設駆逐艦",
+            "DMS": "DMS - 掃海駆逐艦",
+            "DDH": "DDH - ヘリコプター搭載護衛艦",
+
+            # 潜水艦系
+            "CSS": "CSS - 沿岸潜水艦",
+            "MSM": "MSM - 特殊潜航艇",
+            "SC": "SC - 巡洋潜水艦",
+            "SCV": "SCV - 潜水空母",
+            "SF": "SF - 艦隊型潜水艦",
+            "SM": "SM - 敷設型潜水艦",
+            "SS": "SS - 航洋型潜水艦",
+
+            # 巡洋艦系
+            "ACR": "ACR - 装甲巡洋艦",
+            "C": "C - 防護巡洋艦",
+            "CA": "CA - 重巡・一等巡洋艦",
+            "CL": "CL - 軽巡洋艦/二等巡洋艦",
+            "CB": "CB - 大型巡洋艦",
+            "CF": "CF - 航空巡洋艦",
+            "CG": "CG - ミサイル巡洋艦",
+            "CM": "CM - 敷設巡洋艦",
+            "CS": "CS - 偵察巡洋艦",
+            "HTC": "HTC - 重雷装巡洋艦",
+            "TC": "TC - 水雷巡洋艦",
+            "TCL": "TCL - 練習巡洋艦",
+
+
+            # 戦艦系
+            "B": "B - 前弩級戦艦",
+            "BB": "BB - 戦艦",
+            "BBG": "BBG - ミサイル戦艦",
+            "BC": "BC - 巡洋戦艦",
+            "BF": "BF - 航空戦艦",
+            "BM": "BM - モニター艦",
+            "FBB": "FBB - 高速戦艦",
+            "PB": "PB - ポケット戦艦",
+            "SB": "SB - 超戦艦",
+            "CDB": "CDB - 海防戦艦",
+
+            # その他装甲艦
+            "IC": "IC - 装甲艦",
+            # 特設・巡視船・その他艦艇
+            "AAA": "AAA - 特設防空艦",
+            "AAG": "AAG - 特設防空警備艦",
+            "AAM": "AAM - 特設掃海艇",
+            "AAS": "AAS - 特設駆潜艇",
+            "AAV": "AAV - 特設水上機母艦",
+            "AC": "AC - 特設巡洋艦",
+            "AG": "AG - 特設砲艦",
+            "AMS": "AMS - 特設敷設艦",
+            "APC": "APC - 特設監視艇",
+            "APS": "APS - 特設哨戒艦",
+            "CAM": "CAM - CAMシップ",
+            "MAC": "MAC - 特設空母",
+            "APB": "APB - 航行可能な宿泊艦",
+            "PL": "PL - 大型巡視船",
+            "PLH": "PLH - ヘリ搭載型",
+            "PM": "PM - 中型巡視船",
+            "WHEC": "WHEC - 長距離カッター"
+        }
+        self.ship_archetype_mapping = {
+            # 戦艦
+            "BB": "BB - 一等戦艦",
+            "BC": "BC - 二等戦艦",
+            "BF": "BF - 航空戦艦",
+            "CDB": "CDB - 海防戦艦",
+
+            # 巡洋艦
+            "CB": "CB - 大型巡洋艦",
+            "CA": "CA - 一等巡洋艦",
+            "CL": "CL - 二等巡洋艦",
+            "CF": "CF - 航空巡洋艦",
+
+            # 特設巡洋艦
+            "MC": "MC - 特設巡洋艦",
+
+            # 駆逐艦
+            "DD": "DD - 一等駆逐艦",
+            "DE": "DE - 二等駆逐艦",
+
+            # フリゲート・コルベット
+            "FF": "FF - フリゲート艦",
+            "K": "K - コルベット艦",
+
+            # 補助艦艇
+            "FAV": "FAV - 一等補助艦",
+            "SAV": "SAV - 二等補助艦",
+            "TAV": "TAV - 二等補助艦",
+
+            # 小型戦闘艦
+            "CC": "CC - 戦闘艇",
+
+            # 空母
+            "AV": "AV - 水上機母艦",
+            "CV": "CV - 一等航空母艦",
+            "CVL": "CVL - 二等航空母艦",
+
+            # 潜水艦
+            "FS": "FS - 一等潜水艦",
+            "SS": "SS - 二等潜水艦",
+            "SCV": "SCV - 潜水空母"
+        }
+
     def save_hull(self, hull_data: Dict[str, Any]) -> bool:
         """
         船体データの保存
@@ -39,7 +186,18 @@ class HullModel:
             hull_id = hull_data.get('id', '')
 
             if not hull_id:
-                return False
+                # IDが指定されていない場合は生成
+                name = hull_data.get('name', '')
+                country = hull_data.get('country', '')
+                ship_type = hull_data.get('type', '')
+
+                if name and (country or ship_type):
+                    hull_id = self.convert_name(name, country, ship_type)
+                    hull_data['id'] = hull_id
+                else:
+                    # 必要な情報がない場合はデフォルトIDを生成
+                    hull_id = self.get_next_id('HULL')
+                    hull_data['id'] = hull_id
 
             # 保存ディレクトリの確認
             os.makedirs(self.data_dir, exist_ok=True)
@@ -167,9 +325,10 @@ class HullModel:
                         hull_id = file_name[:-5]
                         # プレフィックス部分を取り除いて数値部分を取得
                         if hull_id.startswith(prefix):
-                            number_part = hull_id[len(prefix):]
-                            if number_part.isdigit():
-                                number = int(number_part)
+                            # 数値部分を抽出（最後の連続する数字）
+                            match = re.search(r'(\d+)$', hull_id)
+                            if match:
+                                number = int(match.group(1))
                                 max_number = max(max_number, number)
                     except Exception:
                         pass
@@ -177,6 +336,55 @@ class HullModel:
         # 次の番号を生成
         next_number = max_number + 1
         return f"{prefix}{next_number:03d}"
+
+    def convert_name(self, name: str, country: str, ship_type: str) -> str:
+        """
+        名前、国、艦種からIDを生成
+
+        Args:
+            name: 艦級名
+            country: 国コード
+            ship_type: 艦種
+
+        Returns:
+            str: 生成されたID
+        """
+        # 特殊文字を除去し、英数字のみに変換
+        name_part = re.sub(r'[^a-zA-Z0-9]', '', name.replace(' ', '_'))
+
+        # 国コードを大文字に変換
+        country_part = country.upper() if country else ""
+
+        # 艦種からプレフィックスを抽出 (例: "CV - 航空母艦" -> "CV")
+        type_prefix = ""
+        if ship_type:
+            # 最初の5文字までのアルファベットを抽出
+            alpha_part = re.match(r'^([A-Za-z]{1,5})', ship_type)
+            if alpha_part:
+                type_prefix = alpha_part.group(1).upper()
+
+            # マッピングを確認
+            for key in self.ship_type_mapping:
+                if ship_type.startswith(key):
+                    type_prefix = key
+                    break
+
+        # IDの構築 (例: "USH_USA_CV_Enterprise")
+        id_parts = ["USH"]  # 共通プレフィックス "Universal Ship Hull"
+
+        if country_part:
+            id_parts.append(country_part)
+
+        if type_prefix:
+            id_parts.append(type_prefix)
+
+        if name_part:
+            id_parts.append(name_part)
+        else:
+            # 名前部分がない場合は一意のIDを追加
+            id_parts.append(f"HULL{int(time.time())%10000}")
+
+        return "_".join(id_parts)
 
     def import_from_csv(self, file_path: str) -> List[Dict[str, Any]]:
         """
@@ -200,12 +408,19 @@ class HullModel:
                         # 各行のデータをパース
                         hull_data = self._convert_csv_row_to_hull_data(row)
 
-                        if hull_data and 'id' in hull_data:
+                        if hull_data:
                             # IDが未設定または自動生成が必要な場合は新しいIDを生成
-                            if not hull_data['id'] or hull_data['id'] == '-':
-                                hull_data['id'] = self.get_next_id('HULL')
+                            if not hull_data.get('id') or hull_data.get('id') == '-':
+                                name = hull_data.get('name', '')
+                                country = hull_data.get('country', '')
+                                ship_type = hull_data.get('type', '')
 
-                            # 既存のデータがあるか確認
+                                if name and (country or ship_type):
+                                    hull_data['id'] = self.convert_name(name, country, ship_type)
+                                else:
+                                    hull_data['id'] = self.get_next_id('HULL')
+
+                            # 既存データの確認
                             existing_hull = self.load_hull(hull_data['id'])
                             if existing_hull:
                                 print(f"警告: 行 {row_number} - 既存の船体ID '{hull_data['id']}' が上書きされます")
@@ -271,10 +486,39 @@ class HullModel:
         for csv_field, data_field in field_mapping.items():
             if csv_field in row:
                 hull_data[data_field] = row[csv_field]
-
-        # IDが未設定の場合は新しいIDを生成
+        # IDの処理
         if not hull_data.get('id') or hull_data.get('id') == '-':
-            hull_data['id'] = self.get_next_id('HULL')
+            name = hull_data.get('name', '')
+            country = hull_data.get('country', '')
+            ship_type = hull_data.get('type', '')
+
+            if name and (country or ship_type):
+                hull_data['id'] = convert_name(name, country, ship_type)
+            else:
+                hull_data['id'] = self.get_next_id('HULL')
+        # 艦種（type）の処理 - 短い艦種コードから完全な記述に変換
+        if 'type' in hull_data:
+            ship_type = hull_data['type']
+            # 先頭の1〜5文字のアルファベットを抽出
+            type_code_match = re.match(r'^([A-Za-z]{1,5})', ship_type)
+            if type_code_match:
+                type_code = type_code_match.group(1).upper()
+                # マッピングを確認
+                if type_code in self.ship_type_mapping:
+                    hull_data['type'] = self.ship_type_mapping[type_code]
+        # 艦種（archetype）の処理 - 短い艦種コードから完全な記述に変換
+        if 'archetype' in hull_data:
+            ship_type = hull_data['archetype']
+            # 先頭の1〜5文字のアルファベットを抽出
+            type_code_match = re.match(r'^([A-Za-z]{1,5})', ship_type)
+            if type_code_match:
+                type_code = type_code_match.group(1).upper()
+                # マッピングを確認
+                if type_code in self.ship_archetype_mapping:
+                    hull_data['archetype'] = self.ship_archetype_mapping[type_code]
+
+
+
 
         # nameが必須、ない場合はidを使用
         if not hull_data.get('name'):

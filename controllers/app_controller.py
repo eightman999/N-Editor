@@ -1,6 +1,8 @@
 import os
 import platform
 import re
+import time
+import json
 from pathlib import Path
 
 from views.main_window import NavalDesignSystem
@@ -11,6 +13,7 @@ from views.design_view import DesignView
 from views.fleet_view import FleetView
 from views.settings_view import SettingsView
 from models.equipment_model import EquipmentModel
+from models.hull_model import HullModel
 
 class AppController:
     """アプリケーション全体のコントローラークラス"""
@@ -20,6 +23,9 @@ class AppController:
 
         # 装備モデルの初期化（データディレクトリをapp_settingsから取得）
         self.equipment_model = EquipmentModel(data_dir=self.app_settings.equipment_dir)
+
+        # 船体モデルの初期化
+        self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
 
         # 初回起動時の処理
         if self.app_settings.get_setting("first_run"):
@@ -307,6 +313,7 @@ class AppController:
             print(f"次の装備ID取得中にエラーが発生しました: {e}")
             return ""
 
+    # 船体関連機能
 
     def save_hull(self, hull_data):
         """
@@ -319,11 +326,6 @@ class AppController:
             bool: 保存成功時はTrue、失敗時はFalse
         """
         try:
-            # HullModelのインスタンスがまだ作成されていない場合は作成
-            if not hasattr(self, 'hull_model'):
-                from models.hull_model import HullModel
-                self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
-
             # モデルを使って船体データを保存
             result = self.hull_model.save_hull(hull_data)
 
@@ -351,11 +353,6 @@ class AppController:
             dict or None: 船体データ辞書、存在しない場合はNone
         """
         try:
-            # HullModelのインスタンスがまだ作成されていない場合は作成
-            if not hasattr(self, 'hull_model'):
-                from models.hull_model import HullModel
-                self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
-
             # モデルを使って船体データを読み込み
             hull_data = self.hull_model.load_hull(hull_id)
 
@@ -378,11 +375,6 @@ class AppController:
             list: 船体データのリスト
         """
         try:
-            # HullModelのインスタンスがまだ作成されていない場合は作成
-            if not hasattr(self, 'hull_model'):
-                from models.hull_model import HullModel
-                self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
-
             return self.hull_model.get_all_hulls()
         except Exception as e:
             print(f"船体データ取得中にエラーが発生しました: {e}")
@@ -399,11 +391,6 @@ class AppController:
             bool: 削除成功時はTrue、失敗時はFalse
         """
         try:
-            # HullModelのインスタンスがまだ作成されていない場合は作成
-            if not hasattr(self, 'hull_model'):
-                from models.hull_model import HullModel
-                self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
-
             result = self.hull_model.delete_hull(hull_id)
 
             if result:
@@ -415,61 +402,109 @@ class AppController:
         except Exception as e:
             print(f"船体データ削除中にエラーが発生しました: {e}")
             return False
-    def import_from_csv(self, file_path):
+
+    def delete_all_hulls(self):
         """
-        CSVファイルから船体データをインポート
+        すべての船体データを削除
+
+        Returns:
+            bool: 削除成功時はTrue、失敗時はFalse
+        """
+        try:
+            # ディレクトリ内のすべてのJSONファイルを削除
+            import os
+            import shutil
+
+            data_dir = self.hull_model.data_dir
+
+            if os.path.exists(data_dir):
+                # バックアップディレクトリの作成
+                backup_dir = f"{data_dir}_backup_{int(time.time())}"
+
+                # 現在のデータをバックアップ
+                shutil.copytree(data_dir, backup_dir)
+
+                # データディレクトリ内のすべてのファイルを削除
+                for file_name in os.listdir(data_dir):
+                    if file_name.endswith('.json'):
+                        file_path = os.path.join(data_dir, file_name)
+                        os.remove(file_path)
+
+                # キャッシュをクリア
+                self.hull_model.hull_cache = {}
+
+                print(f"すべての船体データを削除しました。バックアップ: {backup_dir}")
+                return True
+            else:
+                print("船体データディレクトリが見つかりません。")
+                return False
+
+        except Exception as e:
+            print(f"船体データの全削除中にエラーが発生しました: {e}")
+            return False
+
+    def import_from_csv(self, file_path, json_export=False, json_dir=None):
+        """
+        CSVから船体データをインポート
 
         Args:
             file_path: CSVファイルのパス
+            json_export: JSONファイルとしても出力するかどうか
+            json_dir: JSON出力先ディレクトリ
 
         Returns:
             list: インポートされた船体データのリスト
         """
         try:
-            # HullModelのインスタンスがまだ作成されていない場合は作成
-            if not hasattr(self, 'hull_model'):
-                from models.hull_model import HullModel
-                self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
+            # CSVデータのインポート
+            imported_hulls = self.hull_model.import_from_csv(file_path)
 
-            return self.hull_model.import_from_csv(file_path)
+            # JSON出力（必要な場合）
+            if json_export and imported_hulls and json_dir:
+                for hull_data in imported_hulls:
+                    hull_id = hull_data.get('id', '')
+                    if hull_id:
+                        json_path = os.path.join(json_dir, f"{hull_id}.json")
+                        with open(json_path, 'w', encoding='utf-8') as f:
+                            json.dump(hull_data, f, ensure_ascii=False, indent=2)
+
+                print(f"{len(imported_hulls)}件の船体データをJSONとして '{json_dir}' に出力しました。")
+
+            return imported_hulls
+
         except Exception as e:
-            print(f"CSVインポート中にエラーが発生しました: {e}")
+            print(f"CSVからのインポート中にエラーが発生しました: {e}")
             return []
 
     def import_first_hull_from_csv(self, file_path):
         """
-        CSVファイルから最初の行の船体データをインポート
+        CSVファイルから最初の船体データをインポート
 
         Args:
             file_path: CSVファイルのパス
 
         Returns:
-            dict or None: 最初の行の船体データ辞書
+            dict: インポートされた船体データ（失敗時はNone）
         """
         try:
-            # HullModelのインスタンスがまだ作成されていない場合は作成
-            if not hasattr(self, 'hull_model'):
-                from models.hull_model import HullModel
-                self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
-
             import csv
+
             with open(file_path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
+
                 try:
-                    # 最初の行を取得
+                    # 最初の行のみ取得してパース
                     row = next(reader)
-                    # 船体データに変換
                     return self.hull_model._convert_csv_row_to_hull_data(row)
+
                 except StopIteration:
-                    # CSVにデータがない場合
                     print("CSVファイルにデータがありません。")
                     return None
-                except Exception as e:
-                    print(f"CSVの最初の行の処理中にエラーが発生しました: {e}")
-                    return None
+
         except Exception as e:
-            print(f"CSVファイル読み込み中にエラーが発生しました: {e}")
+            print(f"CSVからの最初の船体インポート中にエラーが発生しました: {e}")
             return None
+
     def calculate_design_stats(self, hull_id, equipment_list):
         """艦艇設計の性能計算"""
         # 設計計算ロジックを実装

@@ -53,6 +53,11 @@ class HullListView(QWidget):
         self.delete_button.clicked.connect(self.on_delete_clicked)
         header_layout.addWidget(self.delete_button)
 
+        # 全削除ボタンを追加
+        self.delete_all_button = QPushButton("全削除")
+        self.delete_all_button.clicked.connect(self.on_delete_all_clicked)
+        header_layout.addWidget(self.delete_all_button)
+
         self.export_button = QPushButton("エクスポート")
         self.export_button.clicked.connect(self.on_export_clicked)
         header_layout.addWidget(self.export_button)
@@ -257,6 +262,65 @@ class HullListView(QWidget):
                 else:
                     QMessageBox.warning(self, "削除エラー", f"船体「{hull_name}」の削除に失敗しました。")
 
+    def on_delete_all_clicked(self):
+        """全削除ボタンの処理"""
+        # 確認ダイアログ
+        reply = QMessageBox.question(
+            self, "全削除確認",
+            "すべての船体データを削除します。この操作は元に戻せません。\n本当に削除しますか？",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            # 二次確認
+            reply = QMessageBox.warning(
+                self, "全削除最終確認",
+                "本当にすべての船体データを削除しますか？\nこの操作は元に戻せません。",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            )
+
+            if reply == QMessageBox.Yes:
+                if self.app_controller:
+                    # コントローラーを使用して全削除
+                    success = self.app_controller.delete_all_hulls()
+                    if success:
+                        QMessageBox.information(self, "全削除完了", "すべての船体データを削除しました。")
+                        self.load_hull_list()  # リストを更新
+                    else:
+                        QMessageBox.warning(self, "全削除エラー", "船体データの全削除に失敗しました。")
+                else:
+                    # 従来の方法（モデル直接使用）
+                    try:
+                        from models.hull_model import HullModel
+                        import os
+                        import shutil
+
+                        hull_model = HullModel()
+                        data_dir = hull_model.data_dir
+
+                        # 一時的にディレクトリをリネーム
+                        if os.path.exists(data_dir):
+                            backup_dir = f"{data_dir}_backup"
+                            # バックアップディレクトリがすでに存在する場合は削除
+                            if os.path.exists(backup_dir):
+                                shutil.rmtree(backup_dir)
+
+                            # ディレクトリをリネーム
+                            os.rename(data_dir, backup_dir)
+
+                            # 新しい空のディレクトリを作成
+                            os.makedirs(data_dir, exist_ok=True)
+
+                            # キャッシュをクリア
+                            hull_model.hull_cache = {}
+
+                            QMessageBox.information(self, "全削除完了", "すべての船体データを削除しました。")
+                            self.load_hull_list()  # リストを更新
+                        else:
+                            QMessageBox.warning(self, "全削除エラー", "船体データディレクトリが見つかりません。")
+                    except Exception as e:
+                        QMessageBox.critical(self, "全削除エラー", f"船体データの全削除中にエラーが発生しました：\n{e}")
+
     def on_export_clicked(self):
         """エクスポートボタンの処理"""
         # 選択中の船体を取得
@@ -301,32 +365,6 @@ class HullListView(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "エクスポートエラー", f"エクスポートに失敗しました。\n{e}")
 
-        def on_add_clicked(self):
-            """新規追加ボタンの処理"""
-        # 親ウィンドウ（メインウィンドウ）に船体フォームビューへの切り替えリクエスト
-        if self.parent() and hasattr(self.parent(), 'show_view'):
-            self.parent().show_view("hull_form")
-        else:
-            # 従来の方法（ダイアログ表示）
-            dialog = QDialog(self)
-            dialog.setWindowTitle("船体データ登録")
-            dialog.setMinimumWidth(600)
-            dialog.setMinimumHeight(500)
-
-            layout = QVBoxLayout()
-            dialog.setLayout(layout)
-
-            # コントローラーを渡して船体フォームを作成
-            form = HullForm(dialog, self.app_controller)
-            layout.addWidget(form)
-
-            # 保存完了時の処理を接続
-            form.hull_saved.connect(lambda: self.load_hull_list())
-            form.hull_saved.connect(dialog.accept)
-
-            # ダイアログを表示
-            dialog.exec_()
-
     def on_table_double_clicked(self, index):
         """テーブルダブルクリック時の処理"""
         row = index.row()
@@ -349,11 +387,30 @@ class HullListView(QWidget):
         if not file_name:
             return
 
+        # JSONエクスポートの保存先選択
+        json_export = False
+        json_dir = ""
+
+        reply = QMessageBox.question(
+            self, "JSONエクスポート",
+            "インポートした船体データをJSONファイルとしても保存しますか？",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            json_export = True
+            json_dir = QFileDialog.getExistingDirectory(
+                self, "JSONファイルの保存先ディレクトリを選択", ""
+            )
+
+            if not json_dir:
+                json_export = False
+
         # インポート実行
         try:
             # AppControllerを使用してCSVをインポート
             if self.app_controller:
-                imported_hulls = self.app_controller.import_from_csv(file_name)
+                imported_hulls = self.app_controller.import_from_csv(file_name, json_export=json_export, json_dir=json_dir)
                 if imported_hulls:
                     QMessageBox.information(self, "インポート完了", f"{len(imported_hulls)}件の船体データをインポートしました。")
                     self.load_hull_list()  # リストを更新
@@ -363,11 +420,29 @@ class HullListView(QWidget):
 
             # 従来の方法（モデル直接使用）
             from models.hull_model import HullModel
+            import os
+            import json
+
             hull_model = HullModel()
 
+            # CSVインポート実行
             imported_hulls = hull_model.import_from_csv(file_name)
+
+            # JSON出力（必要な場合）
+            if json_export and imported_hulls and json_dir:
+                for hull_data in imported_hulls:
+                    hull_id = hull_data.get('id', '')
+                    if hull_id:
+                        json_path = os.path.join(json_dir, f"{hull_id}.json")
+                        with open(json_path, 'w', encoding='utf-8') as f:
+                            json.dump(hull_data, f, ensure_ascii=False, indent=2)
+
             if imported_hulls:
-                QMessageBox.information(self, "インポート完了", f"{len(imported_hulls)}件の船体データをインポートしました。")
+                msg = f"{len(imported_hulls)}件の船体データをインポートしました。"
+                if json_export and json_dir:
+                    msg += f"\nJSONファイルを '{json_dir}' に保存しました。"
+
+                QMessageBox.information(self, "インポート完了", msg)
                 self.load_hull_list()  # リストを更新
             else:
                 QMessageBox.warning(self, "インポート警告", "CSVファイルからデータをインポートできませんでした。")
