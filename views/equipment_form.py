@@ -1,3 +1,5 @@
+import os
+
 from PyQt5.QtWidgets import (QWidget, QFormLayout, QLineEdit, QComboBox,
                              QSpinBox, QDoubleSpinBox, QTabWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QGroupBox,
@@ -142,18 +144,33 @@ class EquipmentForm(QWidget):
         self.stats_definitions = {}
 
         try:
-            with open('スーテータス一覧', 'r', encoding='utf-8') as f:
-                lines = f.readlines()
+            # ルートディレクトリを取得してファイルパスを構築
+            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            stats_file = os.path.join(root_dir, 'スーテータス一覧.txt')
 
-                # ヘッダー行をスキップ
-                for line in lines[2:]:  # 最初の2行はヘッダーなのでスキップ
-                    if '=' in line and '#' in line:
-                        parts = line.split('=')
-                        stat_name = parts[0].strip()
-                        comment_parts = parts[1].split('#')
-                        if len(comment_parts) > 1:
-                            stat_desc = comment_parts[1].strip()
-                            self.stats_definitions[stat_name] = stat_desc
+            if os.path.exists(stats_file):
+                with open(stats_file, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+
+                    # ヘッダー行をスキップ
+                    for line in lines[2:]:  # 最初の2行はヘッダーなのでスキップ
+                        if '=' in line and '#' in line:
+                            parts = line.split('=')
+                            stat_name = parts[0].strip()
+                            comment_parts = parts[1].split('#')
+                            if len(comment_parts) > 1:
+                                stat_desc = comment_parts[1].strip()
+                                self.stats_definitions[stat_name] = stat_desc
+            else:
+                print(f"ステータス定義ファイルが見つかりません: {stats_file}")
+                # デフォルト値を設定
+                self.stats_definitions = {
+                    'build_cost_ic': 'Production Cost',
+                    'reliability': 'Reliability',
+                    'naval_speed': 'Max Speed',
+                    'lg_attack': 'Light gun attack',
+                    'hg_attack': 'Heavy gun attack'
+                }
         except Exception as e:
             print(f"ステータス定義の読み込みエラー: {e}")
             # エラー時はデフォルト値を設定
@@ -541,29 +558,26 @@ class EquipmentForm(QWidget):
                 field = self.common_fields[field_name]
                 if isinstance(field, QLineEdit):
                     field.setText(str(value))
-                elif isinstance(field, (QDoubleSpinBox, QSpinBox)):
+                elif isinstance(field, QDoubleSpinBox):
                     field.setValue(float(value))
+                elif isinstance(field, QSpinBox):
+                    field.setValue(int(float(value)))  # floatからintへの変換
                 elif isinstance(field, QComboBox):
                     index = field.findText(str(value))
                     if index >= 0:
                         field.setCurrentIndex(index)
 
-        # 固有フィールドの設定
+        # 固有フィールドの設定も同様に修正
         for field_name, value in data.get('specific', {}).items():
             if field_name in self.specific_fields:
                 field = self.specific_fields[field_name]
                 if isinstance(field, QLineEdit):
                     field.setText(str(value))
-                elif isinstance(field, (QDoubleSpinBox, QSpinBox)):
+                elif isinstance(field, QDoubleSpinBox):
                     field.setValue(float(value))
+                elif isinstance(field, QSpinBox):
+                    field.setValue(int(float(value)))  # floatからintへの変換
                 elif isinstance(field, QComboBox):
                     index = field.findText(str(value))
                     if index >= 0:
                         field.setCurrentIndex(index)
-
-        # ステータスの設定
-        for stat_mode, stats in data.get('stats', {}).items():
-            mode_key = 'add' if stat_mode == 'add_stats' else 'multiply' if stat_mode == 'multiply_stats' else 'average'
-            for stat_name, value in stats.items():
-                if stat_name in self.stats_fields[mode_key]:
-                    self.stats_fields[mode_key][stat_name].setValue(float(value))
