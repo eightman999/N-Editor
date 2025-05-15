@@ -104,7 +104,7 @@ class NavalDesignSystem(QMainWindow):
         self.menu_list.setIconSize(QSize(24, 24))
         self.menu_list.setStyleSheet("""
             QListWidget {
-                background-color: #c0c0c0;
+                background-color: #e6e6e6;
                 border: 2px inset #808080;
             }
             QListWidget::item {

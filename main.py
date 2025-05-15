@@ -35,11 +35,11 @@ def main():
     # Windows 95風のグローバルスタイルシート
     app.setStyleSheet("""
         QMainWindow, QDialog, QWidget {
-            background-color: #c0c0c0;
+            background-color: #e6e6e6;
             color: black;
         }
         QPushButton {
-            background-color: #c0c0c0;
+            background-color: #e6e6e6;
             border: 2px outset #d4d0c8;
             border-top-color: white;
             border-left-color: white;
@@ -57,7 +57,7 @@ def main():
             border: 2px inset #808080;
         }
         QGroupBox {
-            border: 2px groove #c0c0c0;
+            border: 2px groove #e6e6e6;
             border-top: 1px solid #808080;
             border-left: 1px solid #808080;
             border-bottom: 1px solid white;
@@ -69,17 +69,17 @@ def main():
             border: 2px outset #d4d0c8;
         }
         QTabBar::tab {
-            background-color: #c0c0c0;
+            background-color: #e6e6e6;
             border: 2px outset #d4d0c8;
             border-bottom: none;
             padding: 4px 8px;
         }
         QTabBar::tab:selected {
-            background-color: #c0c0c0;
-            border-bottom: 2px solid #c0c0c0;
+            background-color: #e6e6e6;
+            border-bottom: 2px solid #e6e6e6;
         }
         QHeaderView::section {
-            background-color: #c0c0c0;
+            background-color: #e6e6e6;
             border: 2px outset #d4d0c8;
             padding: 4px;
         }
