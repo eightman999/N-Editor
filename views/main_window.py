@@ -8,6 +8,7 @@ import json
 from views.home_view import HomeView
 from views.equipment_view import EquipmentView
 from views.hull_form import HullForm
+from views.hull_list_view import HullListView
 from views.design_view import DesignView
 from views.fleet_view import FleetView
 from views.settings_view import SettingsView
@@ -98,11 +99,13 @@ class NavalDesignSystem(QMainWindow):
         sidebar_layout.setContentsMargins(5, 10, 5, 10)
         sidebar_layout.setSpacing(10)
 
+
         # メニューリスト
         self.menu_list = QListWidget()
         self.menu_list.addItems([
             "ホーム",
             "装備登録",
+            "船体リスト",
             "船体登録",
             "船体設計",
             "艦隊配備",
@@ -172,7 +175,9 @@ class NavalDesignSystem(QMainWindow):
         # 装備ビュー
         equipment_view = EquipmentView(self)
         self.add_view("equipment", equipment_view)
-
+        # 船体リストビュー
+        hull_list_view = HullListView(self, self.app_controller)
+        self.add_view("hull_list", hull_list_view)
         # 船体ビュー
         hull_view = HullForm(self)
         self.add_view("hull", hull_view)
@@ -199,10 +204,11 @@ class NavalDesignSystem(QMainWindow):
         view_mapping = {
             "home": 0,
             "equipment": 1,
-            "hull": 2,
-            "design": 3,
-            "fleet": 4,
-            "settings": 5
+            "hull_list": 2,
+            "hull_form": 3,
+            "design": 4,
+            "fleet": 5,
+            "settings": 6
         }
 
         if view_name in view_mapping:
@@ -211,7 +217,7 @@ class NavalDesignSystem(QMainWindow):
             self.stacked_widget.setCurrentIndex(index)
 
             # ステータスバーにメッセージを表示
-            menu_texts = ["ホーム", "装備登録", "船体登録", "船体設計", "艦隊配備", "設定"]
+            menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "設定"]
             if 0 <= index < len(menu_texts):
                 self.statusBar.showMessage(f"{menu_texts[index]}ページを表示しています")
 
@@ -221,7 +227,7 @@ class NavalDesignSystem(QMainWindow):
         self.stacked_widget.setCurrentIndex(index)
 
         # ステータスバーにメッセージを表示
-        menu_texts = ["ホーム", "装備登録", "船体登録", "船体設計", "艦隊配備", "設定"]
+        menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "設定"]
         if 0 <= index < len(menu_texts):
             self.statusBar.showMessage(f"{menu_texts[index]}ページを表示しています")
 

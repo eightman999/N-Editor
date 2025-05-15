@@ -307,6 +307,7 @@ class AppController:
             print(f"次の装備ID取得中にエラーが発生しました: {e}")
             return ""
 
+
     def save_hull(self, hull_data):
         """
         船体データの保存
@@ -318,6 +319,11 @@ class AppController:
             bool: 保存成功時はTrue、失敗時はFalse
         """
         try:
+            # HullModelのインスタンスがまだ作成されていない場合は作成
+            if not hasattr(self, 'hull_model'):
+                from models.hull_model import HullModel
+                self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
+
             # モデルを使って船体データを保存
             result = self.hull_model.save_hull(hull_data)
 
@@ -345,6 +351,11 @@ class AppController:
             dict or None: 船体データ辞書、存在しない場合はNone
         """
         try:
+            # HullModelのインスタンスがまだ作成されていない場合は作成
+            if not hasattr(self, 'hull_model'):
+                from models.hull_model import HullModel
+                self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
+
             # モデルを使って船体データを読み込み
             hull_data = self.hull_model.load_hull(hull_id)
 
@@ -367,6 +378,11 @@ class AppController:
             list: 船体データのリスト
         """
         try:
+            # HullModelのインスタンスがまだ作成されていない場合は作成
+            if not hasattr(self, 'hull_model'):
+                from models.hull_model import HullModel
+                self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
+
             return self.hull_model.get_all_hulls()
         except Exception as e:
             print(f"船体データ取得中にエラーが発生しました: {e}")
@@ -383,6 +399,11 @@ class AppController:
             bool: 削除成功時はTrue、失敗時はFalse
         """
         try:
+            # HullModelのインスタンスがまだ作成されていない場合は作成
+            if not hasattr(self, 'hull_model'):
+                from models.hull_model import HullModel
+                self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
+
             result = self.hull_model.delete_hull(hull_id)
 
             if result:
@@ -395,55 +416,6 @@ class AppController:
             print(f"船体データ削除中にエラーが発生しました: {e}")
             return False
 
-    def import_from_csv(self, file_path):
-        """
-        CSVファイルから船体データをインポート
-
-        Args:
-            file_path: CSVファイルのパス
-
-        Returns:
-            list: インポートされた船体データのリスト
-        """
-        try:
-            imported_hulls = self.hull_model.import_from_csv(file_path)
-            print(f"{len(imported_hulls)}件の船体データをインポートしました。")
-            return imported_hulls
-        except Exception as e:
-            print(f"CSVインポート中にエラーが発生しました: {e}")
-            return []
-
-    def import_first_hull_from_csv(self, file_path):
-        """
-        CSVファイルから最初の船体データのみインポート
-
-        Args:
-            file_path: CSVファイルのパス
-
-        Returns:
-            dict or None: 最初の船体データ、エラー時はNone
-        """
-        try:
-            import csv
-
-            with open(file_path, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                try:
-                    # 最初の行を取得
-                    row = next(reader)
-                    # データ変換
-                    hull_data = self.hull_model._convert_csv_row_to_hull_data(row)
-                    if hull_data:
-                        print(f"CSVファイルから最初の行のデータをインポートしました: {hull_data.get('name')}")
-                        return hull_data
-                except StopIteration:
-                    print("CSVファイルにデータがありません。")
-                    return None
-
-            return None
-        except Exception as e:
-            print(f"CSVからの最初のデータインポート中にエラーが発生しました: {e}")
-            return None
     def calculate_design_stats(self, hull_id, equipment_list):
         """艦艇設計の性能計算"""
         # 設計計算ロジックを実装

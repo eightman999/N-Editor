@@ -1,5 +1,6 @@
 import os
 import json
+import csv
 from typing import Dict, List, Any, Optional, Union
 
 class HullModel:
@@ -179,7 +180,7 @@ class HullModel:
 
     def import_from_csv(self, file_path: str) -> List[Dict[str, Any]]:
         """
-        CSVから船体データをインポート
+        CSVから船体データをインポート（全行の連続的な読み込み）
 
         Args:
             file_path: CSVファイルのパス
@@ -187,26 +188,48 @@ class HullModel:
         Returns:
             List[Dict[str, Any]]: インポートされた船体データのリスト
         """
-        import csv
-
         imported_hulls = []
 
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
 
-                for row in reader:
-                    hull_data = self._convert_csv_row_to_hull_data(row)
+                # 全行を処理
+                for row_number, row in enumerate(reader, start=1):
+                    try:
+                        # 各行のデータをパース
+                        hull_data = self._convert_csv_row_to_hull_data(row)
 
-                    if hull_data and 'id' in hull_data:
-                        # 船体データを保存
-                        if self.save_hull(hull_data):
-                            imported_hulls.append(hull_data)
+                        if hull_data and 'id' in hull_data:
+                            # IDが未設定または自動生成が必要な場合は新しいIDを生成
+                            if not hull_data['id'] or hull_data['id'] == '-':
+                                hull_data['id'] = self.get_next_id('HULL')
+
+                            # 既存のデータがあるか確認
+                            existing_hull = self.load_hull(hull_data['id'])
+                            if existing_hull:
+                                print(f"警告: 行 {row_number} - 既存の船体ID '{hull_data['id']}' が上書きされます")
+
+                            # 船体データを保存
+                            if self.save_hull(hull_data):
+                                print(f"行 {row_number} - 船体データ '{hull_data.get('name', '')}' (ID: {hull_data['id']}) を保存しました")
+                                imported_hulls.append(hull_data)
+                            else:
+                                print(f"エラー: 行 {row_number} - 船体データの保存に失敗しました")
+                        else:
+                            print(f"エラー: 行 {row_number} - 無効または不完全な船体データ")
+
+                    except Exception as e:
+                        print(f"エラー: 行 {row_number} - 処理中にエラーが発生しました: {e}")
+                        # 個別の行のエラーで処理を中断せず、次の行に進む
+                        continue
+
+            print(f"CSVのインポートが完了しました。合計: {len(imported_hulls)}件の船体データをインポートしました。")
+            return imported_hulls
 
         except Exception as e:
             print(f"CSVインポートエラー: {e}")
-
-        return imported_hulls
+            return imported_hulls
 
     def _convert_csv_row_to_hull_data(self, row: Dict[str, str]) -> Optional[Dict[str, Any]]:
         """
@@ -253,6 +276,14 @@ class HullModel:
         if not hull_data.get('id') or hull_data.get('id') == '-':
             hull_data['id'] = self.get_next_id('HULL')
 
+        # nameが必須、ない場合はidを使用
+        if not hull_data.get('name'):
+            if hull_data.get('id'):
+                hull_data['name'] = hull_data['id']
+            else:
+                # 必須データがない場合はNoneを返す
+                return None
+
         # 数値型フィールドの変換
         numeric_fields = ['weight', 'length', 'width', 'power', 'speed', 'range',
                           'cruise_speed', 'fuel_capacity', 'armor_max', 'armor_min',
@@ -262,7 +293,7 @@ class HullModel:
             if field in hull_data:
                 try:
                     # '#REF!'などの特殊値を処理
-                    if hull_data[field] in ['', '#REF!', 'NULL']:
+                    if hull_data[field] in ['', '#REF!', 'NULL', '-']:
                         hull_data[field] = 0
                     else:
                         hull_data[field] = float(hull_data[field])
@@ -315,6 +346,8 @@ class HullModel:
                     slots[slot] = '='  # 有効化可能
                 else:
                     slots[slot] = ' '  # デフォルトは有効
+            else:
+                slots[slot] = ' '  # デフォルトは有効
 
         hull_data['slots'] = slots
 

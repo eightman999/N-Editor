@@ -1,11 +1,11 @@
 {
   "name": "定遠級",
   "id": "USH_CHI_IC_Teien_Class",
-  "type": "IC",
+  "type": "AM - 掃海艇",
   "class": "IC",
   "year": 1900,
   "country": "CHI",
-  "archetype": "heavy",
+  "archetype": "BB - 一等戦艦",
   "weight": 7144.0,
   "length": 94.5,
   "width": 18.4,
