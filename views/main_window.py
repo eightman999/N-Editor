@@ -12,6 +12,7 @@ from views.hull_list_view import HullListView
 from views.design_view import DesignView
 from views.fleet_view import FleetView
 from views.settings_view import SettingsView
+from views.nation_view import NationView
 
 class NavalDesignSystem(QMainWindow):
     """Naval Design Systemのメインウィンドウ"""
@@ -109,6 +110,7 @@ class NavalDesignSystem(QMainWindow):
             "船体登録",
             "船体設計",
             "艦隊配備",
+            "国家確認",  # 追加
             "設定"
         ])
 
@@ -143,7 +145,7 @@ class NavalDesignSystem(QMainWindow):
         sidebar_layout.addStretch(1)
 
         # バージョン情報
-        version_text = f"Version {self.config.get('version', '1.0.0')}"
+        version_text = f"Version {self.config.get('version', '0.0.0')}"
         version_label = QLabel(version_text)
         version_label.setAlignment(Qt.AlignCenter)
         sidebar_layout.addWidget(version_label)
@@ -182,6 +184,8 @@ class NavalDesignSystem(QMainWindow):
         hull_view = HullForm(self)
         self.add_view("hull", hull_view)
 
+        nation_view = NationView(self, self.app_controller)
+        self.add_view("nation", nation_view)
         # 設計ビュー
         design_view = DesignView(self)
         self.add_view("design", design_view)
@@ -199,6 +203,17 @@ class NavalDesignSystem(QMainWindow):
         self.views[view_name] = view_widget
         self.stacked_widget.addWidget(view_widget)
 
+    def on_menu_changed(self, index):
+        """メニュー選択時の処理"""
+        # スタックウィジェットのページを切り替え
+        self.stacked_widget.setCurrentIndex(index)
+
+        # ステータスバーにメッセージを表示
+        menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "国家確認", "設定"]
+        if 0 <= index < len(menu_texts):
+            self.statusBar.showMessage(f"{menu_texts[index]}ページを表示しています")
+
+    # show_view メソッド内の対応も修正
     def show_view(self, view_name):
         """指定した名前のビューを表示"""
         view_mapping = {
@@ -208,7 +223,8 @@ class NavalDesignSystem(QMainWindow):
             "hull_form": 3,
             "design": 4,
             "fleet": 5,
-            "settings": 6
+            "nation": 6,  # 追加
+            "settings": 7
         }
 
         if view_name in view_mapping:
@@ -217,19 +233,9 @@ class NavalDesignSystem(QMainWindow):
             self.stacked_widget.setCurrentIndex(index)
 
             # ステータスバーにメッセージを表示
-            menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "設定"]
+            menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "国家確認", "設定"]
             if 0 <= index < len(menu_texts):
                 self.statusBar.showMessage(f"{menu_texts[index]}ページを表示しています")
-
-    def on_menu_changed(self, index):
-        """メニュー選択時の処理"""
-        # スタックウィジェットのページを切り替え
-        self.stacked_widget.setCurrentIndex(index)
-
-        # ステータスバーにメッセージを表示
-        menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "設定"]
-        if 0 <= index < len(menu_texts):
-            self.statusBar.showMessage(f"{menu_texts[index]}ページを表示しています")
 
     def closeEvent(self, event: QCloseEvent):
         """ウィンドウが閉じられる時の処理"""

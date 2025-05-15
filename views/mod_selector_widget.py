@@ -2,7 +2,7 @@ import os
 import re
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
                              QPushButton, QLabel, QFileDialog, QMessageBox)
-from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtGui import QIcon, QPixmap, QFont
 from PyQt5.QtCore import Qt, QSize
 
 class ModItem:
@@ -264,5 +264,9 @@ class ModSelectorWidget(QWidget):
                 current_mod = self.app_controller.get_current_mod()
                 if current_mod.get("path") == mod.path:
                     item.setBackground(Qt.lightGray)
+                    item.setForeground(Qt.black)
+                    item.setFont(QFont("MS Gothic", 10, QFont.Bold))  # 太字に変更
+                    # 「選択中」マーカーを追加
+                    item.setText(f"[選択中] {mod.name}\nバージョン: {mod.version}\nHOI4対応: {mod.supported_version}")
 
             self.list_widget.addItem(item)

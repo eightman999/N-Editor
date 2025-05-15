@@ -510,3 +510,61 @@ class AppController:
         # 設計計算ロジックを実装
         # ここでは、装備のステータスから船体の性能を計算する
         pass
+
+    def get_nations(self, mod_path):
+        """
+        MODから国家情報を取得
+
+        Args:
+            mod_path: MODのパス
+
+        Returns:
+            list: 国家情報のリスト（画像パス、TAG、国家名）
+        """
+        nations = []
+
+        # 国家タグファイルのディレクトリ
+        country_tags_dir = os.path.join(mod_path, "common", "country_tags")
+        # 国旗ディレクトリ
+        flags_dir = os.path.join(mod_path, "gfx", "flags")
+
+        # ディレクトリが存在しない場合は空リストを返す
+        if not os.path.exists(country_tags_dir):
+            print(f"国家タグディレクトリが見つかりません: {country_tags_dir}")
+            return nations
+
+        # 国家タグファイルを探索
+        for filename in os.listdir(country_tags_dir):
+            if not filename.endswith(".txt"):
+                continue
+
+            file_path = os.path.join(country_tags_dir, filename)
+
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                # 国家タグと参照ファイルのパターンを検索
+                # 例: "TAG = "countries/CountryName.txt" #表示名"
+                pattern = r'([A-Z]{3})\s*=\s*"([^"]+)"\s*#?\s*(.*)'
+                matches = re.findall(pattern, content)
+
+                for match in matches:
+                    tag = match[0]  # 国家TAG
+                    country_file = match[1]  # 参照ファイル
+                    display_name = match[2].strip() if match[2] else tag  # 表示名（コメントがあれば使用）
+
+                    # 国旗ファイルのパス
+                    flag_path = os.path.join(flags_dir, f"{tag}.tga")
+                    flag_exists = os.path.exists(flag_path)
+
+                    nations.append({
+                        "tag": tag,
+                        "name": display_name,
+                        "flag_path": flag_path if flag_exists else None
+                    })
+
+            except Exception as e:
+                print(f"国家タグファイル '{filename}' の解析エラー: {e}")
+
+        return nations
