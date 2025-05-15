@@ -415,7 +415,61 @@ class AppController:
         except Exception as e:
             print(f"船体データ削除中にエラーが発生しました: {e}")
             return False
+    def import_from_csv(self, file_path):
+        """
+        CSVファイルから船体データをインポート
 
+        Args:
+            file_path: CSVファイルのパス
+
+        Returns:
+            list: インポートされた船体データのリスト
+        """
+        try:
+            # HullModelのインスタンスがまだ作成されていない場合は作成
+            if not hasattr(self, 'hull_model'):
+                from models.hull_model import HullModel
+                self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
+
+            return self.hull_model.import_from_csv(file_path)
+        except Exception as e:
+            print(f"CSVインポート中にエラーが発生しました: {e}")
+            return []
+
+    def import_first_hull_from_csv(self, file_path):
+        """
+        CSVファイルから最初の行の船体データをインポート
+
+        Args:
+            file_path: CSVファイルのパス
+
+        Returns:
+            dict or None: 最初の行の船体データ辞書
+        """
+        try:
+            # HullModelのインスタンスがまだ作成されていない場合は作成
+            if not hasattr(self, 'hull_model'):
+                from models.hull_model import HullModel
+                self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
+
+            import csv
+            with open(file_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                try:
+                    # 最初の行を取得
+                    row = next(reader)
+                    # 船体データに変換
+                    return self.hull_model._convert_csv_row_to_hull_data(row)
+                except StopIteration:
+                    # CSVにデータがない場合
+                    print("CSVファイルにデータがありません。")
+                    return None
+                except Exception as e:
+                    print(f"CSVの最初の行の処理中にエラーが発生しました: {e}")
+                    return None
+        except Exception as e:
+            print(f"CSVファイル読み込み中にエラーが発生しました: {e}")
+            return None
     def calculate_design_stats(self, hull_id, equipment_list):
         """艦艇設計の性能計算"""
         # 設計計算ロジックを実装
