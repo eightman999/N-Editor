@@ -37,7 +37,26 @@ class EquipmentModel:
         templates = {}
 
         try:
-            template_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'paste.txt')
+            # アプリのルートディレクトリを取得
+            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+            # paste.txtファイルのパス
+            template_file = os.path.join(root_dir, 'paste.txt')
+
+            # ユーザーのドキュメントディレクトリ内のpaste.txtも検索
+            if not os.path.exists(template_file):
+                # ドキュメントディレクトリを取得
+                import platform
+                from pathlib import Path
+
+                if platform.system() == "Windows":
+                    docs_dir = os.path.join(Path.home(), "Documents", "NavalDesignSystem")
+                elif platform.system() == "Darwin":
+                    docs_dir = os.path.join(Path.home(), "Library", "Application Support", "NavalDesignSystem")
+                else:
+                    docs_dir = os.path.join(Path.home(), ".local", "share", "navaldesignsystem")
+
+                template_file = os.path.join(docs_dir, 'paste.txt')
 
             if os.path.exists(template_file):
                 with open(template_file, 'r', encoding='utf-8') as f:
@@ -58,6 +77,9 @@ class EquipmentModel:
                         elif 'common_elements:' in line or 'specific_elements:' in line:
                             # セクション定義は無視（パース簡易化のため）
                             pass
+            else:
+                print(f"警告: 装備テンプレートファイル '{template_file}' が見つかりません。")
+
         except Exception as e:
             print(f"装備テンプレート読み込みエラー: {e}")
 

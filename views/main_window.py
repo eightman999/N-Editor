@@ -1,23 +1,29 @@
-import datetime
-import json
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QStatusBar, QListWidget
+from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtGui import QFont, QCloseEvent
+
 import os
-import sys
+import json
 
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout,
-                             QHBoxLayout, QPushButton, QStackedWidget,
-                             QLabel, QFrame, QApplication, QStatusBar, QListWidget)
-from PyQt5.QtCore import Qt, QDateTime, QTimer
-from PyQt5.QtGui import QCloseEvent, QFont
-
-# 自作モジュールのインポート
-from views.equipment_form import EquipmentForm
+from views.home_view import HomeView
 from views.equipment_view import EquipmentView
+from views.hull_form import HullForm
+from views.design_view import DesignView
+from views.fleet_view import FleetView
+from views.settings_view import SettingsView
 
 class NavalDesignSystem(QMainWindow):
     """Naval Design Systemのメインウィンドウ"""
 
-    def __init__(self):
+    def __init__(self, app_controller=None, app_settings=None):
         super().__init__()
+
+        # コントローラーとアプリケーション設定
+        self.app_controller = app_controller
+        self.app_settings = app_settings
+
+        # ビューマッピング
+        self.views = {}
 
         # アプリケーション設定の読み込み
         self.load_config()
@@ -25,20 +31,17 @@ class NavalDesignSystem(QMainWindow):
         # UIの初期化
         self.init_ui()
 
-        # 最初のページを表示
-        self.show_home_page()
-
     def load_config(self):
         """設定ファイルを読み込む"""
-        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'config.json')
+        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'config.json')
 
         # デフォルト設定
         self.config = {
             "app_name": "Naval Design System",
-            "version": "1.0.0",
+            "version": "β0.0.1",
             "display": {
-                "width": 800,
-                "height": 600,
+                "width": 1080,
+                "height": 720,
             }
         }
 
@@ -80,10 +83,10 @@ class NavalDesignSystem(QMainWindow):
         """サイドバーメニューの作成"""
         # サイドバーウィジェット
         sidebar_widget = QWidget()
-        sidebar_widget.setFixedWidth(150)  # サイドバーの幅
+        sidebar_widget.setFixedWidth(200)  # サイドバーの幅
         sidebar_layout = QVBoxLayout(sidebar_widget)
         sidebar_layout.setContentsMargins(5, 10, 5, 10)
-        sidebar_layout.setSpacing(5)
+        sidebar_layout.setSpacing(10)
 
         # メニューリスト
         self.menu_list = QListWidget()
@@ -97,12 +100,32 @@ class NavalDesignSystem(QMainWindow):
         ])
 
         # スタイルの設定
-        self.menu_list.setFont(QFont("MS Gothic", 10))
+        self.menu_list.setFont(QFont("MS Gothic", 12))
+        self.menu_list.setIconSize(QSize(24, 24))
+        self.menu_list.setStyleSheet("""
+            QListWidget {
+                background-color: #c0c0c0;
+                border: 2px inset #808080;
+            }
+            QListWidget::item {
+                height: 30px;
+                padding: 5px;
+            }
+            QListWidget::item:selected {
+                background-color: #000080;
+                color: white;
+            }
+        """)
 
         # 選択時の処理
         self.menu_list.currentRowChanged.connect(self.on_menu_changed)
 
-        sidebar_layout.addWidget(QLabel("<b>Naval Design System</b>"))
+        # タイトルラベル
+        title_label = QLabel("<b>Naval Design System</b>")
+        title_label.setFont(QFont("MS Gothic", 14))
+        title_label.setAlignment(Qt.AlignCenter)
+        sidebar_layout.addWidget(title_label)
+
         sidebar_layout.addWidget(self.menu_list)
         sidebar_layout.addStretch(1)
 
@@ -126,104 +149,61 @@ class NavalDesignSystem(QMainWindow):
         main_layout.addWidget(self.stacked_widget)
 
         # 各ページの追加
-        self.add_home_page()
-        self.add_equipment_page()
-        self.add_hull_page()
-        self.add_design_page()
-        self.add_fleet_page()
-        self.add_settings_page()
+        self.initialize_views()
 
         parent_layout.addWidget(main_view_widget)
 
-    def add_home_page(self):
-        """ホームページの追加"""
-        home_page = QWidget()
-        layout = QVBoxLayout(home_page)
+    def initialize_views(self):
+        """各ビューを初期化して登録"""
+        # ホームビュー
+        home_view = HomeView(self, self.app_settings)
+        self.add_view("home", home_view)
 
-        welcome_label = QLabel("Naval Design Systemへようこそ")
-        welcome_label.setFont(QFont("MS Gothic", 16))
-        welcome_label.setAlignment(Qt.AlignCenter)
+        # 装備ビュー
+        equipment_view = EquipmentView(self)
+        self.add_view("equipment", equipment_view)
 
-        # 現在時刻
-        time_label = QLabel(f"現在時刻: {datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}")
-        time_label.setAlignment(Qt.AlignCenter)
+        # 船体ビュー
+        hull_view = HullForm(self)
+        self.add_view("hull", hull_view)
 
-        # 概要
-        description = """
-        <p>このアプリケーションは、Hearts of Iron IVのmod支援用艦艇設計ツールです。</p>
-        <p>以下の機能を提供します：</p>
-        <ul>
-            <li>装備データの登録と管理</li>
-            <li>船体情報の登録</li>
-            <li>艦艇の設計とパラメータ計算</li>
-            <li>設計データのエクスポート/インポート</li>
-            <li>艦隊構成の管理</li>
-        </ul>
-        <p>左側のメニューから各機能にアクセスできます。</p>
-        """
-        desc_label = QLabel(description)
-        desc_label.setAlignment(Qt.AlignCenter)
-        desc_label.setWordWrap(True)
+        # 設計ビュー
+        design_view = DesignView(self)
+        self.add_view("design", design_view)
 
-        layout.addWidget(welcome_label)
-        layout.addWidget(time_label)
-        layout.addWidget(desc_label)
-        layout.addStretch(1)
+        # 艦隊ビュー
+        fleet_view = FleetView(self)
+        self.add_view("fleet", fleet_view)
 
-        self.stacked_widget.addWidget(home_page)
+        # 設定ビュー
+        settings_view = SettingsView(self, self.app_settings)
+        self.add_view("settings", settings_view)
 
-    def add_equipment_page(self):
-        """装備ページの追加"""
-        self.equipment_view = EquipmentView()
-        self.stacked_widget.addWidget(self.equipment_view)
+    def add_view(self, view_name, view_widget):
+        """ビューをスタックウィジェットに追加"""
+        self.views[view_name] = view_widget
+        self.stacked_widget.addWidget(view_widget)
 
-    def add_hull_page(self):
-        """船体ページの追加"""
-        hull_page = QWidget()
-        layout = QVBoxLayout(hull_page)
+    def show_view(self, view_name):
+        """指定した名前のビューを表示"""
+        view_mapping = {
+            "home": 0,
+            "equipment": 1,
+            "hull": 2,
+            "design": 3,
+            "fleet": 4,
+            "settings": 5
+        }
 
-        # 仮のプレースホルダーラベル
-        label = QLabel("船体登録ページ（開発中）")
-        label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(label)
+        if view_name in view_mapping:
+            index = view_mapping[view_name]
+            self.menu_list.setCurrentRow(index)
+            self.stacked_widget.setCurrentIndex(index)
 
-        self.stacked_widget.addWidget(hull_page)
-
-    def add_design_page(self):
-        """設計ページの追加"""
-        design_page = QWidget()
-        layout = QVBoxLayout(design_page)
-
-        # 仮のプレースホルダーラベル
-        label = QLabel("船体設計ページ（開発中）")
-        label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(label)
-
-        self.stacked_widget.addWidget(design_page)
-
-    def add_fleet_page(self):
-        """艦隊ページの追加"""
-        fleet_page = QWidget()
-        layout = QVBoxLayout(fleet_page)
-
-        # 仮のプレースホルダーラベル
-        label = QLabel("艦隊配備ページ（開発中）")
-        label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(label)
-
-        self.stacked_widget.addWidget(fleet_page)
-
-    def add_settings_page(self):
-        """設定ページの追加"""
-        settings_page = QWidget()
-        layout = QVBoxLayout(settings_page)
-
-        # 仮のプレースホルダーラベル
-        label = QLabel("設定ページ（開発中）")
-        label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(label)
-
-        self.stacked_widget.addWidget(settings_page)
+            # ステータスバーにメッセージを表示
+            menu_texts = ["ホーム", "装備登録", "船体登録", "船体設計", "艦隊配備", "設定"]
+            if 0 <= index < len(menu_texts):
+                self.statusBar.showMessage(f"{menu_texts[index]}ページを表示しています")
 
     def on_menu_changed(self, index):
         """メニュー選択時の処理"""
@@ -235,24 +215,8 @@ class NavalDesignSystem(QMainWindow):
         if 0 <= index < len(menu_texts):
             self.statusBar.showMessage(f"{menu_texts[index]}ページを表示しています")
 
-    def show_home_page(self):
-        """ホームページを表示"""
-        self.menu_list.setCurrentRow(0)
-        self.stacked_widget.setCurrentIndex(0)
-
-def main():
-    # アプリケーションの起動
-    app = QApplication(sys.argv)
-
-    # スタイルシートの適用（Windows95風）
-    app.setStyle("Fusion")
-
-    # メインウィンドウを作成
-    window = NavalDesignSystem()
-    window.show()
-
-    # イベントループの開始
-    sys.exit(app.exec_())
-
-if __name__ == "__main__":
-    main()
+    def closeEvent(self, event: QCloseEvent):
+        """ウィンドウが閉じられる時の処理"""
+        if self.app_controller:
+            self.app_controller.on_quit()
+        event.accept()

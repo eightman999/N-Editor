@@ -1,5 +1,3 @@
-import os
-import json
 from PyQt5.QtWidgets import (QWidget, QFormLayout, QLineEdit, QComboBox,
                              QSpinBox, QDoubleSpinBox, QTabWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QGroupBox,
@@ -10,8 +8,9 @@ class EquipmentForm(QWidget):
     """装備データ登録用フォーム"""
     equipment_saved = pyqtSignal(str)  # 装備保存時のシグナル（装備IDを送信）
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, app_controller=None):
         super(EquipmentForm, self).__init__(parent)
+        self.app_controller = app_controller
         self.init_ui()
         self.load_equipment_templates()
 
@@ -169,6 +168,16 @@ class EquipmentForm(QWidget):
     def load_equipment_templates(self):
         """装備テンプレートの読み込み"""
         try:
+            # AppControllerが利用可能であれば、そこから装備タイプを取得
+            if self.app_controller:
+                equipment_types = self.app_controller.get_equipment_types()
+                self.equipment_templates = {}
+
+                for eq_type in equipment_types:
+                    self.equipment_type_combo.addItem(eq_type)
+                return
+
+            # 従来の方法（AppControllerがない場合）
             with open('paste.txt', 'r', encoding='utf-8') as f:
                 content = f.read()
 
@@ -212,6 +221,14 @@ class EquipmentForm(QWidget):
 
         # 装備IDのプレフィックスを自動設定
         if 'ID' in self.common_fields and 'id_prefix' in self.equipment_templates[current_type]:
+            # AppControllerが利用可能であれば、次のIDを取得
+            if self.app_controller:
+                next_id = self.app_controller.get_next_equipment_id(current_type)
+                if next_id:
+                    self.common_fields['ID'].setText(next_id)
+                    return
+
+            # 従来の方法（AppControllerがない場合）
             prefix = self.equipment_templates[current_type]['id_prefix']
             self.common_fields['ID'].setText(f"{prefix}")
 
@@ -434,19 +451,33 @@ class EquipmentForm(QWidget):
             QMessageBox.warning(self, "入力エラー", "装備名称とIDは必須です。")
             return
 
-        # 保存先ディレクトリの作成
-        equipment_type = data['equipment_type']
-        id_prefix = self.equipment_templates[equipment_type]['id_prefix']
+        # AppControllerを使用して装備を保存
+        if self.app_controller:
+            if self.app_controller.save_equipment(data):
+                equipment_id = data['common']['ID']
+                QMessageBox.information(self, "保存成功", f"装備データを保存しました。\nID: {equipment_id}")
+                self.equipment_saved.emit(equipment_id)
+            else:
+                QMessageBox.critical(self, "保存エラー", "データの保存に失敗しました。")
+            return
 
-        # 保存ディレクトリの処理
-        base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'equipments', id_prefix)
-        os.makedirs(base_dir, exist_ok=True)
-
-        # ファイル名は装備IDを使用
-        file_name = f"{data['common']['ID']}.json"
-        file_path = os.path.join(base_dir, file_name)
-
+        # 従来の方法（AppControllerがない場合）
         try:
+            import os
+            import json
+
+            # 保存先ディレクトリの作成
+            equipment_type = data['equipment_type']
+            id_prefix = self.equipment_templates[equipment_type]['id_prefix']
+
+            # 保存ディレクトリの処理
+            base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'equipments', id_prefix)
+            os.makedirs(base_dir, exist_ok=True)
+
+            # ファイル名は装備IDを使用
+            file_name = f"{data['common']['ID']}.json"
+            file_path = os.path.join(base_dir, file_name)
+
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -457,6 +488,7 @@ class EquipmentForm(QWidget):
 
     def load_equipment(self):
         """装備データの読み込み"""
+        # ファイル選択ダイアログを表示
         options = QFileDialog.Options()
         file_name, _ = QFileDialog.getOpenFileName(
             self, "装備データ読み込み", "", "JSON Files (*.json)", options=options
@@ -465,7 +497,25 @@ class EquipmentForm(QWidget):
         if not file_name:
             return
 
+        # AppControllerを使用して装備データを読み込む
+        if self.app_controller:
+            # ファイル名からIDを抽出
+            import os
+            equipment_id = os.path.splitext(os.path.basename(file_name))[0]
+
+            # 装備データを読み込み
+            equipment_data = self.app_controller.load_equipment(equipment_id)
+
+            if equipment_data:
+                self.set_form_data(equipment_data)
+                QMessageBox.information(self, "読み込み成功", f"装備データを読み込みました。\nID: {equipment_id}")
+            else:
+                QMessageBox.critical(self, "読み込みエラー", f"装備ID '{equipment_id}' のデータの読み込みに失敗しました。")
+            return
+
+        # 従来の方法（AppControllerがない場合）
         try:
+            import json
             with open(file_name, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 

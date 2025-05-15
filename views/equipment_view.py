@@ -1,4 +1,3 @@
-import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QComboBox, QTableWidget, QTableWidgetItem,
                              QHeaderView, QMessageBox, QDialog, QFileDialog)
@@ -6,7 +5,6 @@ from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QColor
 
 from .equipment_form import EquipmentForm
-from models.equipment_model import EquipmentModel
 
 class EquipmentView(QWidget):
     """装備管理ビュー"""
@@ -14,11 +12,11 @@ class EquipmentView(QWidget):
     # シグナル定義
     equipment_selected = pyqtSignal(str)  # 装備選択時（装備IDを送信）
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, app_controller=None):
         super(EquipmentView, self).__init__(parent)
 
-        # データモデルの初期化
-        self.equipment_model = EquipmentModel()
+        # コントローラーの設定
+        self.app_controller = app_controller
 
         # 選択中の装備タイプ
         self.current_type = None
@@ -95,8 +93,16 @@ class EquipmentView(QWidget):
         # 全タイプ表示用の項目
         self.type_combo.addItem("全タイプ")
 
-        # 装備タイプを取得して追加
-        equipment_types = self.equipment_model.get_equipment_types()
+        # コントローラーから装備タイプを取得
+        if self.app_controller:
+            equipment_types = self.app_controller.get_equipment_types()
+        else:
+            # 従来の方法（モデル直接使用）
+            from models.equipment_model import EquipmentModel
+            equipment_model = EquipmentModel()
+            equipment_types = equipment_model.get_equipment_types()
+
+        # 装備タイプをコンボボックスに追加
         for eq_type in sorted(equipment_types):
             self.type_combo.addItem(eq_type)
 
@@ -104,10 +110,18 @@ class EquipmentView(QWidget):
         """装備リストの読み込み"""
         self.equipment_table.setRowCount(0)  # テーブルをクリア
 
-        # 現在選択中のタイプに基づいて装備を取得
-        equipment_list = self.equipment_model.get_all_equipment(
-            None if self.type_combo.currentIndex() == 0 else self.current_type
-        )
+        # コントローラーから装備データを取得
+        if self.app_controller:
+            equipment_list = self.app_controller.get_all_equipment(
+                None if self.type_combo.currentIndex() == 0 else self.current_type
+            )
+        else:
+            # 従来の方法（モデル直接使用）
+            from models.equipment_model import EquipmentModel
+            equipment_model = EquipmentModel()
+            equipment_list = equipment_model.get_all_equipment(
+                None if self.type_combo.currentIndex() == 0 else self.current_type
+            )
 
         # テーブルに追加
         for row, equipment in enumerate(equipment_list):
@@ -176,7 +190,8 @@ class EquipmentView(QWidget):
         layout = QVBoxLayout()
         dialog.setLayout(layout)
 
-        form = EquipmentForm(dialog)
+        # コントローラーを渡して装備フォームを作成
+        form = EquipmentForm(dialog, self.app_controller)
         layout.addWidget(form)
 
         # 保存完了時の処理を接続
@@ -199,7 +214,14 @@ class EquipmentView(QWidget):
         equipment_id = self.equipment_table.item(row, 0).text()
 
         # 装備データを取得
-        equipment_data = self.equipment_model.load_equipment(equipment_id)
+        if self.app_controller:
+            equipment_data = self.app_controller.load_equipment(equipment_id)
+        else:
+            # 従来の方法（モデル直接使用）
+            from models.equipment_model import EquipmentModel
+            equipment_model = EquipmentModel()
+            equipment_data = equipment_model.load_equipment(equipment_id)
+
         if not equipment_data:
             QMessageBox.warning(self, "エラー", f"装備ID '{equipment_id}' のデータが見つかりません。")
             return
@@ -213,7 +235,8 @@ class EquipmentView(QWidget):
         layout = QVBoxLayout()
         dialog.setLayout(layout)
 
-        form = EquipmentForm(dialog)
+        # コントローラーを渡して装備フォームを作成
+        form = EquipmentForm(dialog, self.app_controller)
         layout.addWidget(form)
 
         # データを設定
@@ -254,12 +277,22 @@ class EquipmentView(QWidget):
         )
 
         if reply == QMessageBox.Yes:
-            # 削除実行
-            if self.equipment_model.delete_equipment(equipment_id):
-                QMessageBox.information(self, "削除完了", f"装備「{equipment_name}」を削除しました。")
-                self.load_equipment_list()  # リストを更新
+            # コントローラーを使用して削除
+            if self.app_controller:
+                if self.app_controller.delete_equipment(equipment_id):
+                    QMessageBox.information(self, "削除完了", f"装備「{equipment_name}」を削除しました。")
+                    self.load_equipment_list()  # リストを更新
+                else:
+                    QMessageBox.warning(self, "削除エラー", f"装備「{equipment_name}」の削除に失敗しました。")
             else:
-                QMessageBox.warning(self, "削除エラー", f"装備「{equipment_name}」の削除に失敗しました。")
+                # 従来の方法（モデル直接使用）
+                from models.equipment_model import EquipmentModel
+                equipment_model = EquipmentModel()
+                if equipment_model.delete_equipment(equipment_id):
+                    QMessageBox.information(self, "削除完了", f"装備「{equipment_name}」を削除しました。")
+                    self.load_equipment_list()  # リストを更新
+                else:
+                    QMessageBox.warning(self, "削除エラー", f"装備「{equipment_name}」の削除に失敗しました。")
 
     def on_export_clicked(self):
         """エクスポートボタンの処理"""
@@ -274,7 +307,14 @@ class EquipmentView(QWidget):
         equipment_id = self.equipment_table.item(row, 0).text()
 
         # 装備データを取得
-        equipment_data = self.equipment_model.load_equipment(equipment_id)
+        if self.app_controller:
+            equipment_data = self.app_controller.load_equipment(equipment_id)
+        else:
+            # 従来の方法（モデル直接使用）
+            from models.equipment_model import EquipmentModel
+            equipment_model = EquipmentModel()
+            equipment_data = equipment_model.load_equipment(equipment_id)
+
         if not equipment_data:
             QMessageBox.warning(self, "エラー", f"装備ID '{equipment_id}' のデータが見つかりません。")
             return
@@ -312,6 +352,8 @@ class EquipmentView(QWidget):
         # インポート実行
         try:
             import json
+            import os
+
             with open(file_name, 'r', encoding='utf-8') as f:
                 equipment_data = json.load(f)
 
@@ -319,34 +361,46 @@ class EquipmentView(QWidget):
             if not isinstance(equipment_data, dict) or 'equipment_type' not in equipment_data or 'common' not in equipment_data:
                 raise ValueError("無効な装備データ形式です。")
 
-            # 装備タイプの確認
-            equipment_type = equipment_data.get('equipment_type', '')
-            if equipment_type not in self.equipment_model.get_equipment_types():
-                raise ValueError(f"未知の装備タイプ '{equipment_type}' です。")
-
-            # 装備IDの確認
-            equipment_id = equipment_data.get('common', {}).get('ID', '')
-            if not equipment_id:
-                raise ValueError("装備IDが指定されていません。")
-
-            # 既存データの確認
-            existing_data = self.equipment_model.load_equipment(equipment_id)
-            if existing_data:
-                reply = QMessageBox.question(
-                    self, "上書き確認",
-                    f"装備ID '{equipment_id}' は既に存在します。上書きしますか？",
-                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-                )
-
-                if reply != QMessageBox.Yes:
-                    return
-
-            # データ保存
-            if self.equipment_model.save_equipment(equipment_data):
-                QMessageBox.information(self, "インポート完了", f"装備データ '{equipment_id}' をインポートしました。")
-                self.load_equipment_list()  # リストを更新
+            # コントローラーを使用して装備を保存
+            if self.app_controller:
+                if self.app_controller.save_equipment(equipment_data):
+                    equipment_id = equipment_data.get('common', {}).get('ID', '')
+                    QMessageBox.information(self, "インポート完了", f"装備データ '{equipment_id}' をインポートしました。")
+                    self.load_equipment_list()  # リストを更新
+                else:
+                    QMessageBox.warning(self, "インポートエラー", "装備データの保存に失敗しました。")
             else:
-                QMessageBox.warning(self, "インポートエラー", f"装備データ '{equipment_id}' の保存に失敗しました。")
+                # 従来の方法（モデル直接使用）
+                from models.equipment_model import EquipmentModel
+                equipment_model = EquipmentModel()
+
+                # 装備タイプの確認
+                equipment_type = equipment_data.get('equipment_type', '')
+                if equipment_type not in equipment_model.get_equipment_types():
+                    raise ValueError(f"未知の装備タイプ '{equipment_type}' です。")
+
+                # 装備IDの確認
+                equipment_id = equipment_data.get('common', {}).get('ID', '')
+                if not equipment_id:
+                    raise ValueError("装備IDが指定されていません。")
+
+                # 既存データの確認
+                existing_data = equipment_model.load_equipment(equipment_id)
+                if existing_data:
+                    reply = QMessageBox.question(
+                        self, "上書き確認",
+                        f"装備ID '{equipment_id}' は既に存在します。上書きしますか？",
+                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+                    )
+                    if reply != QMessageBox.Yes:
+                        return
+
+                # データ保存
+                if equipment_model.save_equipment(equipment_data):
+                    QMessageBox.information(self, "インポート完了", f"装備データ '{equipment_id}' をインポートしました。")
+                    self.load_equipment_list()  # リストを更新
+                else:
+                    QMessageBox.warning(self, "インポートエラー", f"装備データ '{equipment_id}' の保存に失敗しました。")
 
         except Exception as e:
             QMessageBox.critical(self, "インポートエラー", f"インポートに失敗しました。\n{e}")
@@ -359,5 +413,5 @@ class EquipmentView(QWidget):
         # 選択シグナルを発行
         self.equipment_selected.emit(equipment_id)
 
-        # 編集ダイアログを表示（オプション）
+        # 編集ダイアログを表示
         self.on_edit_clicked()

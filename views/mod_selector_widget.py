@@ -37,10 +37,11 @@ class ModItem:
 
 class ModSelectorWidget(QWidget):
     """MOD選択リストを表示するウィジェット"""
-    def __init__(self, parent=None, app_settings=None):
+    def __init__(self, parent=None, app_settings=None, app_controller=None):
         super().__init__(parent)
         self.mod_list = []  # ModItemオブジェクトのリスト
         self.app_settings = app_settings
+        self.app_controller = app_controller
         self.initUI()
 
         # 保存済みのMODをロード
@@ -97,6 +98,12 @@ class ModSelectorWidget(QWidget):
 
         self.update_list_widget()
 
+        # 前回選択されていたMODがあれば選択状態を復元
+        if self.app_settings:
+            last_mod_id = self.app_settings.get_setting("last_mod_id")
+            if last_mod_id is not None and 0 <= last_mod_id < len(self.mod_list):
+                self.list_widget.setCurrentRow(last_mod_id)
+
     def add_mod(self):
         """MODディレクトリを選択して追加"""
         mod_dir = QFileDialog.getExistingDirectory(
@@ -113,8 +120,12 @@ class ModSelectorWidget(QWidget):
             QMessageBox.warning(self, "エラー", "選択したディレクトリにdescriptor.modファイルが見つかりません。")
             return
 
-        # descriptor.modファイルの解析
-        mod_info = self.parse_descriptor_mod(descriptor_path)
+        # AppControllerがある場合はそちらのメソッドを使用
+        if self.app_controller:
+            mod_info = self.app_controller.parse_descriptor_mod(descriptor_path)
+        else:
+            # 直接解析
+            mod_info = self.parse_descriptor_mod(descriptor_path)
 
         if not mod_info:
             QMessageBox.warning(self, "エラー", "descriptor.modファイルの解析に失敗しました。")
@@ -142,30 +153,61 @@ class ModSelectorWidget(QWidget):
 
         self.update_list_widget()
 
+        # 新しく追加したMODを選択状態にする
+        self.list_widget.setCurrentRow(len(self.mod_list) - 1)
+
     def remove_mod(self):
         """選択したMODをリストから削除"""
         current_row = self.list_widget.currentRow()
         if current_row >= 0:
             mod_to_remove = self.mod_list[current_row]
 
+            # 確認ダイアログ
+            reply = QMessageBox.question(
+                self, "MOD削除確認",
+                f"MOD '{mod_to_remove.name}' をリストから削除しますか？",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            )
+
+            if reply != QMessageBox.Yes:
+                return
+
             # 設定からも削除
             if self.app_settings:
                 self.app_settings.remove_mod(mod_to_remove.path)
+
+            # 現在開いているMODかどうかを確認
+            if self.app_controller and self.app_controller.get_current_mod():
+                current_mod = self.app_controller.get_current_mod()
+                if current_mod.get("path") == mod_to_remove.path:
+                    # 現在開いているMODを削除する場合は設定をクリア
+                    self.app_settings.set_current_mod(None, None)
 
             del self.mod_list[current_row]
             self.update_list_widget()
 
     def open_mod(self):
-        """選択したMODを開く処理（この部分はアプリケーションコントローラーへ通知する）"""
+        """選択したMODを開く処理"""
         current_row = self.list_widget.currentRow()
-        if current_row >= 0:
-            selected_mod = self.mod_list[current_row]
+        if current_row < 0:
+            QMessageBox.information(self, "情報", "開くMODを選択してください。")
+            return
 
-            # 最後に選択したMODを設定に保存
-            if self.app_settings:
-                self.app_settings.set_setting("last_mod_id", current_row)
+        selected_mod = self.mod_list[current_row]
 
-            # ここで開く処理を実装（アプリケーションコントローラーへ通知など）
+        # 最後に選択したMODを設定に保存
+        if self.app_settings:
+            self.app_settings.set_setting("last_mod_id", current_row)
+
+        # AppControllerを通じてMODを開く
+        if self.app_controller:
+            success = self.app_controller.open_mod(selected_mod.path, selected_mod.name)
+            if success:
+                QMessageBox.information(self, "MODを開く", f"MOD '{selected_mod.name}' を開きました。")
+            else:
+                QMessageBox.warning(self, "エラー", f"MOD '{selected_mod.name}' を開けませんでした。")
+        else:
+            # AppControllerがない場合は直接メッセージを表示
             QMessageBox.information(self, "MODを開く", f"MOD '{selected_mod.name}' を開きます。")
 
     def parse_descriptor_mod(self, file_path):
@@ -206,9 +248,10 @@ class ModSelectorWidget(QWidget):
                 item.setIcon(QIcon(mod.thumbnail_path))
             else:
                 # デフォルトアイコン
-                default_icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "default_mod_icon.png")
-                if os.path.exists(default_icon_path):
-                    item.setIcon(QIcon(default_icon_path))
+                if self.app_settings:
+                    default_icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "default_mod_icon.png")
+                    if os.path.exists(default_icon_path):
+                        item.setIcon(QIcon(default_icon_path))
 
             # テキスト設定（名前、バージョン、対応バージョン）
             item.setText(f"{mod.name}\nバージョン: {mod.version}\nHOI4対応: {mod.supported_version}")
@@ -216,10 +259,10 @@ class ModSelectorWidget(QWidget):
             # 高さを調整
             item.setSizeHint(QSize(self.list_widget.width(), 80))
 
-            self.list_widget.addItem(item)
+            # 現在開いているMODであれば背景色を変更
+            if self.app_controller and self.app_controller.get_current_mod():
+                current_mod = self.app_controller.get_current_mod()
+                if current_mod.get("path") == mod.path:
+                    item.setBackground(Qt.lightGray)
 
-        # 最後に選択したMODを選択
-        if self.app_settings:
-            last_mod_id = self.app_settings.get_setting("last_mod_id")
-            if last_mod_id is not None and 0 <= last_mod_id < len(self.mod_list):
-                self.list_widget.setCurrentRow(last_mod_id)
+            self.list_widget.addItem(item)
