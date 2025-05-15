@@ -1,0 +1,49 @@
+{
+  "equipment_type": "大口径砲",
+  "common": {
+    "名前": "24.5cm/40単装砲",
+    "ID": "SMHG_245_L40",
+    "重量": 50000.0,
+    "人員": 30,
+    "開発年": 1936,
+    "開発国": "ITA",
+    "必要資源_鉄": 0,
+    "必要資源_クロム": 0,
+    "必要資源_アルミ": 0,
+    "必要資源_タングステン": 0,
+    "必要資源_ゴム": 0
+  },
+  "specific": {
+    "砲弾重量_kg": 720.0,
+    "初速_mps": 700.0,
+    "毎分発射数": 2,
+    "砲口口径_cm": 24.5,
+    "口径": 40,
+    "砲身数": 1,
+    "最大仰俯角": "25",
+    "砲塔数": 1
+  },
+  "stats": {
+    "add_stats": {
+      "build_cost_ic": 0.0,
+      "reliability": 0.0,
+      "naval_speed": 0.0,
+      "lg_attack": 0.0,
+      "hg_attack": 0.0
+    },
+    "multiply_stats": {
+      "build_cost_ic": 0.0,
+      "reliability": 0.0,
+      "naval_speed": 0.0,
+      "lg_attack": 0.0,
+      "hg_attack": 0.0
+    },
+    "add_average_stats": {
+      "build_cost_ic": 0.0,
+      "reliability": 0.0,
+      "naval_speed": 0.0,
+      "lg_attack": 0.0,
+      "hg_attack": 0.0
+    }
+  }
+}

@@ -42,6 +42,7 @@ class NavalDesignSystem(QMainWindow):
             "display": {
                 "width": 1080,
                 "height": 720,
+                "fullscreen": False
             }
         }
 
@@ -56,9 +57,18 @@ class NavalDesignSystem(QMainWindow):
         """UIの初期化"""
         # ウィンドウの基本設定
         self.setWindowTitle(self.config.get("app_name", "Naval Design System"))
-        width = self.config.get("display", {}).get("width", 800)
-        height = self.config.get("display", {}).get("height", 600)
-        self.setFixedSize(width, height)
+
+        # 全画面表示の設定を読み込み
+        is_fullscreen = self.config.get("display", {}).get("fullscreen", False)
+
+        if not is_fullscreen:
+            # 通常サイズで表示する場合
+            width = self.config.get("display", {}).get("width", 800)
+            height = self.config.get("display", {}).get("height", 600)
+            self.resize(width, height)  # setFixedSizeの代わりにresizeを使用
+        else:
+            # 全画面表示
+            self.showFullScreen()
 
         # 中央ウィジェット
         central_widget = QWidget()
@@ -220,3 +230,10 @@ class NavalDesignSystem(QMainWindow):
         if self.app_controller:
             self.app_controller.on_quit()
         event.accept()
+
+    def toggle_fullscreen(self):
+        """全画面表示と通常表示を切り替え"""
+        if self.isFullScreen():
+            self.showNormal()
+        else:
+            self.showFullScreen()
