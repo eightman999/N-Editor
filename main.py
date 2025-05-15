@@ -351,10 +351,10 @@ class NavalDesignSystem(QMainWindow):
         """サイドバーメニューの作成"""
         # サイドバーウィジェット
         sidebar_widget = QWidget()
-        sidebar_widget.setFixedWidth(150)  # サイドバーの幅
+        sidebar_widget.setFixedWidth(200)  # 幅を150から200に拡大
         sidebar_layout = QVBoxLayout(sidebar_widget)
         sidebar_layout.setContentsMargins(5, 10, 5, 10)
-        sidebar_layout.setSpacing(5)
+        sidebar_layout.setSpacing(10)  # 間隔を拡大
 
         # メニューリスト
         self.menu_list = QListWidget()
@@ -368,10 +368,22 @@ class NavalDesignSystem(QMainWindow):
         ])
 
         # スタイルの設定
-        self.menu_list.setFont(QFont("MS Gothic", 10))
-
-        # 選択時の処理
-        self.menu_list.currentRowChanged.connect(self.on_menu_changed)
+        self.menu_list.setFont(QFont("MS Gothic", 12))  # フォントサイズを10から12に拡大
+        self.menu_list.setIconSize(QSize(24, 24))
+        self.menu_list.setStyleSheet("""
+            QListWidget {
+                background-color: #c0c0c0;
+                border: 2px inset #808080;
+            }
+            QListWidget::item {
+                height: 30px;
+                padding: 5px;
+            }
+            QListWidget::item:selected {
+                background-color: #000080;
+                color: white;
+            }
+        """)
 
         sidebar_layout.addWidget(QLabel("<b>Naval Design System</b>"))
         sidebar_layout.addWidget(self.menu_list)
@@ -503,24 +515,70 @@ def ensure_assets_directory():
             f.write(png_data)
 
 def main():
-    """アプリケーションのメインエントリーポイント"""
-    # アセットディレクトリを確認
-    ensure_assets_directory()
-
-    # アプリケーション設定をロード
-    app_settings = AppSettings()
-
-    # PyQtアプリケーションの初期化
+    # アプリケーションの起動
     app = QApplication(sys.argv)
 
-    # スタイルシートの適用（Windows95風）
-    app.setStyle("Fusion")
+    # Windows 95風スタイルの適用
+    app.setStyle("Windows")  # Windowsクラシックスタイルを使用
+
+    # Windows 95風のグローバルスタイルシート
+    app.setStyleSheet("""
+        QMainWindow, QDialog, QWidget {
+            background-color: #c0c0c0;
+            color: black;
+        }
+        QPushButton {
+            background-color: #c0c0c0;
+            border: 2px outset #d4d0c8;
+            border-top-color: white;
+            border-left-color: white;
+            padding: 4px;
+            min-width: 80px;
+            min-height: 24px;
+        }
+        QPushButton:pressed {
+            border: 2px inset #808080;
+            border-bottom-color: white;
+            border-right-color: white;
+        }
+        QLineEdit, QTextEdit, QComboBox {
+            background-color: white;
+            border: 2px inset #808080;
+        }
+        QGroupBox {
+            border: 2px groove #c0c0c0;
+            border-top: 1px solid #808080;
+            border-left: 1px solid #808080;
+            border-bottom: 1px solid white;
+            border-right: 1px solid white;
+            margin-top: 12px;
+            padding-top: 10px;
+        }
+        QTabWidget::pane {
+            border: 2px outset #d4d0c8;
+        }
+        QTabBar::tab {
+            background-color: #c0c0c0;
+            border: 2px outset #d4d0c8;
+            border-bottom: none;
+            padding: 4px 8px;
+        }
+        QTabBar::tab:selected {
+            background-color: #c0c0c0;
+            border-bottom: 2px solid #c0c0c0;
+        }
+        QHeaderView::section {
+            background-color: #c0c0c0;
+            border: 2px outset #d4d0c8;
+            padding: 4px;
+        }
+    """)
 
     # メインウィンドウを作成
-    window = NavalDesignSystem(app_settings)
+    window = NavalDesignSystem()
     window.show()
 
-    # イベントループの実行
+    # イベントループの開始
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
