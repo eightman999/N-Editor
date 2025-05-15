@@ -387,7 +387,7 @@ class HullListView(QWidget):
         if not file_name:
             return
 
-        # JSONエクスポートの保存先選択
+        # JSONエクスポートのオプション（保存先は固定）
         json_export = False
         json_dir = ""
 
@@ -399,12 +399,14 @@ class HullListView(QWidget):
 
         if reply == QMessageBox.Yes:
             json_export = True
-            json_dir = QFileDialog.getExistingDirectory(
-                self, "JSONファイルの保存先ディレクトリを選択", ""
-            )
-
-            if not json_dir:
-                json_export = False
+            # 保存先をhull_dirに固定
+            if self.app_controller:
+                json_dir = self.app_controller.hull_model.data_dir
+            else:
+                # 従来の方法（モデル直接使用）
+                from models.hull_model import HullModel
+                hull_model = HullModel()
+                json_dir = hull_model.data_dir
 
         # インポート実行
         try:
