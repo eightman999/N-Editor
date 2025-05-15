@@ -1,4 +1,4 @@
-from views.main_window import MainWindow
+
 from views.home_view import HomeView
 from views.equipment_form import EquipmentForm
 from views.hull_form import HullForm
