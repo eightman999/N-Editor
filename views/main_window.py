@@ -24,6 +24,9 @@ class NavalDesignSystem(QMainWindow):
         self.app_controller = app_controller
         self.app_settings = app_settings
 
+        # アプリケーションコントローラーの状態を確認
+        print(f"NavalDesignSystem.__init__: app_controller = {self.app_controller}")
+
         # ビューマッピング
         self.views = {}
 
@@ -32,6 +35,14 @@ class NavalDesignSystem(QMainWindow):
 
         # UIの初期化
         self.init_ui()
+
+        # 現在のMODの状態を確認
+        if self.app_controller:
+            current_mod = self.app_controller.get_current_mod()
+            print(f"NavalDesignSystem初期化: current_mod = {current_mod}")
+
+            # デバッグ用メニューの追加
+            self.add_debug_menu()
 
     def load_config(self):
         """設定ファイルを読み込む"""
@@ -170,22 +181,25 @@ class NavalDesignSystem(QMainWindow):
 
     def initialize_views(self):
         """各ビューを初期化して登録"""
+        # アプリケーションコントローラー状態の確認
+        print(f"NavalDesignSystem.initialize_views: app_controller = {self.app_controller}")
+
         # ホームビュー
-        home_view = HomeView(self, self.app_settings)
+        home_view = HomeView(self, self.app_settings, self.app_controller)
         self.add_view("home", home_view)
 
         # 装備ビュー
-        equipment_view = EquipmentView(self)
+        equipment_view = EquipmentView(self, self.app_controller)
         self.add_view("equipment", equipment_view)
+
         # 船体リストビュー
         hull_list_view = HullListView(self, self.app_controller)
         self.add_view("hull_list", hull_list_view)
+
         # 船体ビュー
-        hull_view = HullForm(self)
+        hull_view = HullForm(self, self.app_controller)
         self.add_view("hull", hull_view)
 
-        nation_view = NationView(self, self.app_controller)
-        self.add_view("nation", nation_view)
         # 設計ビュー
         design_view = DesignView(self)
         self.add_view("design", design_view)
@@ -193,10 +207,20 @@ class NavalDesignSystem(QMainWindow):
         # 艦隊ビュー
         fleet_view = FleetView(self)
         self.add_view("fleet", fleet_view)
-
+        # 国家ビュー
+        nation_view = NationView(self, self.app_controller)
+        self.add_view("nation", nation_view)
         # 設定ビュー
         settings_view = SettingsView(self, self.app_settings)
         self.add_view("settings", settings_view)
+
+        # 初期化後にapp_controllerが正しく渡されているか確認
+        home_view_controller = getattr(home_view, 'app_controller', None)
+        home_view_mod_selector = getattr(home_view, 'mod_selector', None)
+
+        if home_view_mod_selector:
+            mod_selector_controller = getattr(home_view_mod_selector, 'app_controller', None)
+            print(f"ホームビューのModSelectorWidgetのapp_controller: {mod_selector_controller}")
 
     def add_view(self, view_name, view_widget):
         """ビューをスタックウィジェットに追加"""
@@ -249,3 +273,169 @@ class NavalDesignSystem(QMainWindow):
             self.showNormal()
         else:
             self.showFullScreen()
+
+    def add_debug_menu(self):
+        """デバッグ用メニューを追加"""
+        from PyQt5.QtWidgets import QMenuBar, QMenu, QAction
+
+        # メニューバーの作成
+        menubar = QMenuBar(self)
+        self.setMenuBar(menubar)
+
+        # デバッグメニュー
+        debug_menu = QMenu("デバッグ", self)
+        menubar.addMenu(debug_menu)
+
+        # デバッグアクション
+        check_app_controller_action = QAction("AppController確認", self)
+        check_app_controller_action.triggered.connect(self.check_app_controller)
+        debug_menu.addAction(check_app_controller_action)
+
+        check_settings_action = QAction("設定確認", self)
+        check_settings_action.triggered.connect(self.check_settings)
+        debug_menu.addAction(check_settings_action)
+
+        fix_mod_selector_action = QAction("ModSelector修復", self)
+        fix_mod_selector_action.triggered.connect(self.fix_mod_selector)
+        debug_menu.addAction(fix_mod_selector_action)
+
+        reload_settings_action = QAction("設定再読み込み", self)
+        reload_settings_action.triggered.connect(self.reload_settings)
+        debug_menu.addAction(reload_settings_action)
+
+    def check_app_controller(self):
+        """AppControllerの状態を確認"""
+        from PyQt5.QtWidgets import QMessageBox
+
+        info = f"AppController: {self.app_controller}\n"
+
+        if self.app_controller:
+            current_mod = self.app_controller.get_current_mod()
+            info += f"current_mod: {current_mod}\n"
+
+            # AppControllerの他の属性も確認
+            for attr_name in dir(self.app_controller):
+                if not attr_name.startswith('_'):
+                    try:
+                        attr_value = getattr(self.app_controller, attr_name)
+                        if not callable(attr_value):
+                            info += f"{attr_name}: {attr_value}\n"
+                    except Exception as e:
+                        info += f"{attr_name}: エラー - {e}\n"
+
+        QMessageBox.information(self, "AppController確認", info)
+
+    def check_settings(self):
+        """設定の状態を確認"""
+        from PyQt5.QtWidgets import QMessageBox
+
+        info = f"AppSettings: {self.app_settings}\n"
+
+        if self.app_settings:
+            info += f"設定ファイル: {self.app_settings.settings_file}\n"
+            info += f"設定ディレクトリ: {self.app_settings.settings_dir}\n\n"
+
+            # 現在の設定
+            info += "現在の設定:\n"
+            for key, value in self.app_settings.settings.items():
+                info += f"{key}: {value}\n"
+
+            # 設定ファイルの存在確認
+            if os.path.exists(self.app_settings.settings_file):
+                info += f"\n設定ファイルのサイズ: {os.path.getsize(self.app_settings.settings_file)} bytes\n"
+
+                # ファイルの内容を読み込む
+                try:
+                    with open(self.app_settings.settings_file, 'r', encoding='utf-8') as f:
+                        file_content = f.read()
+                    info += f"ファイル内容:\n{file_content}\n"
+                except Exception as e:
+                    info += f"ファイル読み込みエラー: {e}\n"
+            else:
+                info += "\n設定ファイルが存在しません。\n"
+
+        QMessageBox.information(self, "設定確認", info)
+
+    def fix_mod_selector(self):
+        """ModSelectorの修復"""
+        from PyQt5.QtWidgets import QMessageBox
+
+        if 'home' in self.views:
+            home_view = self.views['home']
+
+            if hasattr(home_view, 'mod_selector'):
+                # ModSelectorのapp_controllerを設定
+                home_view.mod_selector.app_controller = self.app_controller
+
+                info = f"ModSelectorのapp_controllerを修復しました。\n"
+                info += f"修復後: {home_view.mod_selector.app_controller}\n"
+
+                # ModSelectorのリストを更新
+                home_view.mod_selector.update_list_widget()
+                info += "ModSelectorのリスト表示を更新しました。\n"
+
+                QMessageBox.information(self, "ModSelector修復", info)
+            else:
+                QMessageBox.warning(self, "エラー", "HomeViewにmod_selectorがありません。")
+        else:
+            QMessageBox.warning(self, "エラー", "Homeビューが見つかりません。")
+
+    def reload_settings(self):
+        """設定を再読み込み"""
+        from PyQt5.QtWidgets import QMessageBox
+
+        if self.app_settings:
+            # 設定を再読み込み
+            old_settings = self.app_settings.settings.copy()
+            self.app_settings.load_settings()
+
+            info = "設定を再読み込みしました。\n\n"
+
+            # 変更点を確認
+            info += "変更された設定:\n"
+            changes = False
+
+            for key, new_value in self.app_settings.settings.items():
+                if key in old_settings:
+                    old_value = old_settings[key]
+                    if old_value != new_value:
+                        info += f"{key}: {old_value} -> {new_value}\n"
+                        changes = True
+                else:
+                    info += f"{key}: 新規 -> {new_value}\n"
+                    changes = True
+
+            if not changes:
+                info += "変更はありませんでした。\n"
+
+            # 現在のMOD設定
+            current_mod_path = self.app_settings.get_setting("current_mod_path")
+            current_mod_name = self.app_settings.get_setting("current_mod_name")
+
+            info += f"\n現在のMOD設定:\n"
+            info += f"current_mod_path: {current_mod_path}\n"
+            info += f"current_mod_name: {current_mod_name}\n"
+
+            # AppControllerのcurrent_modも更新
+            if self.app_controller and current_mod_path:
+                self.app_controller.current_mod = {
+                    "path": current_mod_path,
+                    "name": current_mod_name
+                }
+                info += f"\nAppControllerのcurrent_modを更新しました。\n"
+
+            # ホームビューのMOD情報を更新
+            if 'home' in self.views:
+                home_view = self.views['home']
+                if hasattr(home_view, 'update_current_mod_info'):
+                    home_view.update_current_mod_info()
+                    info += "ホームビューのMOD情報を更新しました。\n"
+
+                # ModSelectorのリスト表示も更新
+                if hasattr(home_view, 'mod_selector') and hasattr(home_view.mod_selector, 'update_list_widget'):
+                    home_view.mod_selector.update_list_widget()
+                    info += "ModSelectorのリスト表示を更新しました。\n"
+
+            QMessageBox.information(self, "設定再読み込み", info)
+        else:
+            QMessageBox.warning(self, "エラー", "AppSettingsがありません。")

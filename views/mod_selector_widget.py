@@ -14,6 +14,7 @@ class ModItem:
         self.path = path
         self.thumbnail_path = thumbnail_path
 
+
     def to_dict(self):
         """辞書形式に変換"""
         return {
@@ -42,12 +43,15 @@ class ModSelectorWidget(QWidget):
         self.mod_list = []  # ModItemオブジェクトのリスト
         self.app_settings = app_settings
         self.app_controller = app_controller
+
+        # app_controllerの設定確認
+        print(f"ModSelectorWidget初期化: app_controller = {self.app_controller}")
+
         self.initUI()
 
         # 保存済みのMODをロード
         if self.app_settings:
             self.load_mods_from_settings()
-
     def initUI(self):
         # メインレイアウト
         main_layout = QVBoxLayout(self)
@@ -186,29 +190,7 @@ class ModSelectorWidget(QWidget):
             del self.mod_list[current_row]
             self.update_list_widget()
 
-    def open_mod(self):
-        """選択したMODを開く処理"""
-        current_row = self.list_widget.currentRow()
-        if current_row < 0:
-            QMessageBox.information(self, "情報", "開くMODを選択してください。")
-            return
 
-        selected_mod = self.mod_list[current_row]
-
-        # 最後に選択したMODを設定に保存
-        if self.app_settings:
-            self.app_settings.set_setting("last_mod_id", current_row)
-
-        # AppControllerを通じてMODを開く
-        if self.app_controller:
-            success = self.app_controller.open_mod(selected_mod.path, selected_mod.name)
-            if success:
-                QMessageBox.information(self, "MODを開く", f"MOD '{selected_mod.name}' を開きました。")
-            else:
-                QMessageBox.warning(self, "エラー", f"MOD '{selected_mod.name}' を開けませんでした。")
-        else:
-            # AppControllerがない場合は直接メッセージを表示
-            QMessageBox.information(self, "MODを開く", f"MOD '{selected_mod.name}' を開きます。")
 
     def parse_descriptor_mod(self, file_path):
         """descriptor.modファイルを解析して情報を抽出"""
@@ -236,9 +218,83 @@ class ModSelectorWidget(QWidget):
             print(f"Error parsing descriptor.mod: {e}")
             return None
 
+
+    def open_mod(self):
+        """選択したMODを開く処理"""
+        current_row = self.list_widget.currentRow()
+        if current_row < 0:
+            QMessageBox.information(self, "情報", "開くMODを選択してください。")
+            return
+
+        selected_mod = self.mod_list[current_row]
+        print(f"ModSelectorWidget.open_mod: 選択したMOD: {selected_mod.name}, path: {selected_mod.path}")
+        print(f"ModSelectorWidget.open_mod: self.app_controller = {self.app_controller}")
+
+        # 最後に選択したMODを設定に保存
+        if self.app_settings:
+            self.app_settings.set_setting("last_mod_id", current_row)
+            print(f"last_mod_id設定後: {self.app_settings.get_setting('last_mod_id')}")
+
+        # AppControllerを通じてMODを開く
+        if self.app_controller:
+            success = self.app_controller.open_mod(selected_mod.path, selected_mod.name)
+            if success:
+                QMessageBox.information(self, "MODを開く", f"MOD '{selected_mod.name}' を開きました。")
+                # MODを開いた後にリスト表示を更新
+                self.update_list_widget()
+
+                # 現在の状態を確認するデバッグ出力
+                current_mod = self.app_controller.get_current_mod()
+                print(f"開いた後のcurrent_mod: {current_mod}")
+
+                # ホーム画面のMOD情報表示も更新する
+                if self.parent() and hasattr(self.parent(), 'update_current_mod_info'):
+                    self.parent().update_current_mod_info()
+            else:
+                QMessageBox.warning(self, "エラー", f"MOD '{selected_mod.name}' を開けませんでした。")
+        else:
+            # AppControllerがない場合の処理
+            print("警告: app_controllerがNoneです")
+
+            # 直接AppSettingsを使用してMODを設定する（代替処理）
+            if self.app_settings:
+                self.app_settings.set_current_mod(selected_mod.path, selected_mod.name)
+                print(f"app_settings.set_current_mod直接呼び出し: path={selected_mod.path}, name={selected_mod.name}")
+
+                # リスト表示を更新
+                self.update_list_widget()
+
+                # ホーム画面のMOD情報表示も更新
+                if self.parent() and hasattr(self.parent(), 'update_current_mod_info'):
+                    self.parent().update_current_mod_info()
+
+                QMessageBox.information(self, "MODを開く", f"MOD '{selected_mod.name}' を開きました（直接設定）。")
+            else:
+                QMessageBox.warning(self, "エラー", "app_controllerとapp_settingsの両方がNoneです。MOD選択ができません。")
+
+
+
+
+
+
     def update_list_widget(self):
         """リストウィジェットを更新"""
         self.list_widget.clear()
+
+        # 更新時にコントローラーの状態を確認
+        print(f"ModSelectorWidget.update_list_widget: app_controller = {self.app_controller}")
+
+        # コントローラーからcurrent_modを取得
+        current_mod_path = None
+        if self.app_controller:
+            current_mod = self.app_controller.get_current_mod()
+            if current_mod:
+                current_mod_path = current_mod.get("path")
+                print(f"コントローラーからのcurrent_mod_path: {current_mod_path}")
+        # コントローラーがない場合は設定から直接取得
+        elif self.app_settings:
+            current_mod_path = self.app_settings.get_setting("current_mod_path")
+            print(f"設定からのcurrent_mod_path: {current_mod_path}")
 
         for mod in self.mod_list:
             item = QListWidgetItem()
@@ -260,13 +316,18 @@ class ModSelectorWidget(QWidget):
             item.setSizeHint(QSize(self.list_widget.width(), 80))
 
             # 現在開いているMODであれば背景色を変更
-            if self.app_controller and self.app_controller.get_current_mod():
-                current_mod = self.app_controller.get_current_mod()
-                if current_mod.get("path") == mod.path:
-                    item.setBackground(Qt.lightGray)
-                    item.setForeground(Qt.black)
-                    item.setFont(QFont("MS Gothic", 10, QFont.Bold))  # 太字に変更
-                    # 「選択中」マーカーを追加
-                    item.setText(f"[選択中] {mod.name}\nバージョン: {mod.version}\nHOI4対応: {mod.supported_version}")
+            is_current_mod = False
+
+            # MODのパスとcurrent_mod_pathを比較
+            if current_mod_path and mod.path == current_mod_path:
+                is_current_mod = True
+                print(f"選択中のMODを検出: {mod.name}")
+
+            if is_current_mod:
+                item.setBackground(Qt.lightGray)
+                item.setForeground(Qt.black)
+                item.setFont(QFont("MS Gothic", 10, QFont.Bold))  # 太字に変更
+                # 「選択中」マーカーを追加
+                item.setText(f"[選択中] {mod.name}\nバージョン: {mod.version}\nHOI4対応: {mod.supported_version}")
 
             self.list_widget.addItem(item)

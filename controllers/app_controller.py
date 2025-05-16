@@ -33,6 +33,7 @@ class AppController:
 
         # 現在のMODを確認
         self.current_mod = self.app_settings.get_current_mod()
+        print(f"AppController初期化: current_mod = {self.current_mod}")
 
     def on_first_run(self):
         """初回起動時の処理"""
@@ -98,6 +99,8 @@ class AppController:
 
         # 前回開いていたMODがあれば状態を復元
         current_mod = self.app_settings.get_current_mod()
+        print(f"show_main_window: settings.get_current_mod() = {current_mod}")
+
         if current_mod and current_mod.get("path"):
             mod_path = current_mod.get("path")
             mod_name = current_mod.get("name", os.path.basename(mod_path))
@@ -105,8 +108,21 @@ class AppController:
             if os.path.exists(mod_path):
                 self.open_mod(mod_path, mod_name)
                 print(f"前回のMOD '{mod_name}' を復元しました。")
+
+                # MOD設定後、ホーム画面のMOD情報を更新
+                if hasattr(self.main_window, 'views') and 'home' in self.main_window.views:
+                    home_view = self.main_window.views['home']
+                    if hasattr(home_view, 'update_current_mod_info'):
+                        home_view.update_current_mod_info()
+
+                    # ModSelectorWidgetのリスト表示も更新
+                    if hasattr(home_view, 'mod_selector') and hasattr(home_view.mod_selector, 'update_list_widget'):
+                        home_view.mod_selector.update_list_widget()
             else:
                 print(f"前回のMOD '{mod_name}' は見つかりません。パス: {mod_path}")
+                # MODが見つからない場合はcurrent_modをクリア
+                self.current_mod = None
+                self.app_settings.set_current_mod(None, None)
 
     def navigate_to(self, view_name):
         """指定したビューに移動"""
@@ -190,7 +206,21 @@ class AppController:
     def get_current_mod(self):
         """現在開いているMODの情報を取得"""
         return self.current_mod
+    def set_current_mod(self, mod_path, mod_name=None):
+        """現在選択中のMODを設定"""
+        print(f"AppSettings.set_current_mod: mod_path={mod_path}, mod_name={mod_name}")
 
+        if mod_path is None:
+            # MODをクリアする場合
+            self.set_setting("current_mod_path", None)
+            self.set_setting("current_mod_name", None)
+            print("MOD設定をクリアしました")
+        else:
+            # MODを設定する場合
+            self.set_setting("current_mod_path", mod_path)
+            if mod_name:
+                self.set_setting("current_mod_name", mod_name)
+            print(f"MOD設定を更新しました: path={mod_path}, name={mod_name}")
     # 装備関連機能
 
     def save_equipment(self, equipment_data):
@@ -568,3 +598,19 @@ class AppController:
                 print(f"国家タグファイル '{filename}' の解析エラー: {e}")
 
         return nations
+
+    def refresh_nation_list(self):
+        """国家リストを更新"""
+        # 現在のMODを取得
+        if self.app_controller:
+            current_mod = self.app_controller.get_current_mod()
+            print(f"NationView.refresh_nation_list: current_mod = {current_mod}")
+
+            if current_mod and current_mod.get("path"):
+                self.current_mod_label.setText(f"現在のMOD: {current_mod.get('name', '')}")
+                # 国家情報を取得して表示
+                self.load_nations(current_mod["path"])
+            else:
+                self.current_mod_label.setText("MODが選択されていません")
+                self.nation_list.clear()
+                QMessageBox.warning(self, "警告", "MODが選択されていません。\nホーム画面からMODを選択してください。")
