@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QStatusBar, QListWidget
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QStatusBar, QListWidget, QSizePolicy
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QFont, QCloseEvent
 
@@ -13,6 +13,7 @@ from views.design_view import DesignView
 from views.fleet_view import FleetView
 from views.settings_view import SettingsView
 from views.nation_view import NationView
+from views.nation_details_view import NationDetailsView
 
 class NavalDesignSystem(QMainWindow):
     """Naval Design Systemのメインウィンドウ"""
@@ -113,6 +114,11 @@ class NavalDesignSystem(QMainWindow):
         sidebar_layout.setContentsMargins(5, 10, 5, 10)
         sidebar_layout.setSpacing(10)
 
+        # タイトルラベル
+        title_label = QLabel("<b>Naval Design System</b>")
+        title_label.setFont(QFont("MS Gothic", 14))
+        title_label.setAlignment(Qt.AlignCenter)
+        sidebar_layout.addWidget(title_label)
 
         # メニューリスト
         self.menu_list = QListWidget()
@@ -123,7 +129,8 @@ class NavalDesignSystem(QMainWindow):
             "船体登録",
             "船体設計",
             "艦隊配備",
-            "国家確認",  # 追加
+            "国家確認",
+            "国家詳細",
             "設定"
         ])
 
@@ -148,14 +155,9 @@ class NavalDesignSystem(QMainWindow):
         # 選択時の処理
         self.menu_list.currentRowChanged.connect(self.on_menu_changed)
 
-        # タイトルラベル
-        title_label = QLabel("<b>Naval Design System</b>")
-        title_label.setFont(QFont("MS Gothic", 14))
-        title_label.setAlignment(Qt.AlignCenter)
-        sidebar_layout.addWidget(title_label)
-
+        # メニューリストをサイドバーに追加（サイズポリシーを設定）
+        self.menu_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sidebar_layout.addWidget(self.menu_list)
-        sidebar_layout.addStretch(1)
 
         # バージョン情報
         version_text = f"Version {self.config.get('version', '0.0.0')}"
@@ -209,9 +211,15 @@ class NavalDesignSystem(QMainWindow):
         # 艦隊ビュー
         fleet_view = FleetView(self)
         self.add_view("fleet", fleet_view)
+
         # 国家ビュー
         nation_view = NationView(self, self.app_controller)
         self.add_view("nation", nation_view)
+
+        # 国家詳細ビュー
+        nation_details_view = NationDetailsView(self, self.app_controller)
+        self.add_view("nation_details", nation_details_view)
+
         # 設定ビュー
         settings_view = SettingsView(self, self.app_settings)
         self.add_view("settings", settings_view)
@@ -235,7 +243,7 @@ class NavalDesignSystem(QMainWindow):
         self.stacked_widget.setCurrentIndex(index)
 
         # ステータスバーにメッセージを表示
-        menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "国家確認", "設定"]
+        menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "国家確認", "国家詳細", "設定"]
         if 0 <= index < len(menu_texts):
             self.statusBar.showMessage(f"{menu_texts[index]}ページを表示しています")
 
@@ -249,8 +257,9 @@ class NavalDesignSystem(QMainWindow):
             "hull_form": 3,
             "design": 4,
             "fleet": 5,
-            "nation": 6,  # 追加
-            "settings": 7
+            "nation": 6,
+            "nation_details": 7,
+            "settings": 8
         }
 
         if view_name in view_mapping:
@@ -259,7 +268,7 @@ class NavalDesignSystem(QMainWindow):
             self.stacked_widget.setCurrentIndex(index)
 
             # ステータスバーにメッセージを表示
-            menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "国家確認", "設定"]
+            menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "国家確認", "国家詳細", "設定"]
             if 0 <= index < len(menu_texts):
                 self.statusBar.showMessage(f"{menu_texts[index]}ページを表示しています")
 

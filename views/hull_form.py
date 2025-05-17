@@ -6,6 +6,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 import os
 import json
 import csv
+from utils.path_utils import get_data_dir
 
 class HullForm(QWidget):
     """船体登録フォーム"""
@@ -352,8 +353,7 @@ class HullForm(QWidget):
             import json
 
             # 保存先ディレクトリの作成
-            base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'hulls')
-            os.makedirs(base_dir, exist_ok=True)
+            base_dir = get_data_dir('hulls')
 
             # ファイル名は船体IDを使用
             file_name = f"{hull_data['id']}.json"
@@ -662,7 +662,7 @@ class HullForm(QWidget):
 
         # IDが未設定の場合は新しいIDを生成
         if not hull_data.get('id') or hull_data.get('id') == '-':
-            base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'hulls')
+            base_dir = get_data_dir('hulls')
             try:
                 next_id = len(os.listdir(base_dir)) + 1
             except:

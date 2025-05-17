@@ -1,4 +1,6 @@
 import os
+import json
+from utils.path_utils import get_data_dir
 
 from PyQt5.QtWidgets import (QWidget, QFormLayout, QLineEdit, QComboBox,
                              QSpinBox, QDoubleSpinBox, QTabWidget, QVBoxLayout,
@@ -336,17 +338,17 @@ class EquipmentForm(QWidget):
 
     def save_equipment(self):
         """装備データの保存"""
-        data = self.get_form_data()
+        equipment_data = self.get_form_data()
 
         # 必須フィールドの確認
-        if not data['common'].get('名前') or not data['common'].get('ID'):
-            QMessageBox.warning(self, "入力エラー", "装備名称とIDは必須です。")
+        if not equipment_data["common"]["名前"] or not equipment_data["common"]["ID"]:
+            QMessageBox.warning(self, "入力エラー", "装備名とIDは必須です。")
             return
 
         # AppControllerを使用して装備を保存
         if self.app_controller:
-            if self.app_controller.save_equipment(data):
-                equipment_id = data['common']['ID']
+            if self.app_controller.save_equipment(equipment_data):
+                equipment_id = equipment_data["common"]["ID"]
                 QMessageBox.information(self, "保存成功", f"装備データを保存しました。\nID: {equipment_id}")
                 self.equipment_saved.emit(equipment_id)
             else:
@@ -359,22 +361,17 @@ class EquipmentForm(QWidget):
             import json
 
             # 保存先ディレクトリの作成
-            equipment_type = data['equipment_type']
-            id_prefix = self.equipment_templates[equipment_type]['id_prefix']
-
-            # 保存ディレクトリの処理
-            base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'equipments', id_prefix)
-            os.makedirs(base_dir, exist_ok=True)
+            base_dir = get_data_dir('equipment')
 
             # ファイル名は装備IDを使用
-            file_name = f"{data['common']['ID']}.json"
+            file_name = f"{equipment_data['common']['ID']}.json"
             file_path = os.path.join(base_dir, file_name)
 
             with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+                json.dump(equipment_data, f, ensure_ascii=False, indent=2)
 
             QMessageBox.information(self, "保存成功", f"装備データを保存しました。\n{file_path}")
-            self.equipment_saved.emit(data['common']['ID'])
+            self.equipment_saved.emit(equipment_data["common"]["ID"])
         except Exception as e:
             QMessageBox.critical(self, "保存エラー", f"データの保存に失敗しました。\n{e}")
 

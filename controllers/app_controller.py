@@ -17,12 +17,15 @@ from views.fleet_view import FleetView
 from views.settings_view import SettingsView
 from models.equipment_model import EquipmentModel
 from models.hull_model import HullModel
+from views.nation_details_view import NationDetailsView
+from utils.path_utils import get_data_dir
 
 class AppController:
     """アプリケーション全体のコントローラークラス"""
     def __init__(self, app_settings):
         self.app_settings = app_settings
         self.main_window = None
+        self.nation_details_view = None
 
         # 装備モデルの初期化（データディレクトリをapp_settingsから取得）
         self.equipment_model = EquipmentModel(data_dir=self.app_settings.equipment_dir)
@@ -607,40 +610,25 @@ class AppController:
     # controllers/app_controller.py の既存のコードに追加
 
     def save_design(self, design_data):
-        """
-        船体設計データの保存
-
-        Args:
-            design_data (dict): 設計データ
-
-        Returns:
-            bool: 保存成功時はTrue、失敗時はFalse
-        """
+        """設計データを保存する"""
         try:
             # 設計ID（未設定の場合は生成）
             design_id = design_data.get("id", "")
             if not design_id:
                 # 設計名から一意のIDを生成
-                import re
-                import time
-                design_name = design_data.get("design_name", "")
-                base_id = re.sub(r'[^a-zA-Z0-9]', '_', design_name)
+                base_id = ''.join(e for e in design_data["design_name"] if e.isalnum())
                 design_id = f"DESIGN_{base_id}_{int(time.time())}"
                 design_data["id"] = design_id
 
-            # 設計データを保存
-            designs_dir = self.app_settings.design_dir
+            # 保存先ディレクトリの作成
+            base_dir = get_data_dir('designs')
+            os.makedirs(base_dir, exist_ok=True)
 
-            # ディレクトリがなければ作成
-            import os
-            if not os.path.exists(designs_dir):
-                os.makedirs(designs_dir, exist_ok=True)
-
-            # ファイルパス
-            file_path = os.path.join(designs_dir, f"{design_id}.json")
+            # ファイル名は設計IDを使用
+            file_name = f"{design_id}.json"
+            file_path = os.path.join(base_dir, file_name)
 
             # JSONに変換して保存
-            import json
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(design_data, f, ensure_ascii=False, indent=2)
 
@@ -648,7 +636,9 @@ class AppController:
             return True
 
         except Exception as e:
-            print(f"設計データ保存中にエラーが発生しました: {e}")
+            print(f"設計データの保存中にエラーが発生しました: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def load_design(self, design_id):
@@ -915,3 +905,385 @@ class AppController:
         except Exception as e:
             print(f"カテゴリ別装備タイプ取得中にエラーが発生しました: {e}")
             return []
+
+    def show_nation_details(self, nation_tag):
+        """国家詳細画面を表示"""
+        if not self.nation_details_view:
+            self.nation_details_view = NationDetailsView(self.main_window, self)
+            self.main_window.add_view("nation_details", self.nation_details_view)
+        
+        self.nation_details_view.load_nation_data(nation_tag)
+        self.main_window.show_view("nation_details")
+        self.nation_details_view.show()
+
+    def show_nation_list(self):
+        """国家リスト画面を表示"""
+        if hasattr(self, 'nation_details_view'):
+            self.nation_details_view.hide()
+        if hasattr(self, 'nation_view'):
+            self.nation_view.show()
+            self.nation_view.refresh_nation_list()
+        else:
+            # NationViewが存在しない場合は作成
+            from views.nation_view import NationView
+            self.nation_view = NationView(self.main_window, self)
+            self.main_window.add_view("nation", self.nation_view)
+            self.nation_view.show()
+            self.nation_view.refresh_nation_list()
+
+    def get_nation_equipment(self, nation_tag):
+        """国家の装備データを取得"""
+        try:
+            equipment_list = []
+            equipment_dir = os.path.join(self.app_settings.data_dir, "equipments")
+            
+            if not os.path.exists(equipment_dir):
+                return equipment_list
+
+            for filename in os.listdir(equipment_dir):
+                if not filename.endswith('.json'):
+                    continue
+
+                file_path = os.path.join(equipment_dir, filename)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        equipment_data = json.load(f)
+                        
+                    # 国家タグが一致するものをフィルタリング
+                    if equipment_data.get('country') == nation_tag:
+                        equipment_list.append({
+                            'id': equipment_data.get('id', ''),
+                            'name': equipment_data.get('name', ''),
+                            'type': equipment_data.get('type', ''),
+                            'stats': equipment_data.get('stats', {})
+                        })
+                except Exception as e:
+                    print(f"装備ファイル '{filename}' の読み込みエラー: {e}")
+
+            # 名前でソート
+            equipment_list.sort(key=lambda x: x['name'])
+            return equipment_list
+
+        except Exception as e:
+            print(f"国家装備データ取得中にエラーが発生しました: {e}")
+            return []
+
+    def get_nation_hulls(self, nation_tag):
+        """国家の船体データを取得"""
+        try:
+            hull_list = []
+            hull_dir = os.path.join(self.app_settings.data_dir, "hulls")
+            
+            if not os.path.exists(hull_dir):
+                return hull_list
+
+            for filename in os.listdir(hull_dir):
+                if not filename.endswith('.json'):
+                    continue
+
+                file_path = os.path.join(hull_dir, filename)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        hull_data = json.load(f)
+                        
+                    # 国家タグが一致するものをフィルタリング
+                    if hull_data.get('country') == nation_tag:
+                        hull_list.append({
+                            'id': hull_data.get('id', ''),
+                            'name': hull_data.get('name', ''),
+                            'type': hull_data.get('type', ''),
+                            'stats': hull_data.get('stats', {})
+                        })
+                except Exception as e:
+                    print(f"船体ファイル '{filename}' の読み込みエラー: {e}")
+
+            # 名前でソート
+            hull_list.sort(key=lambda x: x['name'])
+            return hull_list
+
+        except Exception as e:
+            print(f"国家船体データ取得中にエラーが発生しました: {e}")
+            return []
+
+    def get_nation_designs(self, nation_tag):
+        """国家の設計データを取得"""
+        try:
+            design_list = []
+            design_dir = os.path.join(self.app_settings.data_dir, "designs")
+            
+            if not os.path.exists(design_dir):
+                return design_list
+
+            for filename in os.listdir(design_dir):
+                if not filename.endswith('.json'):
+                    continue
+
+                file_path = os.path.join(design_dir, filename)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        design_data = json.load(f)
+                        
+                    # 国家タグが一致するものをフィルタリング
+                    if design_data.get('country') == nation_tag:
+                        design_list.append({
+                            'id': design_data.get('id', ''),
+                            'design_name': design_data.get('design_name', design_data.get('name', '')),
+                            'ship_type': design_data.get('ship_type', design_data.get('hull', '')),
+                            'hull_name': design_data.get('hull_name', ''),
+                            'year': design_data.get('year', ''),
+                            'main_slots': design_data.get('main_slots', {}),
+                            'slot_categories': design_data.get('slot_categories', {}),
+                            'internal_slots': design_data.get('internal_slots', [])
+                        })
+                except Exception as e:
+                    print(f"設計ファイル '{filename}' の読み込みエラー: {e}")
+
+            # 名前でソート
+            design_list.sort(key=lambda x: x['design_name'])
+            return design_list
+
+        except Exception as e:
+            print(f"国家設計データ取得中にエラーが発生しました: {e}")
+            return []
+
+    def show_equipment_form(self, equipment_data):
+        """装備フォームを表示"""
+        from views.equipment_form import EquipmentForm
+        
+        # 装備フォームのインスタンスを作成
+        self.equipment_form = EquipmentForm(app_controller=self)
+        self.equipment_form.load_equipment_data(equipment_data)
+        
+        # 現在の画面を非表示にして、新しい画面を表示
+        if hasattr(self, 'nation_details_view'):
+            self.nation_details_view.hide()
+        self.equipment_form.show()
+
+    def show_hull_form(self, hull_data=None):
+        """船体フォームを表示"""
+        if not self.hull_form:
+            self.hull_form = HullForm(self.main_window, self)
+            self.hull_form.hull_saved.connect(self.on_hull_saved)
+
+        if hull_data:
+            self.hull_form.set_form_data(hull_data)
+
+        self.main_window.show_view("hull_form")
+
+    def show_design_view(self, design_data):
+        """設計ビューを表示"""
+        from views.design_view import DesignView
+        
+        # 設計ビューのインスタンスを作成（app_controllerを明示的に渡す）
+        self.design_view = DesignView(parent=self.main_window, app_controller=self)
+        self.design_view.load_design_data(design_data)
+        
+        # 現在の画面を非表示にして、新しい画面を表示
+        if hasattr(self, 'nation_details_view'):
+            self.nation_details_view.hide()
+        self.design_view.show()
+
+    def get_nation_mod_designs(self, nation_tag):
+        """MODから国家の設計データを取得"""
+        try:
+            design_list = []
+            current_mod = self.get_current_mod()
+            
+            if not current_mod or not current_mod.get("path"):
+                return design_list
+
+            # MODの設計データディレクトリ
+            design_dir = os.path.join(current_mod["path"], "common", "units", "equipment")
+            
+            if not os.path.exists(design_dir):
+                return design_list
+
+            for filename in os.listdir(design_dir):
+                if not filename.endswith('.txt'):
+                    continue
+
+                file_path = os.path.join(design_dir, filename)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    # 国家タグと設計データのパターンを検索
+                    pattern = r'(\w+)\s*=\s*{([^}]+)}'
+                    matches = re.findall(pattern, content)
+
+                    for match in matches:
+                        design_id = match[0]
+                        design_data = match[1]
+
+                        # 国家タグが一致するものをフィルタリング
+                        if f'country = {nation_tag}' in design_data:
+                            design_list.append({
+                                'id': design_id,
+                                'name': design_id,  # 実際の名前は別途取得が必要
+                                'data': design_data
+                            })
+
+                except Exception as e:
+                    print(f"設計ファイル '{filename}' の読み込みエラー: {e}")
+
+            return design_list
+
+        except Exception as e:
+            print(f"MOD設計データ取得中にエラーが発生しました: {e}")
+            return []
+
+    def get_nation_formations(self, nation_tag):
+        """国家の編成データを取得"""
+        try:
+            formation_list = []
+            formation_dir = os.path.join(self.app_settings.data_dir, "formations")
+            
+            if not os.path.exists(formation_dir):
+                return formation_list
+
+            for filename in os.listdir(formation_dir):
+                if not filename.endswith('.json'):
+                    continue
+
+                file_path = os.path.join(formation_dir, filename)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        formation_data = json.load(f)
+                        
+                    # 国家タグが一致するものをフィルタリング
+                    if formation_data.get('country') == nation_tag:
+                        formation_list.append({
+                            'id': formation_data.get('id', ''),
+                            'name': formation_data.get('name', ''),
+                            'ships': formation_data.get('ships', [])
+                        })
+                except Exception as e:
+                    print(f"編成ファイル '{filename}' の読み込みエラー: {e}")
+
+            # 名前でソート
+            formation_list.sort(key=lambda x: x['name'])
+            return formation_list
+
+        except Exception as e:
+            print(f"国家編成データ取得中にエラーが発生しました: {e}")
+            return []
+
+    def get_nation_mod_formations(self, nation_tag):
+        """MODから国家の編成データを取得"""
+        try:
+            formation_list = []
+            current_mod = self.get_current_mod()
+            
+            if not current_mod or not current_mod.get("path"):
+                return formation_list
+
+            # MODの編成データディレクトリ
+            formation_dir = os.path.join(current_mod["path"], "common", "units", "formations")
+            
+            if not os.path.exists(formation_dir):
+                return formation_list
+
+            for filename in os.listdir(formation_dir):
+                if not filename.endswith('.txt'):
+                    continue
+
+                file_path = os.path.join(formation_dir, filename)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    # 国家タグと編成データのパターンを検索
+                    pattern = r'(\w+)\s*=\s*{([^}]+)}'
+                    matches = re.findall(pattern, content)
+
+                    for match in matches:
+                        formation_id = match[0]
+                        formation_data = match[1]
+
+                        # 国家タグが一致するものをフィルタリング
+                        if f'country = {nation_tag}' in formation_data:
+                            formation_list.append({
+                                'id': formation_id,
+                                'name': formation_id,  # 実際の名前は別途取得が必要
+                                'data': formation_data
+                            })
+
+                except Exception as e:
+                    print(f"編成ファイル '{filename}' の読み込みエラー: {e}")
+
+            return formation_list
+
+        except Exception as e:
+            print(f"MOD編成データ取得中にエラーが発生しました: {e}")
+            return []
+
+    def save_fleet_data(self, fleet_data):
+        """
+        艦隊データを保存
+
+        Args:
+            fleet_data (dict): 保存する艦隊データ
+
+        Returns:
+            bool: 保存成功時はTrue、失敗時はFalse
+        """
+        try:
+            # 保存先ディレクトリの作成
+            fleet_dir = os.path.join(self.app_settings.data_dir, "fleets")
+            os.makedirs(fleet_dir, exist_ok=True)
+
+            # 国家タグを取得
+            country_tag = fleet_data.get("country")
+            if not country_tag:
+                print("国家タグが指定されていません。")
+                return False
+
+            # ファイル名は国家タグを使用
+            file_name = f"{country_tag}_fleets.json"
+            file_path = os.path.join(fleet_dir, file_name)
+
+            # JSONに変換して保存
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(fleet_data, f, ensure_ascii=False, indent=2)
+
+            print(f"艦隊データを保存しました: {file_path}")
+            return True
+
+        except Exception as e:
+            print(f"艦隊データの保存中にエラーが発生しました: {e}")
+            return False
+
+    def load_fleet_data(self, country_tag):
+        """
+        艦隊データを読み込み
+
+        Args:
+            country_tag (str): 国家タグ
+
+        Returns:
+            dict or None: 艦隊データ、存在しない場合はNone
+        """
+        try:
+            # 艦隊データのディレクトリ
+            fleet_dir = os.path.join(self.app_settings.data_dir, "fleets")
+            
+            if not os.path.exists(fleet_dir):
+                return None
+
+            # ファイル名は国家タグを使用
+            file_name = f"{country_tag}_fleets.json"
+            file_path = os.path.join(fleet_dir, file_name)
+
+            if not os.path.exists(file_path):
+                return None
+
+            # JSONから読み込み
+            with open(file_path, 'r', encoding='utf-8') as f:
+                fleet_data = json.load(f)
+
+            print(f"艦隊データを読み込みました: {file_path}")
+            return fleet_data
+
+        except Exception as e:
+            print(f"艦隊データの読み込み中にエラーが発生しました: {e}")
+            return None

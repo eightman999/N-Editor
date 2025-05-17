@@ -4,11 +4,22 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFo
                              QScrollArea, QMessageBox, QHeaderView, QListWidgetItem)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QPalette
+from utils.path_utils import get_data_dir
 
 class DesignView(QWidget):
     def __init__(self, parent=None, app_controller=None):
         super().__init__(parent)
+        # app_controllerがNoneの場合、親ウィンドウから取得を試みる
+        if app_controller is None and parent is not None:
+            if hasattr(parent, 'app_controller'):
+                app_controller = parent.app_controller
+            elif hasattr(parent, 'parent') and hasattr(parent.parent(), 'app_controller'):
+                app_controller = parent.parent().app_controller
+        
         self.app_controller = app_controller
+        if self.app_controller is None:
+            print("警告: app_controllerが設定されていません。")
+            
         self.current_hull = None  # 現在選択されている船体データ
         self.stats_labels = {}    # 性能ラベル用の辞書を初期化
         self.internal_slots = []  # 内部スロットのリストを初期化
@@ -582,7 +593,7 @@ class DesignView(QWidget):
             self.selected_hull_label.setText(hull_data.get("name", "不明"))
 
             # 艦級名フィールドにデフォルト値を設定
-            self.design_name_edit.setText(hull_data.get("name", "") + " 級")
+            self.design_name_edit.setText(hull_data.get("name", ""))
 
             # 艦種コンボボックスを更新
             ship_type = hull_data.get("type", "")
@@ -698,15 +709,22 @@ class DesignView(QWidget):
 
     def load_design(self):
         """設計の読み込み"""
-        if not self.app_controller:
-            QMessageBox.warning(self, "警告", "アプリケーションコントローラーが設定されていません。")
-            return
-
         try:
-            # 全ての設計データを取得
-            designs = self.app_controller.get_all_designs()
+            import os
+            import json
 
-            if not designs:
+            # 設計データのディレクトリパス
+            base_dir = get_data_dir('designs')
+
+            # ディレクトリが存在しない場合はエラー
+            if not os.path.exists(base_dir):
+                QMessageBox.warning(self, "警告", "設計データのディレクトリが存在しません。")
+                return
+
+            # 設計ファイルの一覧を取得
+            design_files = [f for f in os.listdir(base_dir) if f.endswith('.json')]
+
+            if not design_files:
                 QMessageBox.information(self, "情報", "保存された設計データがありません。")
                 return
 
@@ -725,12 +743,23 @@ class DesignView(QWidget):
             design_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)  # 艦級名列を拡大
 
             # 設計データをテーブルに追加
-            for i, design in enumerate(designs):
-                design_table.insertRow(i)
-                design_table.setItem(i, 0, QTableWidgetItem(design.get("id", "")))
-                design_table.setItem(i, 1, QTableWidgetItem(design.get("design_name", "")))
-                design_table.setItem(i, 2, QTableWidgetItem(design.get("hull_name", "")))
-                design_table.setItem(i, 3, QTableWidgetItem(design.get("ship_type", "")))
+            designs = []
+            for file_name in design_files:
+                try:
+                    file_path = os.path.join(base_dir, file_name)
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        design_data = json.load(f)
+                        designs.append(design_data)
+
+                        # テーブルに行を追加
+                        row = design_table.rowCount()
+                        design_table.insertRow(row)
+                        design_table.setItem(row, 0, QTableWidgetItem(design_data.get("id", "")))
+                        design_table.setItem(row, 1, QTableWidgetItem(design_data.get("design_name", "")))
+                        design_table.setItem(row, 2, QTableWidgetItem(design_data.get("hull_name", "")))
+                        design_table.setItem(row, 3, QTableWidgetItem(design_data.get("ship_type", "")))
+                except Exception as e:
+                    print(f"設計データ読み込みエラー ({file_name}): {e}")
 
             dialog_layout.addWidget(design_table)
 
@@ -763,7 +792,8 @@ class DesignView(QWidget):
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"設計データの取得中にエラーが発生しました: {e}")
-
+            import traceback
+            traceback.print_exc()
 
     def set_slot_categories(self, slot_categories):
         """スロットカテゴリーを設定"""
@@ -985,6 +1015,8 @@ class DesignView(QWidget):
                 "main_slots": {},          # メインスロットの装備ID
                 "slot_categories": {},     # スロットに割り当てられたカテゴリー
                 "internal_slots": [],      # 内部スロットの情報
+                "year": self.current_hull.get("year", 1936),  # 設計年
+                "country": self.current_hull.get("country", "")  # 建造国
             }
 
             # メインスロットのカテゴリーと装備の取得
@@ -1039,49 +1071,14 @@ class DesignView(QWidget):
 
                 design_data["internal_slots"].append(internal_slot_data)
 
-            # 基本情報の追加
-            design_data["displacement"] = self.current_hull.get("weight", 0)  # 排水量
-            design_data["year"] = self.current_hull.get("year", 1936)        # 設計年
-            design_data["country"] = self.current_hull.get("country", "")    # 建造国
-
-            # コントローラーを使用して保存
+            # 設計データを保存
             if self.app_controller:
-                success = self.app_controller.save_design(design_data)
-                if success:
+                if self.app_controller.save_design(design_data):
                     QMessageBox.information(self, "保存成功", f"艦級「{design_name}」の設計を保存しました。")
                 else:
-                    QMessageBox.critical(self, "保存エラー", "設計の保存に失敗しました。")
+                    QMessageBox.warning(self, "警告", "設計の保存に失敗しました。")
             else:
-                # コントローラーがない場合は直接保存
-                try:
-                    import os
-                    import json
-                    import time
-
-                    # 設計ID（未設定の場合は生成）
-                    design_id = design_data.get("id", "")
-                    if not design_id:
-                        # 設計名から一意のIDを生成
-                        base_id = ''.join(e for e in design_name if e.isalnum())
-                        design_id = f"DESIGN_{base_id}_{int(time.time())}"
-                        design_data["id"] = design_id
-
-                    # 設計データを保存
-                    designs_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'designs')
-
-                    # ディレクトリがなければ作成
-                    os.makedirs(designs_dir, exist_ok=True)
-
-                    # ファイルパス
-                    file_path = os.path.join(designs_dir, f"{design_id}.json")
-
-                    # JSONに変換して保存
-                    with open(file_path, 'w', encoding='utf-8') as f:
-                        json.dump(design_data, f, ensure_ascii=False, indent=2)
-
-                    QMessageBox.information(self, "保存成功", f"艦級「{design_name}」の設計を保存しました。")
-                except Exception as e:
-                    QMessageBox.critical(self, "保存エラー", f"設計の保存に失敗しました: {e}")
+                QMessageBox.warning(self, "警告", "アプリケーションコントローラーが設定されていません。")
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"設計の保存中にエラーが発生しました: {e}")

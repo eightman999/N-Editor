@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QListWidget, QListWidgetItem,
-                             QSizePolicy, QMessageBox)
+                             QSizePolicy, QMessageBox, QTabWidget)
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import Qt, QSize
 
@@ -43,7 +43,30 @@ class NationView(QWidget):
         # 国家リスト
         self.nation_list = QListWidget()
         self.nation_list.setIconSize(QSize(32, 20))  # 国旗サイズ
+        self.nation_list.itemClicked.connect(self.on_nation_clicked)  # クリックイベントを追加
         main_layout.addWidget(self.nation_list)
+
+    def on_nation_clicked(self, item):
+        """国家リストの要素がクリックされた時の処理"""
+        if not self.app_controller:
+            return
+
+        # 選択された国家のタグを取得
+        nation_tag = item.text().split(":")[0].strip()
+        
+        # 国家情報を取得
+        current_mod = self.app_controller.get_current_mod()
+        if current_mod and "path" in current_mod:
+            nations = self.app_controller.get_nations(current_mod["path"])
+            nation_info = next((n for n in nations if n["tag"] == nation_tag), None)
+            
+            if nation_info:
+                # コントローラを通じて新しい画面を表示
+                self.app_controller.show_nation_details(nation_tag)
+            else:
+                QMessageBox.warning(self, "警告", f"国家情報 '{nation_tag}' が見つかりません。")
+        else:
+            QMessageBox.warning(self, "警告", "MODが選択されていません。")
 
     def refresh_nation_list(self):
         """国家リストを更新"""
