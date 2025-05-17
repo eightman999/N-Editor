@@ -5,6 +5,9 @@ import time
 import json
 from pathlib import Path
 
+from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QTableWidget, QHeaderView, QTableWidgetItem, QHBoxLayout, \
+    QPushButton
+
 from views.main_window import NavalDesignSystem
 from views.home_view import HomeView
 from views.equipment_form import EquipmentForm
@@ -614,3 +617,251 @@ class AppController:
                 self.current_mod_label.setText("MODが選択されていません")
                 self.nation_list.clear()
                 QMessageBox.warning(self, "警告", "MODが選択されていません。\nホーム画面からMODを選択してください。")
+
+
+    # controllers/app_controller.py の既存のコードに追加
+
+    def save_design(self, design_data):
+        """
+        船体設計データの保存
+
+        Args:
+            design_data (dict): 設計データ
+
+        Returns:
+            bool: 保存成功時はTrue、失敗時はFalse
+        """
+        try:
+            # 設計ID（未設定の場合は生成）
+            design_id = design_data.get("id", "")
+            if not design_id:
+                # 設計名から一意のIDを生成
+                import re
+                import time
+                design_name = design_data.get("design_name", "")
+                base_id = re.sub(r'[^a-zA-Z0-9]', '_', design_name)
+                design_id = f"DESIGN_{base_id}_{int(time.time())}"
+                design_data["id"] = design_id
+
+            # 設計データを保存
+            designs_dir = self.app_settings.design_dir
+
+            # ディレクトリがなければ作成
+            import os
+            if not os.path.exists(designs_dir):
+                os.makedirs(designs_dir, exist_ok=True)
+
+            # ファイルパス
+            file_path = os.path.join(designs_dir, f"{design_id}.json")
+
+            # JSONに変換して保存
+            import json
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(design_data, f, ensure_ascii=False, indent=2)
+
+            print(f"設計データ '{design_id}' を保存しました。")
+            return True
+
+        except Exception as e:
+            print(f"設計データ保存中にエラーが発生しました: {e}")
+            return False
+
+    def load_design(self, design_id):
+        """
+        船体設計データの読み込み
+
+        Args:
+            design_id (str): 設計ID
+
+        Returns:
+            dict or None: 設計データ、存在しない場合はNone
+        """
+        try:
+            # 設計データを読み込み
+            designs_dir = self.app_settings.design_dir
+            file_path = os.path.join(designs_dir, f"{design_id}.json")
+
+            if not os.path.exists(file_path):
+                print(f"設計ID '{design_id}' のデータが見つかりません。")
+                return None
+
+            # JSONから読み込み
+            with open(file_path, 'r', encoding='utf-8') as f:
+                design_data = json.load(f)
+
+            print(f"設計ID '{design_id}' のデータを読み込みました。")
+            return design_data
+
+        except Exception as e:
+            print(f"設計データ読み込み中にエラーが発生しました: {e}")
+            return None
+
+    def get_all_designs(self):
+        """
+        全ての船体設計データを取得
+
+        Returns:
+            list: 設計データのリスト
+        """
+        try:
+            designs = []
+            designs_dir = self.app_settings.design_dir
+
+            # ディレクトリが存在しない場合は空リストを返す
+            import os
+            if not os.path.exists(designs_dir):
+                return designs
+
+            # ディレクトリ内のJSONファイルを全て読み込む
+            for file_name in os.listdir(designs_dir):
+                if file_name.endswith('.json'):
+                    file_path = os.path.join(designs_dir, file_name)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            design_data = json.load(f)
+                        designs.append(design_data)
+                    except Exception as e:
+                        print(f"設計ファイル '{file_name}' の読み込みエラー: {e}")
+
+            return designs
+
+        except Exception as e:
+            print(f"設計データ一覧取得中にエラーが発生しました: {e}")
+            return []
+
+    def delete_design(self, design_id):
+        """
+        船体設計データの削除
+
+        Args:
+            design_id (str): 設計ID
+
+        Returns:
+            bool: 削除成功時はTrue、失敗時はFalse
+        """
+        try:
+            # 設計データを削除
+            designs_dir = self.app_settings.design_dir
+            file_path = os.path.join(designs_dir, f"{design_id}.json")
+
+            if not os.path.exists(file_path):
+                print(f"設計ID '{design_id}' のデータが見つかりません。")
+                return False
+
+            # ファイルを削除
+            os.remove(file_path)
+            print(f"設計ID '{design_id}' のデータを削除しました。")
+            return True
+
+        except Exception as e:
+            print(f"設計データ削除中にエラーが発生しました: {e}")
+            return False
+
+    def calculate_design_stats(self, hull_data, equipment_data):
+        """
+        船体設計の性能計算
+
+        Args:
+            hull_data (dict): 船体データ
+            equipment_data (list): 装備データのリスト
+
+        Returns:
+            dict: 計算された性能値
+        """
+        try:
+            # 性能値の初期値（船体から取得）
+            stats = {
+                "build_cost_ic": 0.0,
+                "manpower": 0,
+                "reliability": 0.0,
+                "naval_speed": 0.0,
+                "fire_range": 0.0,
+                "lg_armor_piercing": 0.0,
+                "lg_attack": 0.0,
+                "hg_armor_piercing": 0.0,
+                "hg_attack": 0.0,
+                "torpedo_attack": 0.0,
+                "anti_air_attack": 0.0,
+                "shore_bombardment": 0.0,
+                "evasion": 0.0,
+                "surface_detection": 0.0,
+                "sub_attack": 0.0,
+                "sub_detection": 0.0,
+                "surface_visibility": 0.0,
+                "sub_visibility": 0.0,
+                "naval_range": 0.0,
+                "port_capacity_usage": 0.0,
+                "search_and_destroy_coordination": 0.0,
+                "convoy_raiding_coordination": 0.0
+            }
+
+            # 船体の基本性能を設定
+            # 実際の実装では船体タイプ、排水量などから基本性能を計算
+            # 現時点ではダミー値を設定
+            base_stats = {
+                "build_cost_ic": 10.0,
+                "manpower": 500,
+                "reliability": 0.8,
+                "naval_speed": hull_data.get("speed", 0),  # 船体の速力を使用
+                "naval_range": hull_data.get("range", 0),  # 船体の航続距離を使用
+                "surface_visibility": hull_data.get("weight", 0) * 0.01,  # 排水量に比例
+                "port_capacity_usage": hull_data.get("weight", 0) * 0.0001  # 排水量に比例
+            }
+
+            # 基本性能を反映
+            for key, value in base_stats.items():
+                if key in stats:
+                    stats[key] = value
+
+            # 装備による性能加算（本来は装備種別ごとに処理が必要）
+            for eq_data in equipment_data:
+                eq_stats = eq_data.get("stats", {}).get("add_stats", {})
+
+                # 各統計値を加算
+                for key, value in eq_stats.items():
+                    if key in stats:
+                        stats[key] += float(value)
+
+            # 値の調整（例: 信頼性は0.0〜1.0に制限）
+            if stats["reliability"] > 1.0:
+                stats["reliability"] = 1.0
+            elif stats["reliability"] < 0.0:
+                stats["reliability"] = 0.0
+
+            # shore_bombardmentはlg_attackとhg_attackから計算（仮実装）
+            stats["shore_bombardment"] = (stats["lg_attack"] * 0.3 + stats["hg_attack"] * 0.7)
+
+            # evasionはnaval_speedから計算（仮実装）
+            stats["evasion"] = stats["naval_speed"] * 0.5
+
+            return stats
+
+        except Exception as e:
+            print(f"設計性能計算中にエラーが発生しました: {e}")
+            return {}
+
+    def get_equipment_for_design(self, design_data):
+        """
+        設計に使用されている装備データを取得
+
+        Args:
+            design_data (dict): 設計データ
+
+        Returns:
+            dict: スロットごとの装備データ
+        """
+        try:
+            result = {}
+            slots = design_data.get("slots", {})
+
+            # 各スロットの装備IDから装備データを取得
+            for slot_type, equipment_id in slots.items():
+                equipment_data = self.load_equipment(equipment_id)
+                if equipment_data:
+                    result[slot_type] = equipment_data
+
+            return result
+
+        except Exception as e:
+            print(f"設計の装備データ取得中にエラーが発生しました: {e}")
+            return {}
