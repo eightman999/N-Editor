@@ -317,18 +317,7 @@ class AppController:
             print(f"装備データ削除中にエラーが発生しました: {e}")
             return False
 
-    def get_equipment_types(self):
-        """
-        利用可能な装備タイプのリストを取得
 
-        Returns:
-            list: 装備タイプのリスト
-        """
-        try:
-            return self.equipment_model.get_equipment_types()
-        except Exception as e:
-            print(f"装備タイプ取得中にエラーが発生しました: {e}")
-            return []
 
     def get_next_equipment_id(self, equipment_type):
         """
@@ -538,11 +527,7 @@ class AppController:
             print(f"CSVからの最初の船体インポート中にエラーが発生しました: {e}")
             return None
 
-    def calculate_design_stats(self, hull_id, equipment_list):
-        """艦艇設計の性能計算"""
-        # 設計計算ロジックを実装
-        # ここでは、装備のステータスから船体の性能を計算する
-        pass
+
 
     def get_nations(self, mod_path):
         """
@@ -865,3 +850,68 @@ class AppController:
         except Exception as e:
             print(f"設計の装備データ取得中にエラーが発生しました: {e}")
             return {}
+
+    def load_equipment_templates(self):
+        """YAMLファイルから装備テンプレートを読み込む"""
+        try:
+            import yaml
+            import os
+
+            # ファイルパスの取得
+            template_file = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                'equipments_templates.yml'
+            )
+
+            if not os.path.exists(template_file):
+                print(f"警告: 装備テンプレートファイル '{template_file}' が見つかりません。")
+                return {}
+
+            # YAMLファイルの読み込み
+            with open(template_file, 'r', encoding='utf-8') as f:
+                templates = yaml.safe_load(f)
+
+            return templates
+        except Exception as e:
+            print(f"装備テンプレート読み込みエラー: {e}")
+            return {}
+
+    def get_equipment_categories(self):
+        """装備カテゴリのリストを取得"""
+        try:
+            templates = self.load_equipment_templates()
+            return list(templates.keys())
+        except Exception as e:
+            print(f"装備カテゴリ取得中にエラーが発生しました: {e}")
+            return []
+
+    def get_equipment_types(self):
+        """全ての装備タイプとその表示名を取得"""
+        try:
+            templates = self.load_equipment_templates()
+            equipment_types = []
+
+            # カテゴリごとに装備タイプを収集
+            for category_key, category_data in templates.items():
+                if isinstance(category_data, dict):
+                    for type_key, type_data in category_data.items():
+                        if isinstance(type_data, dict) and 'display_name' in type_data:
+                            equipment_types.append(type_data['display_name'])
+
+            return equipment_types
+        except Exception as e:
+            print(f"装備タイプ取得中にエラーが発生しました: {e}")
+            return []
+
+    def get_equipment_types_by_category(self, category):
+        """特定のカテゴリに属する装備タイプのリストを取得"""
+        try:
+            templates = self.load_equipment_templates()
+            if category in templates and isinstance(templates[category], dict):
+                return [type_data['display_name']
+                        for type_key, type_data in templates[category].items()
+                        if isinstance(type_data, dict) and 'display_name' in type_data]
+            return []
+        except Exception as e:
+            print(f"カテゴリ別装備タイプ取得中にエラーが発生しました: {e}")
+            return []
