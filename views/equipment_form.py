@@ -187,35 +187,57 @@ class EquipmentForm(QWidget):
                 return
 
             # 従来の方法（AppControllerがない場合）
-            with open('paste.txt', 'r', encoding='utf-8') as f:
+            import os
+            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            template_file = os.path.join(root_dir, 'paste.txt')
+
+            if not os.path.exists(template_file):
+                print(f"警告: 装備テンプレートファイル '{template_file}' が見つかりません。")
+                return
+
+            with open(template_file, 'r', encoding='utf-8') as f:
                 content = f.read()
 
-            # YAMLライクな形式をパースする簡易実装
+            # YAMLライクな形式をパースする改良版実装
             self.equipment_templates = {}
+            current_category = None
             current_type = None
 
             for line in content.split('\n'):
-                if line.strip() and not line.startswith('#'):
-                    if ':' in line and not line.startswith(' '):
-                        # トップレベルの定義（装備タイプ）
-                        current_type = line.split(':')[0].strip()
-                        self.equipment_templates[current_type] = {'common_elements': {}, 'specific_elements': {}}
-                    elif 'id_prefix:' in line and current_type:
-                        prefix = line.split('id_prefix:')[1].strip()
+                if not line.strip() or line.strip().startswith('#'):
+                    continue
+
+                # 行のインデントレベルを判断
+                indent = len(line) - len(line.lstrip())
+                stripped_line = line.strip()
+
+                if ':' in stripped_line:
+                    if indent == 0:
+                        # トップレベルのカテゴリ (例: "砲系統:")
+                        current_category = stripped_line.rstrip(':')
+                    elif indent == 2 and current_category:
+                        # 第2レベルの装備タイプ (例: "  小口径砲:")
+                        current_type = stripped_line.rstrip(':')
+                        type_key = current_type  # 表示と内部キーを同じにする
+                        self.equipment_templates[type_key] = {
+                            'category': current_category,
+                            'id_prefix': '',
+                            'common_elements': {},
+                            'specific_elements': {}
+                        }
+                    elif 'id_prefix:' in stripped_line and current_type:
+                        # ID接頭辞の設定
+                        prefix = stripped_line.split('id_prefix:')[1].strip()
                         self.equipment_templates[current_type]['id_prefix'] = prefix
-                    elif 'common_elements:' in line or 'specific_elements:' in line:
-                        # セクション定義は無視（パース簡易化のため）
-                        pass
 
             # コンボボックスに追加
-            for eq_type in self.equipment_templates.keys():
+            for eq_type in sorted(self.equipment_templates.keys()):
                 self.equipment_type_combo.addItem(eq_type)
 
         except Exception as e:
             print(f"装備テンプレート読み込みエラー: {e}")
-            QMessageBox.warning(self, "読み込みエラー", f"装備テンプレートの読み込みに失敗しました: {e}")
-
-
+            import traceback
+            traceback.print_exc()
 
     def clear_form_fields(self):
         """フォームフィールドのクリア"""

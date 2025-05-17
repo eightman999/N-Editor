@@ -2,449 +2,394 @@
 # このファイルは装備の種別ごとのデータ構造テンプレートを定義します。
 # 各ID接頭辞は、その種別の装備データが格納されるディレクトリ名にも対応します。
 
-# --- 砲系統 ---
-小口径砲:
-  id_prefix: SMLG
-  common_elements:
-    名前: "string"               # 例: 62口径5インチ単装砲
-    ID: "string"                 # 例: SMLG001 (このIDは {id_prefix} + 連番などで構成)
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源:
-      鉄: "integer"
-      クロム: "integer"
-      アルミ: "integer"
-      タングステン: "integer"
-      ゴム: "integer"
-  specific_elements:
-    砲弾重量_kg: "number"
-    初速_mps: "number (m/s)"      # メートル/秒
-    毎分発射数: "integer (rpm)"   # rounds per minute
-    砲口口径_cm: "number"
-    口径: "integer (口径長)"       # 例: 50 (50口径)
-    砲身数: "integer"
-    最大仰俯角: "string (例: +85/-10 度)"
-    砲塔数: "integer"
 
-中口径砲:
-  id_prefix: SMMG
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements: # (小口径砲と同様)
-    砲弾重量_kg: "number"
-    初速_mps: "number (m/s)"
-    毎分発射数: "integer (rpm)"
-    砲口口径_cm: "number"
-    口径: "integer (口径長)"
-    砲身数: "integer"
-    最大仰俯角: "string (例: +55/-5 度)"
-    砲塔数: "integer"
+  小口径砲:
+    id_prefix: SMLG
+    common_elements:
+      名前: "string"               # 例: 62口径5インチ単装砲
+      ID: "string"                 # 例: SMLG127L62YYYYAAA (YYYY: 開発年, AAA: 開発国タグ)
+      重量: "number (kg)"
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      砲弾重量_kg: "number"
+      初速_mps: "number (m/s)"      # メートル/秒
+      毎分発射数: "integer (rpm)"   # rounds per minute
+      砲口口径_cm: "number"
+      口径: "integer (口径長)"       # 例: 50 (50口径)
+      砲身数: "integer"
+      最大仰俯角: "string (例: +85/-10 度)"
+      砲塔数: "integer"
+  中口径砲:
+    id_prefix: SMMG
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMMG203L55YYYYBBB
+      重量: "number (kg)"
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      砲弾重量_kg: "number"
+      初速_mps: "number (m/s)"
+      毎分発射数: "integer (rpm)"
+      砲口口径_cm: "number"
+      口径: "integer (口径長)"
+      砲身数: "integer"
+      最大仰俯角: "string (例: +55/-5 度)"
+      砲塔数: "integer"
+  大口径砲:
+    id_prefix: SMHG
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMHG356L45YYYYCCC
+      重量: "number (kg)"
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      砲弾重量_kg: "number"
+      初速_mps: "number (m/s)"
+      毎分発射数: "integer (rpm)"
+      砲口口径_cm: "number"
+      口径: "integer (口径長)"
+      砲身数: "integer"
+      最大仰俯角: "string (例: +45/-5 度)"
+      砲塔数: "integer"
+  超大口径砲:
+    id_prefix: SMSHG
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMSHG460L45YYYYDDD
+      重量: "number (kg)"
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      砲弾重量_kg: "number"
+      初速_mps: "number (m/s)"
+      毎分発射数: "integer (rpm)"
+      砲口口径_cm: "number"
+      口径: "integer (口径長)"
+      砲身数: "integer"
+      最大仰俯角: "string (例: +45/-3 度)"
+      砲塔数: "integer"
+  対空砲:
+    id_prefix: SMAA
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMAA040L56YYYYEEE
+      重量: "number (kg)"
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      弾丸重量_g: "number"       # グラム
+      初速_mps: "number (m/s)"
+      毎分発射数: "integer (rpm)"
+      砲口口径_mm: "number"      # ミリメートル
+      口径: "integer (口径長)"
+      砲身数: "integer"
+      最大仰俯角: "string (例: +90/-0 度)"
+      砲塔数: "integer"
 
-大口径砲:
-  id_prefix: SMHG
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements: # (小口径砲と同様)
-    砲弾重量_kg: "number"
-    初速_mps: "number (m/s)"
-    毎分発射数: "integer (rpm)"
-    砲口口径_cm: "number"
-    口径: "integer (口径長)"
-    砲身数: "integer"
-    最大仰俯角: "string (例: +45/-5 度)"
-    砲塔数: "integer"
+  魚雷:
+    id_prefix: SMTP
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMTP053L_YYYYFFF
+      重量: "number (kg)"
+      人員: "integer"         # 魚雷自体の人員は通常0だが、運用に関わる人員を想定か。ここではテンプレートとして定義。
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      炸薬重量_kg: "number"
+      最大射程_m: "number (メートル)"
+      雷速_kts: "number (ノット)"
+      口径_cm: "number (直径)"    # 魚雷の直径
+      砲塔数: "integer"         # 発射管数や連装数
+  潜水艦魚雷:
+    id_prefix: SMSTP
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMSTP053L_YYYYGGG
+      重量: "number (kg)"
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      炸薬重量_kg: "number"
+      最大射程_m: "number (メートル)"
+      雷速_kts: "number (ノット)"
+      口径_cm: "number (直径)"
+      砲塔数: "integer"
 
-超大口径砲:
-  id_prefix: SMSHG
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements: # (小口径砲と同様)
-    砲弾重量_kg: "number"
-    初速_mps: "number (m/s)"
-    毎分発射数: "integer (rpm)"
-    砲口口径_cm: "number"
-    口径: "integer (口径長)"
-    砲身数: "integer"
-    最大仰俯角: "string (例: +45/-3 度)"
-    砲塔数: "integer"
+  対艦ミサイル:
+    id_prefix: SMASM
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMASM035L_YYYYHHH
+      重量: "number (kg)"
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      炸薬重量_kg: "number"
+      最大射程_km: "number (キロメートル)"
+      初速_mps: "number (m/s)"      # ミサイルの場合は巡航速度や終末速度も考慮されるべきだが、指示通り初速とする
+      毎分発射数: "integer (rpm)"   # ランチャーの再装填時間や連続発射能力など
+      口径_cm: "number (直径)"    # ミサイルの直径
+      砲塔数: "integer"         # ランチャー数やVLSセル数など
+  対空ミサイル:
+    id_prefix: SMSAM
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMSAM020L_YYYYIII
+      重量: "number (kg)"
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      炸薬重量_kg: "number"
+      最大射程_km: "number (キロメートル)"
+      初速_mps: "number (m/s)"
+      毎分発射数: "integer (rpm)"
+      口径_cm: "number (直径)"
+      砲塔数: "integer"
 
-対空砲:
-  id_prefix: SMAA
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    弾丸重量_g: "number"       # グラム
-    初速_mps: "number (m/s)"
-    毎分発射数: "integer (rpm)"
-    砲口口径_mm: "number"      # ミリメートル
-    口径: "integer (口径長)"
-    砲身数: "integer"
-    最大仰俯角: "string (例: +90/-0 度)"
-    砲塔数: "integer"
+  水上機:
+    id_prefix: SMSP
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMSPYYYYJJJ
+      重量: "number (kg)"          # 機体重量
+      人員: "integer"              # 搭乗員数
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      最高速度_kmh: "number (km/h)"
+      航続距離_km: "number (km)"
+      LgAttack: "integer"        # 対地/対艦攻撃力
+      AAAttack: "integer"        # 対空攻撃力
+      Fuel: "number (リットル or kgなど)" # 燃料搭載量
+  艦上偵察機:
+    id_prefix: SMCR
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMCRYYYYKKK
+      重量: "number (kg)"
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      最高速度_kmh: "number (km/h)"
+      航続距離_km: "number (km)"
+      LgAttack: "integer"
+      AAAttack: "integer"
+      Fuel: "number"
+  回転翼機:
+    id_prefix: SMHC
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMHCYYYYLLL
+      重量: "number (kg)"
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      最高速度_kmh: "number (km/h)"
+      航続距離_km: "number (km)"
+      LgAttack: "integer"
+      AAAttack: "integer"
+      Fuel: "number"
+  対潜哨戒機:
+    id_prefix: SMASP
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMASPYYYYMMM
+      重量: "number (kg)"
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      最高速度_kmh: "number (km/h)"
+      航続距離_km: "number (km)"
+      LgAttack: "integer"
+      AAAttack: "integer"
+      Fuel: "number"
+  大型飛行艇:
+    id_prefix: SMLSP
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMLSPYYYYNNN
+      重量: "number (kg)"
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      最高速度_kmh: "number (km/h)"
+      航続距離_km: "number (km)"
+      LgAttack: "integer"
+      AAAttack: "integer"
+      Fuel: "number"
 
-# --- 魚雷系統 ---
-魚雷:
-  id_prefix: SMTP
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"         # 魚雷自体の人員は通常0だが、運用に関わる人員を想定か。ここではテンプレートとして定義。
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    炸薬重量_kg: "number"
-    最大射程_m: "number (メートル)"
-    雷速_kts: "number (ノット)"
-    口径_cm: "number (直径)"    # 魚雷の直径
-    砲塔数: "integer"         # 発射管数や連装数
+  爆雷投射機:
+    id_prefix: SMDCL
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMDCLYYYYOOO
+      重量: "number (kg)"          # 投射機自体の重量
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      砲弾重量_kg: "number"      # 投射される爆雷の標準重量
+      炸薬量_kg: "number"        # 投射される爆雷の標準炸薬量
+      射程_m: "number (メートル)"   # 最大投射距離
+  爆雷:
+    id_prefix: SMDC
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMDCYYYYPPP
+      重量: "number (kg)"          # 爆雷1発の重量
+      人員: "integer"              # 通常0だが、設定次第
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      砲弾重量_kg: "number"      # 爆雷自体の総重量 (commonの重量と同じになる可能性あり)
+      炸薬量_kg: "number"        # 爆雷の炸薬量
+      射程_m: "number (メートル)"   # 投下・投射後の有効範囲や沈降速度など、文脈によって定義が必要 (ここでは投射機が別途あるため、この射程は効果範囲などか？ 指示通り「射程」とする)
+  対潜迫撃砲:
+    id_prefix: SMASL
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMASLYYYYQQQ
+      重量: "number (kg)"          # 迫撃砲自体の重量
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      砲弾重量_kg: "number"      # 投射される砲弾(爆雷)の重量
+      炸薬量_kg: "number"        # 砲弾(爆雷)の炸薬量
+      射程_m: "number (メートル)"   # 最大投射距離
 
-潜水艦魚雷:
-  id_prefix: SMSTP
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements: # (魚雷と同様)
-    炸薬重量_kg: "number"
-    最大射程_m: "number (メートル)"
-    雷速_kts: "number (ノット)"
-    口径_cm: "number (直径)"
-    砲塔数: "integer"
-
-# --- ミサイル系統 ---
-対艦ミサイル:
-  id_prefix: SMASM
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    炸薬重量_kg: "number"
-    最大射程_km: "number (キロメートル)"
-    初速_mps: "number (m/s)"      # ミサイルの場合は巡航速度や終末速度も考慮されるべきだが、指示通り初速とする
-    毎分発射数: "integer (rpm)"   # ランチャーの再装填時間や連続発射能力など
-    口径_cm: "number (直径)"    # ミサイルの直径
-    砲塔数: "integer"         # ランチャー数やVLSセル数など
-
-対空ミサイル:
-  id_prefix: SMSAM
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements: # (対艦ミサイルと同様)
-    炸薬重量_kg: "number"
-    最大射程_km: "number (キロメートル)"
-    初速_mps: "number (m/s)"
-    毎分発射数: "integer (rpm)"
-    口径_cm: "number (直径)"
-    砲塔数: "integer"
-
-# --- 航空機系統 ---
-水上機:
-  id_prefix: SMSP
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"          # 機体重量
-    人員: "integer"              # 搭乗員数
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    最高速度_kmh: "number (km/h)"
-    航続距離_km: "number (km)"
-    LgAttack: "integer"        # 対地/対艦攻撃力
-    AAAttack: "integer"        # 対空攻撃力
-    Fuel: "number (リットル or kgなど)" # 燃料搭載量
-
-艦上偵察機:
-  id_prefix: SMCR
-  common_elements: # (水上機と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements: # (水上機と同様)
-    最高速度_kmh: "number (km/h)"
-    航続距離_km: "number (km)"
-    LgAttack: "integer"
-    AAAttack: "integer"
-    Fuel: "number"
-
-回転翼機:
-  id_prefix: SMHC
-  common_elements: # (水上機と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements: # (水上機と同様)
-    最高速度_kmh: "number (km/h)"
-    航続距離_km: "number (km)"
-    LgAttack: "integer"
-    AAAttack: "integer"
-    Fuel: "number"
-
-対潜哨戒機:
-  id_prefix: SMASP
-  common_elements: # (水上機と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements: # (水上機と同様)
-    最高速度_kmh: "number (km/h)"
-    航続距離_km: "number (km)"
-    LgAttack: "integer"
-    AAAttack: "integer"
-    Fuel: "number"
-
-大型飛行艇:
-  id_prefix: SMLSP
-  common_elements: # (水上機と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements: # (水上機と同様)
-    最高速度_kmh: "number (km/h)"
-    航続距離_km: "number (km)"
-    LgAttack: "integer"
-    AAAttack: "integer"
-    Fuel: "number"
-
-# --- 対潜兵装系統 ---
-爆雷投射機:
-  id_prefix: SMDCL
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"          # 投射機自体の重量
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    砲弾重量_kg: "number"      # 投射される爆雷の標準重量
-    炸薬量_kg: "number"        # 投射される爆雷の標準炸薬量
-    射程_m: "number (メートル)"   # 最大投射距離
-
-爆雷:
-  id_prefix: SMDC
-  common_elements: # (小口径砲と同様、ただし爆雷自体なので人員や開発国は用途による)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"          # 爆雷1発の重量
-    人員: "integer"              # 通常0だが、設定次第
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    砲弾重量_kg: "number"      # 爆雷自体の総重量 (commonの重量と同じになる可能性あり)
-    炸薬量_kg: "number"        # 爆雷の炸薬量
-    射程_m: "number (メートル)"   # 投下・投射後の有効範囲や沈降速度など、文脈によって定義が必要 (ここでは投射機が別途あるため、この射程は効果範囲などか？ 指示通り「射程」とする)
-
-対潜迫撃砲:
-  id_prefix: SMASL
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"          # 迫撃砲自体の重量
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    砲弾重量_kg: "number"      # 投射される砲弾(爆雷)の重量
-    炸薬量_kg: "number"        # 砲弾(爆雷)の炸薬量
-    射程_m: "number (メートル)"   # 最大投射距離
-
-# --- センサー系統 ---
-ソナー:
-  id_prefix: SMSO
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    探知距離_km: "number (キロメートル)"
-    音響出力_dB: "number (デシベル)" # アクティブソナーの場合
-
-大型ソナー:
-  id_prefix: SMLSO
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements: # (ソナーと同様)
-    探知距離_km: "number (キロメートル)"
-    音響出力_dB: "number (デシベル)"
-
-小型電探:
-  id_prefix: SMLR
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    探知距離_km: "number (キロメートル)"
-    出力_dB: "number (デシベル)"  # 送信出力など
-
-大型電探:
-  id_prefix: SMHR
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements: # (小型電探と同様)
-    探知距離_km: "number (キロメートル)"
-    出力_dB: "number (デシベル)"
-
-測距儀:
-  id_prefix: SMRF
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    基線長_cm: "number (センチメートル)"
-
-# --- その他装備 ---
-機関:
-  id_prefix: SMTR
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    機関出力_hp: "number (馬力)"
-    燃料種別: "string (例: 重油, 軽油, 石炭, 原子力)"
-
-増設バルジ(中型艦):
-  id_prefix: SMMBL
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"              # 通常0だが、取り付け作業などを考慮か
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    装甲圧_mm: "number (ミリメートル)"
-
-増設バルジ(大型艦):
-  id_prefix: SMHBL
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    装甲圧_mm: "number (ミリメートル)"
-
-格納庫:
-  id_prefix: SMHNG
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"          # 格納庫構造物の重量
-    人員: "integer"              # 整備員など
-    開発年: "integer (西暦)"      # 設計年など
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    格納庫サイズ: "string (例: '小型機10機収容可能', '容積 500立方メートル', '長さ20m x 幅10m x 高さ5m')" # 具体的な表現方法
-
-その他:
-  id_prefix: SMOT
-  common_elements: # (小口径砲と同様)
-    名前: "string"
-    ID: "string"
-    重量: "number (kg)"
-    人員: "integer"
-    開発年: "integer (西暦)"
-    開発国: "string"
-    必要資源: {鉄: "integer", クロム: "integer", アルミ: "integer", タングステン: "integer", ゴム: "integer"}
-  specific_elements:
-    # ステータス一覧の全て（単純増加/%調整/全装備平均はタブで切り替えられるように）
+  ソナー:
+    id_prefix: SMSO
+    common_elements:
+      名前: "string"
+      ID: "string"                 # 例: SMSOYYYYRRR
+      重量: "number (kg)"
+      人員: "integer"
+      開発年: "integer (西暦)"
+      開発国: "string"
+      必要資源:
+        鉄: "integer"
+        クロム: "integer"
+        アルミ: "integer"
+        タングステン: "integer"
+        ゴム: "integer"
+    specific_elements:
+      探知距離_km: "number (キロメートル)"
