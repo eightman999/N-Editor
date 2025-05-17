@@ -3,7 +3,7 @@ import os
 from PyQt5.QtWidgets import (QWidget, QFormLayout, QLineEdit, QComboBox,
                              QSpinBox, QDoubleSpinBox, QTabWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QGroupBox,
-                             QScrollArea, QMessageBox, QFileDialog, QApplication)
+                             QScrollArea, QMessageBox, QFileDialog, QApplication, QDialog, QListWidget)
 from PyQt5.QtCore import Qt, pyqtSignal
 
 class EquipmentForm(QWidget):
@@ -623,5 +623,83 @@ class EquipmentForm(QWidget):
                 self.common_fields['ID'].setText(f"{prefix}")
         except Exception as e:
             print(f"装備タイプ変更処理でエラーが発生しました: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def show_category_selection_dialog(self):
+        """カテゴリ選択ダイアログを表示"""
+        try:
+            dialog = QDialog(self)
+            dialog.setWindowTitle("装備カテゴリー選択")
+            dialog.setMinimumWidth(400)
+            dialog.setMinimumHeight(500)
+
+            dialog_layout = QVBoxLayout()
+
+            # ヘッダー
+            header_label = QLabel("装備カテゴリーを選択してください")
+            header_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+            dialog_layout.addWidget(header_label)
+
+            # 検索ボックス
+            search_layout = QHBoxLayout()
+            search_layout.addWidget(QLabel("検索:"))
+            search_edit = QLineEdit()
+            search_layout.addWidget(search_edit)
+            dialog_layout.addLayout(search_layout)
+
+            # カテゴリーリスト
+            category_list = QListWidget()
+            dialog_layout.addWidget(category_list)
+
+            # カテゴリー一覧を取得
+            equipment_types = []
+            if self.app_controller:
+                equipment_types = self.app_controller.get_equipment_types()
+            else:
+                # テンプレートから取得
+                equipment_types = list(self.equipment_templates.keys())
+
+            # リストに追加
+            for category in sorted(equipment_types):
+                category_list.addItem(category)
+
+            # 検索機能
+            def filter_categories():
+                search_text = search_edit.text().lower()
+                for i in range(category_list.count()):
+                    item = category_list.item(i)
+                    item.setHidden(search_text not in item.text().lower())
+
+            search_edit.textChanged.connect(filter_categories)
+
+            # ボタン
+            button_layout = QHBoxLayout()
+
+            ok_button = QPushButton("選択")
+            def on_ok_clicked():
+                selected_item = category_list.currentItem()
+                if selected_item:
+                    selected_category = selected_item.text()
+                    index = self.equipment_type_combo.findText(selected_category)
+                    if index >= 0:
+                        self.equipment_type_combo.setCurrentIndex(index)
+                        self.on_equipment_type_changed()  # フォームを更新
+                dialog.accept()
+
+            ok_button.clicked.connect(on_ok_clicked)
+            button_layout.addWidget(ok_button)
+
+            cancel_button = QPushButton("キャンセル")
+            cancel_button.clicked.connect(dialog.reject)
+            button_layout.addWidget(cancel_button)
+
+            dialog_layout.addLayout(button_layout)
+            dialog.setLayout(dialog_layout)
+
+            dialog.exec_()
+
+        except Exception as e:
+            print(f"カテゴリ選択ダイアログでエラーが発生しました: {e}")
             import traceback
             traceback.print_exc()
