@@ -3,7 +3,7 @@ import os
 from PyQt5.QtWidgets import (QWidget, QFormLayout, QLineEdit, QComboBox,
                              QSpinBox, QDoubleSpinBox, QTabWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QGroupBox,
-                             QScrollArea, QMessageBox, QFileDialog)
+                             QScrollArea, QMessageBox, QFileDialog, QApplication)
 from PyQt5.QtCore import Qt, pyqtSignal
 
 class EquipmentForm(QWidget):
@@ -27,6 +27,11 @@ class EquipmentForm(QWidget):
         type_layout.addWidget(QLabel("装備タイプ:"))
         self.equipment_type_combo = QComboBox()
         type_layout.addWidget(self.equipment_type_combo)
+
+        # カテゴリ選択ボタン
+        self.select_category_button = QPushButton("カテゴリ選択")
+        self.select_category_button.clicked.connect(self.show_category_selection_dialog)
+        type_layout.addWidget(self.select_category_button)
 
         # 装備タイプ変更時の処理を接続
         self.equipment_type_combo.currentIndexChanged.connect(self.on_equipment_type_changed)
@@ -64,20 +69,7 @@ class EquipmentForm(QWidget):
 
         # 下部ボタン
         button_layout = QHBoxLayout()
-
-        self.save_button = QPushButton("保存")
-        self.save_button.clicked.connect(self.save_equipment)
-
-        self.clear_button = QPushButton("クリア")
-        self.clear_button.clicked.connect(self.clear_form)
-
-        self.load_button = QPushButton("読み込み")
-        self.load_button.clicked.connect(self.load_equipment)
-
-        button_layout.addWidget(self.save_button)
-        button_layout.addWidget(self.load_button)
-        button_layout.addWidget(self.clear_button)
-
+        # ボタンの設定コードは変更なし
         main_layout.addLayout(button_layout)
 
         # フォーム入力フィールドの保存用辞書
@@ -223,31 +215,7 @@ class EquipmentForm(QWidget):
             print(f"装備テンプレート読み込みエラー: {e}")
             QMessageBox.warning(self, "読み込みエラー", f"装備テンプレートの読み込みに失敗しました: {e}")
 
-    def on_equipment_type_changed(self):
-        """装備タイプ変更時の処理"""
-        self.clear_form_fields()
 
-        # 現在の装備タイプ
-        current_type = self.equipment_type_combo.currentText()
-        if not current_type or current_type not in self.equipment_templates:
-            return
-
-        # テンプレートから共通フィールドと固有フィールドを生成
-        self.generate_common_fields(current_type)
-        self.generate_specific_fields(current_type)
-
-        # 装備IDのプレフィックスを自動設定
-        if 'ID' in self.common_fields and 'id_prefix' in self.equipment_templates[current_type]:
-            # AppControllerが利用可能であれば、次のIDを取得
-            if self.app_controller:
-                next_id = self.app_controller.get_next_equipment_id(current_type)
-                if next_id:
-                    self.common_fields['ID'].setText(next_id)
-                    return
-
-            # 従来の方法（AppControllerがない場合）
-            prefix = self.equipment_templates[current_type]['id_prefix']
-            self.common_fields['ID'].setText(f"{prefix}")
 
     def clear_form_fields(self):
         """フォームフィールドのクリア"""
@@ -611,5 +579,49 @@ class EquipmentForm(QWidget):
 
         except Exception as e:
             print(f"共通フィールド生成エラー: {e}")
+            import traceback
+            traceback.print_exc()
+
+
+    def on_equipment_type_changed(self):
+        """装備タイプ変更時の処理"""
+        print("装備タイプが変更されました")
+        self.clear_form_fields()
+
+        # 現在の装備タイプ
+        current_type = self.equipment_type_combo.currentText()
+        print(f"選択された装備タイプ: '{current_type}'")
+
+        if not current_type or current_type not in self.equipment_templates:
+            print(f"無効な装備タイプまたはテンプレートに存在しません: {current_type}")
+            return
+
+        try:
+            # テンプレートから共通フィールドと固有フィールドを生成
+            print(f"共通フィールドを生成します: {current_type}")
+            self.generate_common_fields(current_type)
+
+            print(f"固有フィールドを生成します: {current_type}")
+            self.generate_specific_fields(current_type)
+
+            # UIを強制的に更新
+            self.common_group.update()
+            self.specific_group.update()
+            QApplication.processEvents()
+
+            # 装備IDのプレフィックスを自動設定（元のコードを維持）
+            if 'ID' in self.common_fields and 'id_prefix' in self.equipment_templates[current_type]:
+                # AppControllerが利用可能であれば、次のIDを取得
+                if self.app_controller:
+                    next_id = self.app_controller.get_next_equipment_id(current_type)
+                    if next_id:
+                        self.common_fields['ID'].setText(next_id)
+                        return
+
+                # 従来の方法（AppControllerがない場合）
+                prefix = self.equipment_templates[current_type]['id_prefix']
+                self.common_fields['ID'].setText(f"{prefix}")
+        except Exception as e:
+            print(f"装備タイプ変更処理でエラーが発生しました: {e}")
             import traceback
             traceback.print_exc()

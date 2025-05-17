@@ -76,12 +76,14 @@ class NavalDesignSystem(QMainWindow):
 
         if not is_fullscreen:
             # 通常サイズで表示する場合
-            width = self.config.get("display", {}).get("width", 800)
-            height = self.config.get("display", {}).get("height", 600)
-            self.resize(width, height)  # setFixedSizeの代わりにresizeを使用
+            width = self.config.get("display", {}).get("width", 1024)
+            height = self.config.get("display", {}).get("height", 768)
+            self.resize(width, height)  # setFixedSizeではなくresizeを使用
         else:
             # 全画面表示
             self.showFullScreen()
+
+        # 残りの初期化コードは変更なし
 
         # 中央ウィジェット
         central_widget = QWidget()

@@ -70,8 +70,12 @@ class DesignView(QWidget):
         central_layout = QHBoxLayout()
 
         # 左側：スロット部分
-        slots_group = QGroupBox("プレイヤー設定可能スロット (6枠固定)")
-        slots_layout = QVBoxLayout()
+        slots_container = QWidget()
+        slots_layout = QVBoxLayout(slots_container)
+
+        # プレイヤースロット部分
+        player_slots_group = QGroupBox("プレイヤー設定可能スロット (6枠固定)")
+        player_slots_layout = QVBoxLayout()
 
         # スロット定義
         slot_types = ["PA", "SA", "PSA", "SSA", "PLA", "SLA"]
@@ -80,8 +84,6 @@ class DesignView(QWidget):
 
         for slot_type in slot_types:
             slot_layout = QHBoxLayout()
-
-            # スロットタイプラベル
             slot_layout.addWidget(QLabel(f"スロット {slot_type} ▷"))
 
             # カテゴリー選択ボタン
@@ -97,58 +99,61 @@ class DesignView(QWidget):
             equipment_combo = QComboBox()
             equipment_combo.addItem("選択する")
             self.slot_combos[slot_type] = equipment_combo
-
-            # レイアウトに追加
             slot_layout.addWidget(equipment_combo)
-            slots_layout.addLayout(slot_layout)
 
-            slots_group.setLayout(slots_layout)
-            central_layout.addWidget(slots_group)
+            player_slots_layout.addLayout(slot_layout)
 
-            # 内部スロット部分
-            self.internal_slots_layout = QVBoxLayout()
-            self.internal_slots_layout.addWidget(QLabel("内部スロット"))
+        player_slots_group.setLayout(player_slots_layout)
+        slots_layout.addWidget(player_slots_group)
 
-            # 内部スロットの操作ボタン
-            internal_slots_button_layout = QHBoxLayout()
-            add_button = QPushButton("+ 追加")
-            add_button.clicked.connect(self.add_internal_slot)
-            internal_slots_button_layout.addWidget(add_button)
+        # 内部スロット部分（ゲーム内部の設定）
+        internal_slots_group = QGroupBox("内部スロット設定")
+        internal_slots_layout = QVBoxLayout()
 
-            remove_button = QPushButton("- 削除")
-            remove_button.clicked.connect(self.remove_internal_slot)
-            internal_slots_button_layout.addWidget(remove_button)
+        # 内部スロットの説明
+        internal_slots_layout.addWidget(QLabel("内部スロットはゲーム内部の設定に使用します"))
 
-            internal_slots_button_layout.addStretch()
-            self.internal_slots_layout.addLayout(internal_slots_button_layout)
+        # 内部スロットの操作ボタン
+        button_layout = QHBoxLayout()
+        add_button = QPushButton("+ 追加")
+        add_button.clicked.connect(self.add_internal_slot)
+        button_layout.addWidget(add_button)
 
-            # 内部スロットの表示エリア（QGridLayoutを使用）
-            self.internal_slots_grid = QGridLayout()
-            self.internal_slots_grid.setSpacing(5)
+        remove_button = QPushButton("- 削除")
+        remove_button.clicked.connect(self.remove_internal_slot)
+        button_layout.addWidget(remove_button)
 
-            # 内部スロットのコンテナ用スクロールエリア
-            internal_slots_scroll = QScrollArea()
-            internal_slots_scroll.setWidgetResizable(True)
-            internal_slots_container = QWidget()
-            internal_slots_container.setLayout(self.internal_slots_grid)
-            internal_slots_scroll.setWidget(internal_slots_container)
+        button_layout.addStretch()
+        internal_slots_layout.addLayout(button_layout)
 
-            self.internal_slots_layout.addWidget(internal_slots_scroll)
-            slots_layout.addLayout(self.internal_slots_layout)
+        # 内部スロットの表示エリア
+        internal_slots_scroll = QScrollArea()
+        internal_slots_scroll.setWidgetResizable(True)
 
-            # 内部スロットのリスト（後で追加・削除に使用）
-            self.internal_slots = []
-            # 右側：性能表示
-            stats_group = QGroupBox("性能表示枠 (2列表示)")
-            self.stats_layout = QGridLayout()
+        self.internal_slots_container = QWidget()
+        self.internal_slots_grid = QGridLayout(self.internal_slots_container)
+        self.internal_slots_grid.setSpacing(5)
 
-            # 性能パラメータの定義
-            # 将来的に動的にするための準備として、辞書を使用
-            self.stats_labels = {}
+        internal_slots_scroll.setWidget(self.internal_slots_container)
+        internal_slots_layout.addWidget(internal_slots_scroll)
 
-            # スータス一覧からパラメータを動的に読み込む
-            self.load_stats_definitions()
+        internal_slots_group.setLayout(internal_slots_layout)
+        slots_layout.addWidget(internal_slots_group)
 
+        # スロット部分をスクロール可能に
+        slots_scroll = QScrollArea()
+        slots_scroll.setWidgetResizable(True)
+        slots_scroll.setWidget(slots_container)
+
+        central_layout.addWidget(slots_scroll)
+
+        # 右側のレイアウト（性能表示など）は変更なし
+        # ...
+
+        main_layout.addLayout(central_layout)
+
+        # 内部スロットのリスト初期化
+        self.internal_slots = []
         # ステータスがまだ定義されていない場合はデフォルト値を使用
         if not self.stats_labels:
             default_stats = [
@@ -187,7 +192,22 @@ class DesignView(QWidget):
             col = i // mid_point * 2  # 間隔を空けるため*2
             self.stats_layout.addWidget(QLabel(f"{name}:"), row, col)
             self.stats_layout.addWidget(label, row, col + 1)
+        slots_scroll = QScrollArea()
+        slots_scroll.setWidgetResizable(True)
+        slots_scroll.setWidget(slots_container)
 
+        central_layout.addWidget(slots_scroll)
+
+        # 右側：性能表示
+        stats_group = QGroupBox("性能表示枠 (2列表示)")
+        self.stats_layout = QGridLayout()
+
+        # 性能パラメータの定義
+        # 将来的に動的にするための準備として、辞書を使用
+        self.stats_labels = {}
+
+        # スータス一覧からパラメータを動的に読み込む
+        self.load_stats_definitions()
         stats_group.setLayout(self.stats_layout)
         central_layout.addWidget(stats_group)
 
@@ -671,8 +691,8 @@ class DesignView(QWidget):
         """内部スロットの追加"""
         try:
             # 内部スロットの最大数チェック
-            if len(self.internal_slots) >= 12:  # 最大12個まで
-                QMessageBox.warning(self, "警告", "内部スロットは最大12個までです。")
+            if len(self.internal_slots) >= 50:  # 最大12個まで
+                QMessageBox.warning(self, "警告", "内部スロットは最大50個までです。")
                 return
 
             # 船体が選択されていない場合はエラー
@@ -758,124 +778,6 @@ class DesignView(QWidget):
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"内部スロット削除中にエラーが発生しました: {e}")
-            import traceback
-            traceback.print_exc()
-
-    def show_category_selection_dialog(self, slot_id):
-        """カテゴリー選択ダイアログを表示"""
-        try:
-            dialog = QDialog(self)
-            dialog.setWindowTitle(f"スロット {slot_id} - カテゴリー選択")
-            dialog.setMinimumWidth(300)
-            dialog.setMinimumHeight(400)
-
-            dialog_layout = QVBoxLayout()
-
-            # ヘッダー
-            header_label = QLabel("装備カテゴリーを選択（複数選択可）")
-            dialog_layout.addWidget(header_label)
-
-            # 検索ボックス
-            search_layout = QHBoxLayout()
-            search_layout.addWidget(QLabel("検索:"))
-            search_edit = QLineEdit()
-            search_layout.addWidget(search_edit)
-            dialog_layout.addLayout(search_layout)
-
-            # カテゴリーリスト
-            category_list = QListWidget()
-            category_list.setSelectionMode(QListWidget.MultiSelection)
-            dialog_layout.addWidget(category_list)
-
-            # カテゴリー一覧を取得
-            equipment_types = []
-            if self.app_controller:
-                equipment_types = self.app_controller.get_equipment_types()
-            else:
-                # 直接装備モデルを使用
-                try:
-                    from models.equipment_model import EquipmentModel
-                    equipment_model = EquipmentModel()
-                    equipment_types = equipment_model.get_equipment_types()
-                except Exception as e:
-                    print(f"装備タイプ取得エラー: {e}")
-                    # デフォルトのカテゴリーを使用
-                    equipment_types = [
-                        "小口径砲", "中口径砲", "大口径砲", "超大口径砲", "対空砲",
-                        "魚雷", "潜水艦魚雷", "対艦ミサイル", "対空ミサイル",
-                        "水上機", "艦上偵察機", "回転翼機", "対潜哨戒機", "大型飛行艇",
-                        "爆雷投射機", "爆雷", "対潜迫撃砲",
-                        "ソナー", "大型ソナー", "小型電探", "大型電探", "測距儀",
-                        "機関", "増設バルジ(中型艦)", "増設バルジ(大型艦)", "格納庫", "その他"
-                    ]
-
-            # リストに追加
-            for category in sorted(equipment_types):
-                item = QListWidgetItem(category)
-                category_list.addItem(item)
-
-                # 既に選択されているカテゴリーをマーク
-                if hasattr(self, 'slot_category_selections') and slot_id in self.slot_category_selections:
-                    if category in self.slot_category_selections[slot_id]:
-                        item.setSelected(True)
-
-            # 検索機能
-            def filter_categories():
-                search_text = search_edit.text().lower()
-                for i in range(category_list.count()):
-                    item = category_list.item(i)
-                    item.setHidden(search_text not in item.text().lower())
-
-            search_edit.textChanged.connect(filter_categories)
-
-            # ボタン
-            button_layout = QHBoxLayout()
-
-            ok_button = QPushButton("OK")
-            def on_ok_clicked():
-                # 選択されたカテゴリーを保存
-                selected_categories = []
-                for i in range(category_list.count()):
-                    item = category_list.item(i)
-                    if item.isSelected():
-                        selected_categories.append(item.text())
-
-                # 選択されたカテゴリーを保存
-                if not hasattr(self, 'slot_category_selections'):
-                    self.slot_category_selections = {}
-
-                self.slot_category_selections[slot_id] = selected_categories
-
-                # ボタンのテキスト更新
-                if slot_id in self.slot_category_combos:
-                    button = self.slot_category_combos[slot_id]
-                    if selected_categories:
-                        if len(selected_categories) == 1:
-                            button.setText(selected_categories[0])
-                        else:
-                            button.setText(f"{len(selected_categories)}種類選択")
-                    else:
-                        button.setText("カテゴリー選択")
-
-                # 装備コンボボックスを更新
-                self.update_equipment_combo(slot_id)
-
-                dialog.accept()
-
-            ok_button.clicked.connect(on_ok_clicked)
-            button_layout.addWidget(ok_button)
-
-            cancel_button = QPushButton("キャンセル")
-            cancel_button.clicked.connect(dialog.reject)
-            button_layout.addWidget(cancel_button)
-
-            dialog_layout.addLayout(button_layout)
-            dialog.setLayout(dialog_layout)
-
-            dialog.exec_()
-
-        except Exception as e:
-            QMessageBox.critical(self, "エラー", f"カテゴリー選択ダイアログ表示中にエラーが発生しました: {e}")
             import traceback
             traceback.print_exc()
 
@@ -1206,5 +1108,83 @@ class DesignView(QWidget):
 
         except Exception as e:
             print(f"装備選択エラー: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def show_category_selection_dialog(self):
+        """カテゴリ選択ダイアログを表示"""
+        try:
+            dialog = QDialog(self)
+            dialog.setWindowTitle("装備カテゴリー選択")
+            dialog.setMinimumWidth(400)
+            dialog.setMinimumHeight(500)
+
+            dialog_layout = QVBoxLayout()
+
+            # ヘッダー
+            header_label = QLabel("装備カテゴリーを選択してください")
+            header_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+            dialog_layout.addWidget(header_label)
+
+            # 検索ボックス
+            search_layout = QHBoxLayout()
+            search_layout.addWidget(QLabel("検索:"))
+            search_edit = QLineEdit()
+            search_layout.addWidget(search_edit)
+            dialog_layout.addLayout(search_layout)
+
+            # カテゴリーリスト
+            category_list = QListWidget()
+            dialog_layout.addWidget(category_list)
+
+            # カテゴリー一覧を取得
+            equipment_types = []
+            if self.app_controller:
+                equipment_types = self.app_controller.get_equipment_types()
+            else:
+                # テンプレートから取得
+                equipment_types = list(self.equipment_templates.keys())
+
+            # リストに追加
+            for category in sorted(equipment_types):
+                category_list.addItem(category)
+
+            # 検索機能
+            def filter_categories():
+                search_text = search_edit.text().lower()
+                for i in range(category_list.count()):
+                    item = category_list.item(i)
+                    item.setHidden(search_text not in item.text().lower())
+
+            search_edit.textChanged.connect(filter_categories)
+
+            # ボタン
+            button_layout = QHBoxLayout()
+
+            ok_button = QPushButton("選択")
+            def on_ok_clicked():
+                selected_item = category_list.currentItem()
+                if selected_item:
+                    selected_category = selected_item.text()
+                    index = self.equipment_type_combo.findText(selected_category)
+                    if index >= 0:
+                        self.equipment_type_combo.setCurrentIndex(index)
+                        self.on_equipment_type_changed()  # フォームを更新
+                dialog.accept()
+
+            ok_button.clicked.connect(on_ok_clicked)
+            button_layout.addWidget(ok_button)
+
+            cancel_button = QPushButton("キャンセル")
+            cancel_button.clicked.connect(dialog.reject)
+            button_layout.addWidget(cancel_button)
+
+            dialog_layout.addLayout(button_layout)
+            dialog.setLayout(dialog_layout)
+
+            dialog.exec_()
+
+        except Exception as e:
+            print(f"カテゴリ選択ダイアログでエラーが発生しました: {e}")
             import traceback
             traceback.print_exc()
