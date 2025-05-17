@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout,
                              QLabel, QLineEdit, QComboBox, QPushButton, QGroupBox,
                              QDialog, QListWidget, QTableWidget, QTableWidgetItem,
-                             QScrollArea, QMessageBox, QHeaderView)
+                             QScrollArea, QMessageBox, QHeaderView, QListWidgetItem)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QPalette
 
@@ -84,51 +84,70 @@ class DesignView(QWidget):
             # スロットタイプラベル
             slot_layout.addWidget(QLabel(f"スロット {slot_type} ▷"))
 
-            # カテゴリー選択コンボボックス（どの種類の装備を入れるか）
-            category_combo = QComboBox()
-            category_combo.addItem("カテゴリー選択")
-            self.slot_category_combos[slot_type] = category_combo
+            # カテゴリー選択ボタン
+            category_button = QPushButton("カテゴリー選択")
+            category_button.setFixedWidth(120)
+            category_button.clicked.connect(
+                lambda _, s_type=slot_type: self.show_category_selection_dialog(s_type)
+            )
+            slot_layout.addWidget(category_button)
+            self.slot_category_combos[slot_type] = category_button
 
             # 装備選択コンボボックス
             equipment_combo = QComboBox()
             equipment_combo.addItem("選択する")
             self.slot_combos[slot_type] = equipment_combo
 
-            # スロットのカテゴリーが変更されたときの処理
-            category_combo.currentIndexChanged.connect(
-                lambda idx, s_type=slot_type: self.on_slot_category_changed(s_type, idx)
-            )
-
             # レイアウトに追加
-            slot_layout.addWidget(category_combo)
             slot_layout.addWidget(equipment_combo)
             slots_layout.addLayout(slot_layout)
 
-        slots_group.setLayout(slots_layout)
-        central_layout.addWidget(slots_group)
+            slots_group.setLayout(slots_layout)
+            central_layout.addWidget(slots_group)
 
-        # 内部スロット部分
-        internal_slots_layout = QHBoxLayout()
-        internal_slots_layout.addWidget(QLabel("内部スロット"))
-        add_button = QPushButton("+ 追加")
-        add_button.clicked.connect(self.add_internal_slot)
-        internal_slots_layout.addWidget(add_button)
-        remove_button = QPushButton("- 削除")
-        remove_button.clicked.connect(self.remove_internal_slot)
-        internal_slots_layout.addWidget(remove_button)
-        internal_slots_layout.addStretch()
-        slots_layout.addLayout(internal_slots_layout)
+            # 内部スロット部分
+            self.internal_slots_layout = QVBoxLayout()
+            self.internal_slots_layout.addWidget(QLabel("内部スロット"))
 
-        # 右側：性能表示
-        stats_group = QGroupBox("性能表示枠 (2列表示)")
-        self.stats_layout = QGridLayout()
+            # 内部スロットの操作ボタン
+            internal_slots_button_layout = QHBoxLayout()
+            add_button = QPushButton("+ 追加")
+            add_button.clicked.connect(self.add_internal_slot)
+            internal_slots_button_layout.addWidget(add_button)
 
-        # 性能パラメータの定義
-        # 将来的に動的にするための準備として、辞書を使用
-        self.stats_labels = {}
+            remove_button = QPushButton("- 削除")
+            remove_button.clicked.connect(self.remove_internal_slot)
+            internal_slots_button_layout.addWidget(remove_button)
 
-        # スータス一覧からパラメータを動的に読み込む
-        self.load_stats_definitions()
+            internal_slots_button_layout.addStretch()
+            self.internal_slots_layout.addLayout(internal_slots_button_layout)
+
+            # 内部スロットの表示エリア（QGridLayoutを使用）
+            self.internal_slots_grid = QGridLayout()
+            self.internal_slots_grid.setSpacing(5)
+
+            # 内部スロットのコンテナ用スクロールエリア
+            internal_slots_scroll = QScrollArea()
+            internal_slots_scroll.setWidgetResizable(True)
+            internal_slots_container = QWidget()
+            internal_slots_container.setLayout(self.internal_slots_grid)
+            internal_slots_scroll.setWidget(internal_slots_container)
+
+            self.internal_slots_layout.addWidget(internal_slots_scroll)
+            slots_layout.addLayout(self.internal_slots_layout)
+
+            # 内部スロットのリスト（後で追加・削除に使用）
+            self.internal_slots = []
+            # 右側：性能表示
+            stats_group = QGroupBox("性能表示枠 (2列表示)")
+            self.stats_layout = QGridLayout()
+
+            # 性能パラメータの定義
+            # 将来的に動的にするための準備として、辞書を使用
+            self.stats_labels = {}
+
+            # スータス一覧からパラメータを動的に読み込む
+            self.load_stats_definitions()
 
         # ステータスがまだ定義されていない場合はデフォルト値を使用
         if not self.stats_labels:
@@ -334,13 +353,15 @@ class DesignView(QWidget):
 
     def select_hull(self):
         """船体選択ダイアログを表示"""
-        if not self.app_controller:
-            QMessageBox.warning(self, "エラー", "アプリケーションコントローラーが設定されていません。")
-            return
-
         try:
             # app_controllerから船体リストを取得
-            hulls = self.app_controller.get_all_hulls()
+            if self.app_controller:
+                hulls = self.app_controller.get_all_hulls()
+            else:
+                # 直接HullModelを使用（app_controllerがない場合）
+                from models.hull_model import HullModel
+                hull_model = HullModel()
+                hulls = hull_model.get_all_hulls()
 
             if not hulls:
                 QMessageBox.information(self, "情報", "船体データがありません。先に船体を登録してください。")
@@ -399,6 +420,8 @@ class DesignView(QWidget):
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"船体データの取得中にエラーが発生しました: {e}")
+            import traceback
+            traceback.print_exc()
 
     def on_hull_selected(self, hull_data):
         """船体が選択された時の処理"""
@@ -526,77 +549,6 @@ class DesignView(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"スロット情報の更新中にエラーが発生しました: {e}")
 
-    def add_internal_slot(self):
-        """内部スロットの追加"""
-        # 現時点では実装保留
-        QMessageBox.information(self, "情報", "内部スロット追加機能は現在開発中です。")
-
-    def remove_internal_slot(self):
-        """内部スロットの削除"""
-        # 現時点では実装保留
-        QMessageBox.information(self, "情報", "内部スロット削除機能は現在開発中です。")
-
-    def save_design(self):
-        """設計の保存"""
-        # 船体が選択されていない場合はエラー
-        if not self.current_hull:
-            QMessageBox.warning(self, "警告", "船体が選択されていません。")
-            return
-
-        # 艦級名が入力されていない場合はエラー
-        design_name = self.design_name_edit.text().strip()
-        if not design_name:
-            QMessageBox.warning(self, "警告", "艦級名を入力してください。")
-            return
-
-        try:
-            # 設計データの構築
-            design_data = {
-                "design_name": design_name,
-                "ship_type": self.ship_type_combo.currentText(),
-                "hull_id": self.current_hull.get("id", ""),
-                "hull_name": self.current_hull.get("name", ""),
-                "slots": {},
-                "slot_categories": {},  # スロットに割り当てられたカテゴリー
-                "internal_slots": []
-            }
-
-            # スロット装備とカテゴリーの取得
-            for slot_type in ["PA", "SA", "PSA", "SSA", "PLA", "SLA"]:
-                category_combo = self.slot_category_combos[slot_type]
-                equipment_combo = self.slot_combos[slot_type]
-
-                # カテゴリーが選択されている場合は保存
-                if category_combo.currentIndex() > 0:
-                    category = category_combo.currentText()
-                    design_data["slot_categories"][slot_type] = category
-
-                # 装備が選択されている場合は保存
-                current_text = equipment_combo.currentText()
-                if current_text != "選択する" and "使用不可" not in current_text and "有効化可能" not in current_text:
-                    # 括弧内のIDを抽出（例: "装備名 (ID)"）
-                    import re
-                    id_match = re.search(r'\(([^)]+)\)', current_text)
-                    if id_match:
-                        equipment_id = id_match.group(1)
-                        design_data["slots"][slot_type] = equipment_id
-
-            # 排水量による派生タイプの保存
-            design_data["displacement"] = self.current_hull.get("weight", 0)
-
-            # コントローラーを使用して保存
-            if self.app_controller:
-                success = self.app_controller.save_design(design_data)
-                if success:
-                    QMessageBox.information(self, "保存成功", f"艦級「{design_name}」の設計を保存しました。")
-                else:
-                    QMessageBox.critical(self, "保存エラー", "設計の保存に失敗しました。")
-            else:
-                QMessageBox.warning(self, "警告", "アプリケーションコントローラーが設定されていません。")
-
-        except Exception as e:
-            QMessageBox.critical(self, "エラー", f"設計の保存中にエラーが発生しました: {e}")
-
     def load_design(self):
         """設計の読み込み"""
         if not self.app_controller:
@@ -665,48 +617,6 @@ class DesignView(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"設計データの取得中にエラーが発生しました: {e}")
 
-    def load_design_data(self, design_data):
-        """設計データを読み込んで画面に反映"""
-        try:
-            # 船体データを読み込み
-            hull_id = design_data.get("hull_id", "")
-            if hull_id and self.app_controller:
-                hull_data = self.app_controller.load_hull(hull_id)
-                if hull_data:
-                    # 船体を選択
-                    self.current_hull = hull_data
-                    self.selected_hull_label.setText(hull_data.get("name", "不明"))
-
-                    # 艦級名を設定
-                    self.design_name_edit.setText(design_data.get("design_name", ""))
-
-                    # 艦種を更新
-                    ship_type = design_data.get("ship_type", "")
-                    index = self.ship_type_combo.findText(ship_type)
-                    if index >= 0:
-                        self.ship_type_combo.setCurrentIndex(index)
-
-                    # 船体基礎情報を更新
-                    self.update_hull_info(hull_data)
-
-                    # スロット開放状況を更新
-                    self.update_slot_availability()
-
-                    # カテゴリーと装備を設定
-                    self.set_slot_categories(design_data.get("slot_categories", {}))
-                    self.set_slot_equipment(design_data.get("slots", {}))
-
-                    # 性能表示を更新
-                    # self.update_stats()
-
-                    QMessageBox.information(self, "読み込み完了", f"艦級「{design_data.get('design_name', '')}」の設計を読み込みました。")
-                else:
-                    QMessageBox.warning(self, "警告", f"船体ID '{hull_id}' のデータが見つかりません。")
-            else:
-                QMessageBox.warning(self, "警告", "有効な船体IDがありません。")
-
-        except Exception as e:
-            QMessageBox.critical(self, "エラー", f"設計データの読み込み中にエラーが発生しました: {e}")
 
     def set_slot_categories(self, slot_categories):
         """スロットカテゴリーを設定"""
@@ -756,3 +666,545 @@ class DesignView(QWidget):
         # 現時点では実装保留
         # 後で実装される性能計算機能のための枠組みのみ提供
         pass
+
+    def add_internal_slot(self):
+        """内部スロットの追加"""
+        try:
+            # 内部スロットの最大数チェック
+            if len(self.internal_slots) >= 12:  # 最大12個まで
+                QMessageBox.warning(self, "警告", "内部スロットは最大12個までです。")
+                return
+
+            # 船体が選択されていない場合はエラー
+            if not self.current_hull:
+                QMessageBox.warning(self, "警告", "先に船体を選択してください。")
+                return
+
+            # 新しい内部スロットの表示行番号を計算
+            row = len(self.internal_slots) // 2  # 2列表示の場合
+            col = len(self.internal_slots) % 2 * 3  # 各スロットは3セル使用
+
+            # スロット番号ラベル
+            slot_num = len(self.internal_slots) + 1
+            slot_label = QLabel(f"内部 {slot_num}:")
+            self.internal_slots_grid.addWidget(slot_label, row, col)
+
+            # カテゴリー選択ボタン
+            slot_id = f"INT{slot_num}"
+            category_button = QPushButton("カテゴリー選択")
+            category_button.setFixedWidth(120)
+            category_button.clicked.connect(
+                lambda _, s_id=slot_id: self.show_category_selection_dialog(s_id)
+            )
+            self.internal_slots_grid.addWidget(category_button, row, col + 1)
+
+            # 装備選択コンボボックス
+            equipment_combo = QComboBox()
+            equipment_combo.addItem("選択する")
+            self.internal_slots_grid.addWidget(equipment_combo, row, col + 2)
+
+            # 内部スロット情報を格納
+            slot_info = {
+                "id": slot_id,
+                "category_button": category_button,
+                "equipment_combo": equipment_combo,
+                "selected_categories": [],  # 選択されたカテゴリーのリスト
+                "label": slot_label
+            }
+
+            # スロットリストに追加
+            self.internal_slots.append(slot_info)
+
+            # 辞書にも追加してスロット操作を統一
+            self.slot_category_combos[slot_id] = category_button
+            self.slot_combos[slot_id] = equipment_combo
+
+            print(f"内部スロット {slot_id} を追加しました。")
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"内部スロット追加中にエラーが発生しました: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def remove_internal_slot(self):
+        """内部スロットの削除"""
+        try:
+            # 内部スロットがない場合は何もしない
+            if not self.internal_slots:
+                QMessageBox.information(self, "情報", "削除する内部スロットがありません。")
+                return
+
+            # 最後のスロットを削除
+            slot_info = self.internal_slots.pop()
+
+            # UIから削除
+            self.internal_slots_grid.removeWidget(slot_info["label"])
+            self.internal_slots_grid.removeWidget(slot_info["category_button"])
+            self.internal_slots_grid.removeWidget(slot_info["equipment_combo"])
+
+            # ウィジェットを削除
+            slot_info["label"].deleteLater()
+            slot_info["category_button"].deleteLater()
+            slot_info["equipment_combo"].deleteLater()
+
+            # 辞書からも削除
+            slot_id = slot_info["id"]
+            if slot_id in self.slot_category_combos:
+                del self.slot_category_combos[slot_id]
+            if slot_id in self.slot_combos:
+                del self.slot_combos[slot_id]
+
+            print(f"内部スロット {slot_id} を削除しました。")
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"内部スロット削除中にエラーが発生しました: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def show_category_selection_dialog(self, slot_id):
+        """カテゴリー選択ダイアログを表示"""
+        try:
+            dialog = QDialog(self)
+            dialog.setWindowTitle(f"スロット {slot_id} - カテゴリー選択")
+            dialog.setMinimumWidth(300)
+            dialog.setMinimumHeight(400)
+
+            dialog_layout = QVBoxLayout()
+
+            # ヘッダー
+            header_label = QLabel("装備カテゴリーを選択（複数選択可）")
+            dialog_layout.addWidget(header_label)
+
+            # 検索ボックス
+            search_layout = QHBoxLayout()
+            search_layout.addWidget(QLabel("検索:"))
+            search_edit = QLineEdit()
+            search_layout.addWidget(search_edit)
+            dialog_layout.addLayout(search_layout)
+
+            # カテゴリーリスト
+            category_list = QListWidget()
+            category_list.setSelectionMode(QListWidget.MultiSelection)
+            dialog_layout.addWidget(category_list)
+
+            # カテゴリー一覧を取得
+            equipment_types = []
+            if self.app_controller:
+                equipment_types = self.app_controller.get_equipment_types()
+            else:
+                # 直接装備モデルを使用
+                try:
+                    from models.equipment_model import EquipmentModel
+                    equipment_model = EquipmentModel()
+                    equipment_types = equipment_model.get_equipment_types()
+                except Exception as e:
+                    print(f"装備タイプ取得エラー: {e}")
+                    # デフォルトのカテゴリーを使用
+                    equipment_types = [
+                        "小口径砲", "中口径砲", "大口径砲", "超大口径砲", "対空砲",
+                        "魚雷", "潜水艦魚雷", "対艦ミサイル", "対空ミサイル",
+                        "水上機", "艦上偵察機", "回転翼機", "対潜哨戒機", "大型飛行艇",
+                        "爆雷投射機", "爆雷", "対潜迫撃砲",
+                        "ソナー", "大型ソナー", "小型電探", "大型電探", "測距儀",
+                        "機関", "増設バルジ(中型艦)", "増設バルジ(大型艦)", "格納庫", "その他"
+                    ]
+
+            # リストに追加
+            for category in sorted(equipment_types):
+                item = QListWidgetItem(category)
+                category_list.addItem(item)
+
+                # 既に選択されているカテゴリーをマーク
+                if hasattr(self, 'slot_category_selections') and slot_id in self.slot_category_selections:
+                    if category in self.slot_category_selections[slot_id]:
+                        item.setSelected(True)
+
+            # 検索機能
+            def filter_categories():
+                search_text = search_edit.text().lower()
+                for i in range(category_list.count()):
+                    item = category_list.item(i)
+                    item.setHidden(search_text not in item.text().lower())
+
+            search_edit.textChanged.connect(filter_categories)
+
+            # ボタン
+            button_layout = QHBoxLayout()
+
+            ok_button = QPushButton("OK")
+            def on_ok_clicked():
+                # 選択されたカテゴリーを保存
+                selected_categories = []
+                for i in range(category_list.count()):
+                    item = category_list.item(i)
+                    if item.isSelected():
+                        selected_categories.append(item.text())
+
+                # 選択されたカテゴリーを保存
+                if not hasattr(self, 'slot_category_selections'):
+                    self.slot_category_selections = {}
+
+                self.slot_category_selections[slot_id] = selected_categories
+
+                # ボタンのテキスト更新
+                if slot_id in self.slot_category_combos:
+                    button = self.slot_category_combos[slot_id]
+                    if selected_categories:
+                        if len(selected_categories) == 1:
+                            button.setText(selected_categories[0])
+                        else:
+                            button.setText(f"{len(selected_categories)}種類選択")
+                    else:
+                        button.setText("カテゴリー選択")
+
+                # 装備コンボボックスを更新
+                self.update_equipment_combo(slot_id)
+
+                dialog.accept()
+
+            ok_button.clicked.connect(on_ok_clicked)
+            button_layout.addWidget(ok_button)
+
+            cancel_button = QPushButton("キャンセル")
+            cancel_button.clicked.connect(dialog.reject)
+            button_layout.addWidget(cancel_button)
+
+            dialog_layout.addLayout(button_layout)
+            dialog.setLayout(dialog_layout)
+
+            dialog.exec_()
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"カテゴリー選択ダイアログ表示中にエラーが発生しました: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def update_equipment_combo(self, slot_id):
+        """装備コンボボックスを選択されたカテゴリーに基づいて更新"""
+        try:
+            if not hasattr(self, 'slot_category_selections') or slot_id not in self.slot_category_selections:
+                return
+
+            if slot_id not in self.slot_combos:
+                return
+
+            equipment_combo = self.slot_combos[slot_id]
+            selected_categories = self.slot_category_selections[slot_id]
+
+            # コンボボックスをクリア
+            equipment_combo.clear()
+            equipment_combo.addItem("選択する")
+
+            # カテゴリーが選択されていない場合は終了
+            if not selected_categories:
+                return
+
+            # 該当するすべての装備を取得
+            all_equipment = []
+
+            for category in selected_categories:
+                if self.app_controller:
+                    # アプリコントローラーを使用して装備を取得
+                    equipment_list = self.app_controller.get_all_equipment(category)
+                    all_equipment.extend(equipment_list)
+                else:
+                    # 直接モデルを使用
+                    try:
+                        from models.equipment_model import EquipmentModel
+                        equipment_model = EquipmentModel()
+                        equipment_list = equipment_model.get_all_equipment(category)
+                        all_equipment.extend(equipment_list)
+                    except Exception as e:
+                        print(f"装備データ取得エラー: {e}")
+
+            # 装備をコンボボックスに追加
+            for equipment in all_equipment:
+                eq_id = equipment.get('common', {}).get('ID', '')
+                eq_name = equipment.get('common', {}).get('名前', '')
+                eq_type = equipment.get('equipment_type', '')
+
+                if eq_id and eq_name:
+                    # 表示形式は「装備名 (ID) - カテゴリー」
+                    display_text = f"{eq_name} ({eq_id}) - {eq_type}"
+                    equipment_combo.addItem(display_text)
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"装備コンボボックス更新中にエラーが発生しました: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def save_design(self):
+        """設計の保存"""
+        # 船体が選択されていない場合はエラー
+        if not self.current_hull:
+            QMessageBox.warning(self, "警告", "船体が選択されていません。")
+            return
+
+        # 艦級名が入力されていない場合はエラー
+        design_name = self.design_name_edit.text().strip()
+        if not design_name:
+            QMessageBox.warning(self, "警告", "艦級名を入力してください。")
+            return
+
+        try:
+            # 設計データの構築
+            design_data = {
+                "design_name": design_name,
+                "ship_type": self.ship_type_combo.currentText(),
+                "hull_id": self.current_hull.get("id", ""),
+                "hull_name": self.current_hull.get("name", ""),
+                "main_slots": {},          # メインスロットの装備ID
+                "slot_categories": {},     # スロットに割り当てられたカテゴリー
+                "internal_slots": [],      # 内部スロットの情報
+            }
+
+            # メインスロットのカテゴリーと装備の取得
+            for slot_type in ["PA", "SA", "PSA", "SSA", "PLA", "SLA"]:
+                # カテゴリーが選択されている場合は保存
+                if hasattr(self, 'slot_category_selections') and slot_type in self.slot_category_selections:
+                    categories = self.slot_category_selections[slot_type]
+                    if categories:
+                        design_data["slot_categories"][slot_type] = categories
+
+                # 装備が選択されている場合は保存
+                if slot_type in self.slot_combos:
+                    combo = self.slot_combos[slot_type]
+                    current_text = combo.currentText()
+
+                    if current_text != "選択する" and "使用不可" not in current_text and "有効化可能" not in current_text:
+                        # 括弧内のIDを抽出（例: "装備名 (ID) - カテゴリー"）
+                        import re
+                        id_match = re.search(r'\(([^)]+)\)', current_text)
+                        if id_match:
+                            equipment_id = id_match.group(1)
+                            design_data["main_slots"][slot_type] = equipment_id
+
+            # 内部スロットのデータを取得
+            for i, slot_info in enumerate(self.internal_slots):
+                slot_id = slot_info["id"]
+
+                # カテゴリー選択
+                selected_categories = []
+                if hasattr(self, 'slot_category_selections') and slot_id in self.slot_category_selections:
+                    selected_categories = self.slot_category_selections[slot_id]
+
+                # 装備選択
+                selected_equipment = None
+                combo = slot_info["equipment_combo"]
+                current_text = combo.currentText()
+
+                if current_text != "選択する" and "使用不可" not in current_text and "有効化可能" not in current_text:
+                    # 括弧内のIDを抽出
+                    import re
+                    id_match = re.search(r'\(([^)]+)\)', current_text)
+                    if id_match:
+                        selected_equipment = id_match.group(1)
+
+                # スロット情報を追加
+                internal_slot_data = {
+                    "slot_id": slot_id,
+                    "slot_number": i + 1,
+                    "categories": selected_categories,
+                    "equipment_id": selected_equipment
+                }
+
+                design_data["internal_slots"].append(internal_slot_data)
+
+            # 基本情報の追加
+            design_data["displacement"] = self.current_hull.get("weight", 0)  # 排水量
+            design_data["year"] = self.current_hull.get("year", 1936)        # 設計年
+            design_data["country"] = self.current_hull.get("country", "")    # 建造国
+
+            # コントローラーを使用して保存
+            if self.app_controller:
+                success = self.app_controller.save_design(design_data)
+                if success:
+                    QMessageBox.information(self, "保存成功", f"艦級「{design_name}」の設計を保存しました。")
+                else:
+                    QMessageBox.critical(self, "保存エラー", "設計の保存に失敗しました。")
+            else:
+                # コントローラーがない場合は直接保存
+                try:
+                    import os
+                    import json
+                    import time
+
+                    # 設計ID（未設定の場合は生成）
+                    design_id = design_data.get("id", "")
+                    if not design_id:
+                        # 設計名から一意のIDを生成
+                        base_id = ''.join(e for e in design_name if e.isalnum())
+                        design_id = f"DESIGN_{base_id}_{int(time.time())}"
+                        design_data["id"] = design_id
+
+                    # 設計データを保存
+                    designs_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'designs')
+
+                    # ディレクトリがなければ作成
+                    os.makedirs(designs_dir, exist_ok=True)
+
+                    # ファイルパス
+                    file_path = os.path.join(designs_dir, f"{design_id}.json")
+
+                    # JSONに変換して保存
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        json.dump(design_data, f, ensure_ascii=False, indent=2)
+
+                    QMessageBox.information(self, "保存成功", f"艦級「{design_name}」の設計を保存しました。")
+                except Exception as e:
+                    QMessageBox.critical(self, "保存エラー", f"設計の保存に失敗しました: {e}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"設計の保存中にエラーが発生しました: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def load_design_data(self, design_data):
+        """設計データを読み込んで画面に反映"""
+        try:
+            # 船体データを読み込み
+            hull_id = design_data.get("hull_id", "")
+            if hull_id:
+                if self.app_controller:
+                    hull_data = self.app_controller.load_hull(hull_id)
+                else:
+                    # 直接モデルを使用
+                    from models.hull_model import HullModel
+                    hull_model = HullModel()
+                    hull_data = hull_model.load_hull(hull_id)
+
+                if hull_data:
+                    # 船体を選択
+                    self.current_hull = hull_data
+                    self.selected_hull_label.setText(hull_data.get("name", "不明"))
+
+                    # 艦級名を設定
+                    self.design_name_edit.setText(design_data.get("design_name", ""))
+
+                    # 艦種を更新
+                    ship_type = design_data.get("ship_type", "")
+                    index = self.ship_type_combo.findText(ship_type)
+                    if index >= 0:
+                        self.ship_type_combo.setCurrentIndex(index)
+
+                    # 船体基礎情報を更新
+                    self.update_hull_info(hull_data)
+
+                    # スロット開放状況を更新
+                    self.update_slot_availability()
+
+                    # カテゴリーと装備を設定
+
+                    # スロットカテゴリーの選択情報を初期化
+                    if not hasattr(self, 'slot_category_selections'):
+                        self.slot_category_selections = {}
+
+                    # メインスロットのカテゴリーを設定
+                    slot_categories = design_data.get("slot_categories", {})
+                    for slot_type, categories in slot_categories.items():
+                        self.slot_category_selections[slot_type] = categories
+
+                        # ボタンテキストを更新
+                        if slot_type in self.slot_category_combos:
+                            button = self.slot_category_combos[slot_type]
+                            if len(categories) == 1:
+                                button.setText(categories[0])
+                            else:
+                                button.setText(f"{len(categories)}種類選択")
+
+                    # 装備コンボボックスを更新
+                    for slot_type in ["PA", "SA", "PSA", "SSA", "PLA", "SLA"]:
+                        self.update_equipment_combo(slot_type)
+
+                    # 装備選択を設定
+                    main_slots = design_data.get("main_slots", {})
+                    for slot_type, equipment_id in main_slots.items():
+                        self.set_equipment_selection(slot_type, equipment_id)
+
+                    # 内部スロットを復元
+                    # まず既存のスロットをクリア
+                    while self.internal_slots:
+                        self.remove_internal_slot()
+
+                    # 保存されていた内部スロットを追加
+                    for slot_data in design_data.get("internal_slots", []):
+                        # スロットを追加
+                        self.add_internal_slot()
+
+                        # 最後に追加したスロットを設定
+                        if self.internal_slots:
+                            last_slot = self.internal_slots[-1]
+                            slot_id = last_slot["id"]
+
+                            # カテゴリーを設定
+                            categories = slot_data.get("categories", [])
+                            if categories:
+                                self.slot_category_selections[slot_id] = categories
+
+                                # ボタンテキストを更新
+                                button = last_slot["category_button"]
+                                if len(categories) == 1:
+                                    button.setText(categories[0])
+                                else:
+                                    button.setText(f"{len(categories)}種類選択")
+
+                                # 装備コンボボックスを更新
+                                self.update_equipment_combo(slot_id)
+
+                                # 装備選択を設定
+                                equipment_id = slot_data.get("equipment_id")
+                                if equipment_id:
+                                    self.set_equipment_selection(slot_id, equipment_id)
+
+                    # 性能表示を更新
+                    # self.update_stats()
+
+                    QMessageBox.information(self, "読み込み完了", f"艦級「{design_data.get('design_name', '')}」の設計を読み込みました。")
+                else:
+                    QMessageBox.warning(self, "警告", f"船体ID '{hull_id}' のデータが見つかりません。")
+            else:
+                QMessageBox.warning(self, "警告", "有効な船体IDがありません。")
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"設計データの読み込み中にエラーが発生しました: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def set_equipment_selection(self, slot_id, equipment_id):
+        """スロットに指定した装備IDを選択する"""
+        try:
+            if slot_id not in self.slot_combos:
+                return
+
+            combo = self.slot_combos[slot_id]
+
+            # 装備データを取得
+            equipment_data = None
+            if self.app_controller:
+                equipment_data = self.app_controller.load_equipment(equipment_id)
+            else:
+                # 直接モデルを使用
+                from models.equipment_model import EquipmentModel
+                equipment_model = EquipmentModel()
+                equipment_data = equipment_model.load_equipment(equipment_id)
+
+            if equipment_data:
+                equipment_name = equipment_data.get('common', {}).get('名前', '')
+                equipment_type = equipment_data.get('equipment_type', '')
+
+                # コンボボックス内を検索
+                for i in range(combo.count()):
+                    item_text = combo.itemText(i)
+                    if f"({equipment_id})" in item_text:
+                        combo.setCurrentIndex(i)
+                        return
+
+                # 見つからない場合はアイテムを追加
+                display_text = f"{equipment_name} ({equipment_id}) - {equipment_type}"
+                combo.addItem(display_text)
+                combo.setCurrentIndex(combo.count() - 1)
+
+        except Exception as e:
+            print(f"装備選択エラー: {e}")
+            import traceback
+            traceback.print_exc()

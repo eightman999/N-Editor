@@ -267,135 +267,7 @@ class EquipmentForm(QWidget):
         self.common_fields = {}
         self.specific_fields = {}
 
-    def generate_common_fields(self, equipment_type):
-        """共通フィールドの生成"""
-        # この実装はとても簡略化しています
-        # 実際には装備テンプレートからフィールドタイプを正確に解析する必要があります
-        common_fields = [
-            '名前', 'ID', '重量', '人員', '開発年', '開発国',
-            '必要資源_鉄', '必要資源_クロム', '必要資源_アルミ',
-            '必要資源_タングステン', '必要資源_ゴム'
-        ]
 
-        for field_name in common_fields:
-            if field_name in ['名前', 'ID', '開発国']:
-                field = QLineEdit()
-            elif field_name in ['重量']:
-                field = QDoubleSpinBox()
-                field.setRange(0, 100000)
-                field.setSingleStep(0.1)
-                field.setSuffix(' kg')
-            elif field_name in ['開発年']:
-                field = QSpinBox()
-                field.setRange(1900, 2050)
-                field.setValue(1936)  # デフォルト値（HOI4初期年）
-            else:
-                field = QSpinBox()
-                field.setRange(0, 10000)
-
-            self.common_layout.addRow(f"{field_name}:", field)
-            self.common_fields[field_name] = field
-
-    def generate_specific_fields(self, equipment_type):
-        """装備タイプ固有フィールドの生成"""
-        # この実装も簡略化しています
-        # 砲系
-        if '砲' in equipment_type:
-            specific_fields = {
-                '砲弾重量_kg': (QDoubleSpinBox, {'suffix': ' kg', 'range': (0, 1000)}),
-                '初速_mps': (QDoubleSpinBox, {'suffix': ' m/s', 'range': (0, 2000)}),
-                '毎分発射数': (QSpinBox, {'range': (1, 1000)}),
-                '砲口口径_cm': (QDoubleSpinBox, {'suffix': ' cm', 'range': (1, 100)}),
-                '口径': (QSpinBox, {'range': (1, 100)}),
-                '砲身数': (QSpinBox, {'range': (1, 10)}),
-                '最大仰俯角': (QLineEdit, {}),
-                '砲塔数': (QSpinBox, {'range': (1, 10)})
-            }
-        # 魚雷系
-        elif '魚雷' in equipment_type:
-            specific_fields = {
-                '炸薬重量_kg': (QDoubleSpinBox, {'suffix': ' kg', 'range': (0, 1000)}),
-                '最大射程_m': (QDoubleSpinBox, {'suffix': ' m', 'range': (0, 50000)}),
-                '雷速_kts': (QDoubleSpinBox, {'suffix': ' kts', 'range': (0, 100)}),
-                '口径_cm': (QDoubleSpinBox, {'suffix': ' cm', 'range': (1, 100)}),
-                '砲塔数': (QSpinBox, {'range': (1, 10)})
-            }
-        # ミサイル系
-        elif 'ミサイル' in equipment_type:
-            specific_fields = {
-                '炸薬重量_kg': (QDoubleSpinBox, {'suffix': ' kg', 'range': (0, 1000)}),
-                '最大射程_km': (QDoubleSpinBox, {'suffix': ' km', 'range': (0, 500)}),
-                '初速_mps': (QDoubleSpinBox, {'suffix': ' m/s', 'range': (0, 2000)}),
-                '毎分発射数': (QSpinBox, {'range': (1, 100)}),
-                '口径_cm': (QDoubleSpinBox, {'suffix': ' cm', 'range': (1, 100)}),
-                '砲塔数': (QSpinBox, {'range': (1, 100)})
-            }
-        # 航空機系
-        elif any(x in equipment_type for x in ['水上機', '艦上偵察機', '回転翼機', '対潜哨戒機', '大型飛行艇']):
-            specific_fields = {
-                '最高速度_kmh': (QDoubleSpinBox, {'suffix': ' km/h', 'range': (0, 2000)}),
-                '航続距離_km': (QDoubleSpinBox, {'suffix': ' km', 'range': (0, 10000)}),
-                'LgAttack': (QSpinBox, {'range': (0, 100)}),
-                'AAAttack': (QSpinBox, {'range': (0, 100)}),
-                'Fuel': (QDoubleSpinBox, {'range': (0, 5000)})
-            }
-        # 対潜系
-        elif any(x in equipment_type for x in ['爆雷', '対潜迫撃砲']):
-            specific_fields = {
-                '砲弾重量_kg': (QDoubleSpinBox, {'suffix': ' kg', 'range': (0, 1000)}),
-                '炸薬量_kg': (QDoubleSpinBox, {'suffix': ' kg', 'range': (0, 500)}),
-                '射程_m': (QDoubleSpinBox, {'suffix': ' m', 'range': (0, 5000)})
-            }
-        # センサー系
-        elif any(x in equipment_type for x in ['ソナー', '電探', '測距儀']):
-            specific_fields = {
-                '探知距離_km': (QDoubleSpinBox, {'suffix': ' km', 'range': (0, 500)}),
-                '出力_dB': (QDoubleSpinBox, {'suffix': ' dB', 'range': (0, 200)})
-            }
-            if '測距儀' in equipment_type:
-                specific_fields['基線長_cm'] = (QDoubleSpinBox, {'suffix': ' cm', 'range': (0, 1000)})
-        # 機関系
-        elif '機関' in equipment_type:
-            specific_fields = {
-                '機関出力_hp': (QDoubleSpinBox, {'suffix': ' hp', 'range': (0, 500000)}),
-                '燃料種別': (QComboBox, {'items': ['重油', '軽油', '石炭', '原子力']})
-            }
-        # バルジ系
-        elif 'バルジ' in equipment_type:
-            specific_fields = {
-                '装甲圧_mm': (QDoubleSpinBox, {'suffix': ' mm', 'range': (0, 500)})
-            }
-        # 格納庫
-        elif '格納庫' in equipment_type:
-            specific_fields = {
-                '格納庫サイズ': (QLineEdit, {})
-            }
-        # その他装備
-        else:
-            specific_fields = {}
-
-        # フィールドの生成と追加
-        for field_name, (field_type, options) in specific_fields.items():
-            field = field_type()
-
-            # フィールドタイプ別の設定
-            if isinstance(field, QDoubleSpinBox):
-                if 'range' in options:
-                    field.setRange(*options['range'])
-                if 'suffix' in options:
-                    field.setSuffix(options['suffix'])
-                field.setDecimals(2)
-                field.setSingleStep(0.1)
-            elif isinstance(field, QSpinBox):
-                if 'range' in options:
-                    field.setRange(*options['range'])
-            elif isinstance(field, QComboBox):
-                if 'items' in options:
-                    for item in options['items']:
-                        field.addItem(item)
-
-            self.specific_layout.addRow(f"{field_name}:", field)
-            self.specific_fields[field_name] = field
 
     def clear_form(self):
         """フォームの全クリア"""
@@ -581,3 +453,163 @@ class EquipmentForm(QWidget):
                     index = field.findText(str(value))
                     if index >= 0:
                         field.setCurrentIndex(index)
+
+
+    def generate_specific_fields(self, equipment_type):
+        """装備タイプ固有フィールドの生成"""
+        try:
+            # 装備タイプに基づく固有フィールドの定義
+            specific_fields = {}
+
+            # 砲系統
+            if '砲' in equipment_type:
+                specific_fields = {
+                    '砲弾重量_kg': (QDoubleSpinBox, {'suffix': ' kg', 'range': (0, 1000)}),
+                    '初速_mps': (QDoubleSpinBox, {'suffix': ' m/s', 'range': (0, 2000)}),
+                    '毎分発射数': (QSpinBox, {'range': (1, 1000)}),
+                    '砲口口径_cm': (QDoubleSpinBox, {'suffix': ' cm', 'range': (1, 100)}),
+                    '口径': (QSpinBox, {'range': (1, 100)}),
+                    '砲身数': (QSpinBox, {'range': (1, 10)}),
+                    '最大仰俯角': (QLineEdit, {}),
+                    '砲塔数': (QSpinBox, {'range': (1, 10)})
+                }
+            # 魚雷系
+            elif '魚雷' in equipment_type:
+                specific_fields = {
+                    '炸薬重量_kg': (QDoubleSpinBox, {'suffix': ' kg', 'range': (0, 1000)}),
+                    '最大射程_m': (QDoubleSpinBox, {'suffix': ' m', 'range': (0, 50000)}),
+                    '雷速_kts': (QDoubleSpinBox, {'suffix': ' kts', 'range': (0, 100)}),
+                    '口径_cm': (QDoubleSpinBox, {'suffix': ' cm', 'range': (1, 100)}),
+                    '砲塔数': (QSpinBox, {'range': (1, 10)})
+                }
+            # ミサイル系
+            elif 'ミサイル' in equipment_type:
+                specific_fields = {
+                    '炸薬重量_kg': (QDoubleSpinBox, {'suffix': ' kg', 'range': (0, 1000)}),
+                    '最大射程_km': (QDoubleSpinBox, {'suffix': ' km', 'range': (0, 500)}),
+                    '初速_mps': (QDoubleSpinBox, {'suffix': ' m/s', 'range': (0, 2000)}),
+                    '毎分発射数': (QSpinBox, {'range': (1, 100)}),
+                    '口径_cm': (QDoubleSpinBox, {'suffix': ' cm', 'range': (1, 100)}),
+                    '砲塔数': (QSpinBox, {'range': (1, 100)})
+                }
+            # 航空機系
+            elif any(x in equipment_type for x in ['水上機', '艦上偵察機', '回転翼機', '対潜哨戒機', '大型飛行艇']):
+                specific_fields = {
+                    '最高速度_kmh': (QDoubleSpinBox, {'suffix': ' km/h', 'range': (0, 2000)}),
+                    '航続距離_km': (QDoubleSpinBox, {'suffix': ' km', 'range': (0, 10000)}),
+                    'LgAttack': (QSpinBox, {'range': (0, 100)}),
+                    'AAAttack': (QSpinBox, {'range': (0, 100)}),
+                    'Fuel': (QDoubleSpinBox, {'range': (0, 5000)})
+                }
+            # 対潜系
+            elif any(x in equipment_type for x in ['爆雷', '対潜迫撃砲', '爆雷投射機']):
+                specific_fields = {
+                    '砲弾重量_kg': (QDoubleSpinBox, {'suffix': ' kg', 'range': (0, 1000)}),
+                    '炸薬量_kg': (QDoubleSpinBox, {'suffix': ' kg', 'range': (0, 500)}),
+                    '射程_m': (QDoubleSpinBox, {'suffix': ' m', 'range': (0, 5000)})
+                }
+            # センサー系
+            elif any(x in equipment_type for x in ['ソナー', '電探', '測距儀']):
+                specific_fields = {
+                    '探知距離_km': (QDoubleSpinBox, {'suffix': ' km', 'range': (0, 500)}),
+                    '出力_dB': (QDoubleSpinBox, {'suffix': ' dB', 'range': (0, 200)})
+                }
+                if '測距儀' in equipment_type:
+                    specific_fields['基線長_cm'] = (QDoubleSpinBox, {'suffix': ' cm', 'range': (0, 1000)})
+            # 機関系
+            elif '機関' in equipment_type:
+                specific_fields = {
+                    '機関出力_hp': (QDoubleSpinBox, {'suffix': ' hp', 'range': (0, 500000)}),
+                    '燃料種別': (QComboBox, {'items': ['重油', '軽油', '石炭', '原子力']})
+                }
+            # バルジ系
+            elif 'バルジ' in equipment_type:
+                specific_fields = {
+                    '装甲圧_mm': (QDoubleSpinBox, {'suffix': ' mm', 'range': (0, 500)})
+                }
+            # 格納庫
+            elif '格納庫' in equipment_type:
+                specific_fields = {
+                    '格納庫サイズ': (QLineEdit, {})
+                }
+            # その他装備
+            else:
+                # その他のカテゴリーのフィールド
+                specific_fields = {
+                    'その他パラメータ1': (QLineEdit, {}),
+                    'その他パラメータ2': (QDoubleSpinBox, {'range': (0, 1000)}),
+                    'その他パラメータ3': (QSpinBox, {'range': (0, 100)})
+                }
+
+            # フィールドの生成と追加
+            for field_name, (field_type, options) in specific_fields.items():
+                field = field_type()
+
+                # フィールドタイプ別の設定
+                if isinstance(field, QDoubleSpinBox):
+                    if 'range' in options:
+                        field.setRange(*options['range'])
+                    if 'suffix' in options:
+                        field.setSuffix(options['suffix'])
+                    field.setDecimals(2)
+                    field.setSingleStep(0.1)
+                elif isinstance(field, QSpinBox):
+                    if 'range' in options:
+                        field.setRange(*options['range'])
+                elif isinstance(field, QComboBox):
+                    if 'items' in options:
+                        for item in options['items']:
+                            field.addItem(item)
+
+                self.specific_layout.addRow(f"{field_name}:", field)
+                self.specific_fields[field_name] = field
+
+            # 固有フィールドが生成されたことを確認するためのログ
+            print(f"装備タイプ '{equipment_type}' の固有フィールドを生成しました。フィールド数: {len(specific_fields)}")
+
+        except Exception as e:
+            print(f"固有フィールド生成エラー: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def generate_common_fields(self, equipment_type):
+        """共通フィールドの生成"""
+        try:
+            # 共通フィールド
+            common_fields = [
+                '名前', 'ID', '重量', '人員', '開発年', '開発国',
+                '必要資源_鉄', '必要資源_クロム', '必要資源_アルミ',
+                '必要資源_タングステン', '必要資源_ゴム'
+            ]
+
+            for field_name in common_fields:
+                if field_name in ['名前', 'ID', '開発国']:
+                    field = QLineEdit()
+                elif field_name in ['重量']:
+                    field = QDoubleSpinBox()
+                    field.setRange(0, 100000)
+                    field.setSingleStep(0.1)
+                    field.setSuffix(' kg')
+                elif field_name in ['開発年']:
+                    field = QSpinBox()
+                    field.setRange(1900, 2050)
+                    field.setValue(1936)  # デフォルト値（HOI4初期年）
+                else:
+                    field = QSpinBox()
+                    field.setRange(0, 10000)
+
+                self.common_layout.addRow(f"{field_name}:", field)
+                self.common_fields[field_name] = field
+
+            # 装備タイプも追加
+            equipment_type_label = QLabel(equipment_type)
+            equipment_type_label.setStyleSheet("font-weight: bold;")
+            self.common_layout.addRow("装備タイプ:", equipment_type_label)
+            self.common_fields['equipment_type'] = equipment_type
+
+            print(f"装備タイプ '{equipment_type}' の共通フィールドを生成しました。")
+
+        except Exception as e:
+            print(f"共通フィールド生成エラー: {e}")
+            import traceback
+            traceback.print_exc()
