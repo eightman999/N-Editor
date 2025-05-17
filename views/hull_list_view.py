@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QHeaderView, QMessageBox, QDialog, QFileDialog)
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QColor
+import os
 
 from .hull_form import HullForm
 
@@ -401,7 +402,7 @@ class HullListView(QWidget):
             json_export = True
             # 保存先をhull_dirに固定
             if self.app_controller:
-                json_dir = self.app_controller.hull_model.data_dir
+                json_dir = os.path.join(self.app_controller.app_settings.data_dir, "hulls")
             else:
                 # 従来の方法（モデル直接使用）
                 from models.hull_model import HullModel

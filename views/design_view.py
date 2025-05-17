@@ -11,6 +11,8 @@ class DesignView(QWidget):
         self.app_controller = app_controller
         self.current_hull = None  # 現在選択されている船体データ
         self.stats_labels = {}    # 性能ラベル用の辞書を初期化
+        self.internal_slots = []  # 内部スロットのリストを初期化
+        self.slot_category_selections = {}  # スロットカテゴリー選択を初期化
         self.initUI()
 
     def initUI(self):
@@ -24,18 +26,114 @@ class DesignView(QWidget):
         ship_type_layout = QHBoxLayout()
         ship_type_layout.addWidget(QLabel("艦種 ▷"))
         self.ship_type_combo = QComboBox()
-        # 艦種の選択肢はHullModel.ship_type_mappingから動的に取得
+        
+        # 艦種の選択肢を追加
         self.ship_type_combo.addItem("選択してください")
-        if self.app_controller:
-            try:
-                # HullModelのship_type_mappingを使用
-                from models.hull_model import HullModel
-                for key, value in HullModel.ship_type_mapping.items():
-                    self.ship_type_combo.addItem(value)
-            except:
-                # 何らかの理由で取得できない場合はハードコードしたリストを使用
-                ship_types = ["DD - 駆逐艦", "CL - 軽巡洋艦", "CA - 重巡洋艦", "BB - 戦艦", "CV - 航空母艦", "SS - 潜水艦"]
-                self.ship_type_combo.addItems(ship_types)
+        
+        # 艦種マッピングの定義
+        ship_type_mapping = {
+            # 掃海艦艇
+            "AM": "AM - 掃海艇",
+            "CMC": "CMC - 沿岸敷設艇",
+            "MCM": "MCM - 掃海艦",
+            "MCS": "MCS - 掃海母艦",
+
+            # 空母系
+            "AV": "AV - 水上機母艦",
+            "CV": "CV - 航空母艦",
+            "CVE": "CVE - 護衛空母",
+            "CVL": "CVL - 軽空母",
+            "CVS": "CVS - 対潜空母",
+            "SV": "SV - 飛行艇母艦",
+
+            # 揚陸艦艇
+            "LCSL": "LCSL - 上陸支援艇",
+
+            # 小型艦艇（哨戒・砲艦など）
+            "PC": "PC - 哨戒艇、駆潜艇",
+            "PT": "PT - 高速魚雷艇",
+            "FF": "FF - フリゲート",
+            "K": "K - コルベット",
+            "MB": "MB - ミサイル艇",
+            "PF": "PF - 哨戒フリゲート",
+            "PG": "PG - 砲艦",
+            "TB": "TB - 魚雷艇",
+
+            # 駆逐艦系
+            "D": "D - 水雷駆逐艦",
+            "DB": "DB - 通報艦",
+            "DD": "DD - 駆逐艦",
+            "DDE": "DDE - 対潜護衛駆逐艦",
+            "DDG": "DDG - ミサイル駆逐艦",
+            "DDR": "DDR - レーダーピケット駆逐艦",
+            "DE": "DE - 護衛駆逐艦",
+            "DL": "DL - 嚮導駆逐艦",
+            "DM": "DM - 敷設駆逐艦",
+            "DMS": "DMS - 掃海駆逐艦",
+            "DDH": "DDH - ヘリコプター搭載護衛艦",
+
+            # 潜水艦系
+            "CSS": "CSS - 沿岸潜水艦",
+            "MSM": "MSM - 特殊潜航艇",
+            "SC": "SC - 巡洋潜水艦",
+            "SCV": "SCV - 潜水空母",
+            "SF": "SF - 艦隊型潜水艦",
+            "SM": "SM - 敷設型潜水艦",
+            "SS": "SS - 航洋型潜水艦",
+
+            # 巡洋艦系
+            "ACR": "ACR - 装甲巡洋艦",
+            "C": "C - 防護巡洋艦",
+            "CA": "CA - 重巡・一等巡洋艦",
+            "CL": "CL - 軽巡洋艦/二等巡洋艦",
+            "CB": "CB - 大型巡洋艦",
+            "CF": "CF - 航空巡洋艦",
+            "CG": "CG - ミサイル巡洋艦",
+            "CM": "CM - 敷設巡洋艦",
+            "CS": "CS - 偵察巡洋艦",
+            "HTC": "HTC - 重雷装巡洋艦",
+            "TC": "TC - 水雷巡洋艦",
+            "TCL": "TCL - 練習巡洋艦",
+
+            # 戦艦系
+            "B": "B - 前弩級戦艦",
+            "BB": "BB - 戦艦",
+            "BBG": "BBG - ミサイル戦艦",
+            "BC": "BC - 巡洋戦艦",
+            "BF": "BF - 航空戦艦",
+            "BM": "BM - モニター艦",
+            "FBB": "FBB - 高速戦艦",
+            "PB": "PB - ポケット戦艦",
+            "SB": "SB - 超戦艦",
+            "CDB": "CDB - 海防戦艦",
+
+            # その他装甲艦
+            "IC": "IC - 装甲艦",
+            
+            # 特設・巡視船・その他艦艇
+            "AAA": "AAA - 特設防空艦",
+            "AAG": "AAG - 特設防空警備艦",
+            "AAM": "AAM - 特設掃海艇",
+            "AAS": "AAS - 特設駆潜艇",
+            "AAV": "AAV - 特設水上機母艦",
+            "AC": "AC - 特設巡洋艦",
+            "AG": "AG - 特設砲艦",
+            "AMS": "AMS - 特設敷設艦",
+            "APC": "APC - 特設監視艇",
+            "APS": "APS - 特設哨戒艦",
+            "CAM": "CAM - CAMシップ",
+            "MAC": "MAC - 特設空母",
+            "APB": "APB - 航行可能な宿泊艦",
+            "PL": "PL - 大型巡視船",
+            "PLH": "PLH - ヘリ搭載型",
+            "PM": "PM - 中型巡視船",
+            "WHEC": "WHEC - 長距離カッター"
+        }
+
+        # 艦種をコンボボックスに追加
+        for value in ship_type_mapping.values():
+            self.ship_type_combo.addItem(value)
+
         ship_type_layout.addWidget(self.ship_type_combo)
         top_layout.addLayout(ship_type_layout)
 
@@ -145,15 +243,18 @@ class DesignView(QWidget):
         slots_scroll = QScrollArea()
         slots_scroll.setWidgetResizable(True)
         slots_scroll.setWidget(slots_container)
+        slots_scroll.setMinimumWidth(400)  # 最小幅を設定
+        slots_scroll.setMaximumWidth(600)  # 最大幅を設定
 
         central_layout.addWidget(slots_scroll)
 
         # 右側：性能表示
-        stats_group = QGroupBox("性能表示枠")
-        self.stats_layout = QGridLayout()  # ここで初期化
+        stats_group = QGroupBox("性能表示")
+        self.stats_layout = QGridLayout()
+        stats_group.setLayout(self.stats_layout)
+        stats_group.setMinimumWidth(300)  # 最小幅を設定
 
         # 性能パラメータの定義
-        # 将来的に動的にするための準備として、辞書を使用
         self.stats_labels = {}
 
         # スータス一覧からパラメータを動的に読み込む
@@ -203,25 +304,8 @@ class DesignView(QWidget):
             col = i // mid_point * 2  # 間隔を空けるため*2
             self.stats_layout.addWidget(QLabel(f"{name}:"), row, col)
             self.stats_layout.addWidget(label, row, col + 1)
-        slots_scroll = QScrollArea()
-        slots_scroll.setWidgetResizable(True)
-        slots_scroll.setWidget(slots_container)
 
-        central_layout.addWidget(slots_scroll)
-
-        # 右側：性能表示
-        stats_group = QGroupBox("性能表示枠 (2列表示)")
-        self.stats_layout = QGridLayout()
-
-        # 性能パラメータの定義
-        # 将来的に動的にするための準備として、辞書を使用
-        self.stats_labels = {}
-
-        # スータス一覧からパラメータを動的に読み込む
-        self.load_stats_definitions()
-        stats_group.setLayout(self.stats_layout)
         central_layout.addWidget(stats_group)
-
         main_layout.addLayout(central_layout)
 
         # 下部：船体基礎情報
@@ -385,22 +469,57 @@ class DesignView(QWidget):
     def select_hull(self):
         """船体選択ダイアログを表示"""
         try:
-            # app_controllerから船体リストを取得
-            if self.app_controller:
-                hulls = self.app_controller.get_all_hulls()
-            else:
-                # 直接HullModelを使用（app_controllerがない場合）
-                from models.hull_model import HullModel
-                hull_model = HullModel()
-                hulls = hull_model.get_all_hulls()
+            # 艦種でフィルタリング
+            selected_ship_type = self.ship_type_combo.currentText()
+            if selected_ship_type == "選択してください":
+                # 艦種が選択されていない場合は、最初の有効な艦種を選択
+                for i in range(1, self.ship_type_combo.count()):
+                    self.ship_type_combo.setCurrentIndex(i)
+                    selected_ship_type = self.ship_type_combo.currentText()
+                    break
+
+            # JSONファイルから直接船体データを読み込む
+            import os
+            import json
+
+            # macOSのアプリケーションサポートディレクトリのパスを取得
+            home_dir = os.path.expanduser("~")
+            hulls_dir = os.path.join(home_dir, 'Library', 'Application Support', 'NavalDesignSystem', 'hulls')
+
+            # 船体データを格納するリスト
+            hulls = []
+
+            # ディレクトリ内のJSONファイルを読み込む
+            if os.path.exists(hulls_dir):
+                for file_name in os.listdir(hulls_dir):
+                    if file_name.endswith('.json'):
+                        file_path = os.path.join(hulls_dir, file_name)
+                        try:
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                hull_data = json.load(f)
+                                hulls.append(hull_data)
+                        except Exception as e:
+                            print(f"船体データ読み込みエラー ({file_name}): {e}")
 
             if not hulls:
                 QMessageBox.information(self, "情報", "船体データがありません。先に船体を登録してください。")
                 return
 
+            # 選択された艦種でフィルタリング
+            filtered_hulls = []
+            for hull in hulls:
+                hull_type = hull.get("type", "")
+                # 完全な艦種名で比較
+                if hull_type == selected_ship_type:
+                    filtered_hulls.append(hull)
+
+            if not filtered_hulls:
+                QMessageBox.information(self, "情報", f"選択された艦種「{selected_ship_type}」の船体データがありません。")
+                return
+
             # 船体選択ダイアログを表示
             dialog = QDialog(self)
-            dialog.setWindowTitle("船体選択")
+            dialog.setWindowTitle(f"船体選択 - {selected_ship_type}")
             dialog.setMinimumWidth(500)
             dialog.setMinimumHeight(300)
 
@@ -413,7 +532,7 @@ class DesignView(QWidget):
             hull_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)  # 艦級名列を拡大
 
             # 船体データをテーブルに追加
-            for i, hull in enumerate(hulls):
+            for i, hull in enumerate(filtered_hulls):
                 hull_table.insertRow(i)
                 hull_table.setItem(i, 0, QTableWidgetItem(hull.get("id", "")))
                 hull_table.setItem(i, 1, QTableWidgetItem(hull.get("name", "")))
@@ -428,8 +547,8 @@ class DesignView(QWidget):
             # 選択ボタンがクリックされたときの処理
             def on_select():
                 current_row = hull_table.currentRow()
-                if current_row >= 0 and current_row < len(hulls):
-                    self.on_hull_selected(hulls[current_row])
+                if current_row >= 0 and current_row < len(filtered_hulls):
+                    self.on_hull_selected(filtered_hulls[current_row])
                     dialog.accept()
                 else:
                     QMessageBox.warning(dialog, "警告", "船体を選択してください。")
@@ -526,7 +645,7 @@ class DesignView(QWidget):
 
             # 各スロットの有効/無効を確認
             for slot_type in ["PA", "SA", "PSA", "SSA", "PLA", "SLA"]:
-                category_combo = self.slot_category_combos[slot_type]
+                category_button = self.slot_category_combos[slot_type]
                 equipment_combo = self.slot_combos[slot_type]
 
                 # スロットの状態を確認
@@ -534,46 +653,43 @@ class DesignView(QWidget):
 
                 if slot_status == "-":
                     # 無効なスロット
-                    category_combo.setEnabled(False)
+                    category_button.setEnabled(False)
                     equipment_combo.setEnabled(False)
 
                     # グレーアウト表示
-                    palette = category_combo.palette()
+                    palette = category_button.palette()
                     palette.setColor(QPalette.Base, QColor(200, 200, 200))  # 淡いグレー
-                    category_combo.setPalette(palette)
+                    category_button.setPalette(palette)
                     equipment_combo.setPalette(palette)
 
                     # デフォルトテキスト
-                    category_combo.clear()
-                    category_combo.addItem("(使用不可)")
+                    category_button.setText("(使用不可)")
                     equipment_combo.clear()
                     equipment_combo.addItem("(使用不可)")
                 elif slot_status == "=":
                     # 有効化可能なスロット
-                    category_combo.setEnabled(True)
+                    category_button.setEnabled(True)
                     equipment_combo.setEnabled(True)
 
                     # デフォルトパレットに戻す
-                    category_combo.setPalette(QPalette())
+                    category_button.setPalette(QPalette())
                     equipment_combo.setPalette(QPalette())
 
                     # 初期化
-                    if category_combo.currentIndex() == 0:
-                        self.load_equipment_categories()  # カテゴリーを再ロード
+                    category_button.setText("カテゴリー選択")
                     equipment_combo.clear()
                     equipment_combo.addItem("(有効化可能)")
                 else:
                     # 有効なスロット
-                    category_combo.setEnabled(True)
+                    category_button.setEnabled(True)
                     equipment_combo.setEnabled(True)
 
                     # デフォルトパレットに戻す
-                    category_combo.setPalette(QPalette())
+                    category_button.setPalette(QPalette())
                     equipment_combo.setPalette(QPalette())
 
                     # 初期化
-                    if category_combo.currentIndex() == 0:
-                        self.load_equipment_categories()  # カテゴリーを再ロード
+                    category_button.setText("カテゴリー選択")
                     equipment_combo.clear()
                     equipment_combo.addItem("選択する")
 
@@ -1119,6 +1235,103 @@ class DesignView(QWidget):
 
         except Exception as e:
             print(f"装備選択エラー: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def show_category_selection_dialog(self, slot_type):
+        """カテゴリー選択ダイアログを表示"""
+        try:
+            # カテゴリー選択ダイアログを作成
+            dialog = QDialog(self)
+            dialog.setWindowTitle(f"スロット {slot_type} のカテゴリー選択")
+            dialog.setMinimumWidth(400)
+            dialog.setMinimumHeight(500)
+
+            # レイアウト
+            layout = QVBoxLayout()
+
+            # 説明ラベル
+            description = QLabel("複数のカテゴリーを選択できます（Ctrlキーを押しながらクリック）")
+            layout.addWidget(description)
+
+            # カテゴリーリスト
+            category_list = QListWidget()
+            category_list.setSelectionMode(QListWidget.MultiSelection)
+
+            # 現在選択されているカテゴリーを取得
+            current_categories = self.slot_category_selections.get(slot_type, [])
+
+            # カテゴリーを追加
+            if self.app_controller:
+                categories = self.app_controller.get_equipment_types()
+            else:
+                # デフォルトのカテゴリー
+                categories = [
+                    "小口径砲", "中口径砲", "大口径砲", "超大口径砲", "対空砲",
+                    "魚雷", "潜水艦魚雷", "対艦ミサイル", "対空ミサイル",
+                    "水上機", "艦上偵察機", "回転翼機", "対潜哨戒機", "大型飛行艇",
+                    "爆雷投射機", "爆雷", "対潜迫撃砲",
+                    "ソナー", "大型ソナー", "小型電探", "大型電探", "測距儀",
+                    "機関", "増設バルジ(中型艦)", "増設バルジ(大型艦)", "格納庫", "その他"
+                ]
+
+            # カテゴリーをリストに追加
+            for category in categories:
+                item = QListWidgetItem(category)
+                category_list.addItem(item)
+                # 現在選択されているカテゴリーを選択状態にする
+                if category in current_categories:
+                    item.setSelected(True)
+
+            layout.addWidget(category_list)
+
+            # 選択状態の表示
+            selection_info = QLabel("選択中のカテゴリー: 0")
+            layout.addWidget(selection_info)
+
+            # 選択状態が変更されたときの処理
+            def update_selection_info():
+                selected_count = len(category_list.selectedItems())
+                selection_info.setText(f"選択中のカテゴリー: {selected_count}")
+
+            category_list.itemSelectionChanged.connect(update_selection_info)
+
+            # ボタン
+            button_layout = QHBoxLayout()
+            ok_button = QPushButton("OK")
+            cancel_button = QPushButton("キャンセル")
+
+            def on_ok():
+                # 選択されたカテゴリーを取得
+                selected_categories = [item.text() for item in category_list.selectedItems()]
+                self.slot_category_selections[slot_type] = selected_categories
+
+                # カテゴリーボタンのテキストを更新
+                if slot_type in self.slot_category_combos:
+                    button = self.slot_category_combos[slot_type]
+                    if len(selected_categories) == 0:
+                        button.setText("カテゴリー選択")
+                    elif len(selected_categories) == 1:
+                        button.setText(selected_categories[0])
+                    else:
+                        button.setText(f"{len(selected_categories)}種類選択")
+
+                # 装備コンボボックスを更新
+                self.update_equipment_combo(slot_type)
+                dialog.accept()
+
+            ok_button.clicked.connect(on_ok)
+            cancel_button.clicked.connect(dialog.reject)
+
+            button_layout.addWidget(ok_button)
+            button_layout.addWidget(cancel_button)
+            layout.addLayout(button_layout)
+
+            dialog.setLayout(layout)
+            dialog.exec_()
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"カテゴリー選択ダイアログの表示中にエラーが発生しました: {e}")
             import traceback
             traceback.print_exc()
 

@@ -69,7 +69,22 @@ class EquipmentForm(QWidget):
 
         # 下部ボタン
         button_layout = QHBoxLayout()
-        # ボタンの設定コードは変更なし
+        
+        # 保存ボタン
+        save_button = QPushButton("保存")
+        save_button.clicked.connect(self.save_equipment)
+        button_layout.addWidget(save_button)
+        
+        # 読み込みボタン
+        load_button = QPushButton("読み込み")
+        load_button.clicked.connect(self.load_equipment)
+        button_layout.addWidget(load_button)
+        
+        # クリアボタン
+        clear_button = QPushButton("クリア")
+        clear_button.clicked.connect(self.clear_form)
+        button_layout.addWidget(clear_button)
+        
         main_layout.addLayout(button_layout)
 
         # フォーム入力フィールドの保存用辞書
@@ -257,8 +272,6 @@ class EquipmentForm(QWidget):
         self.common_fields = {}
         self.specific_fields = {}
 
-
-
     def clear_form(self):
         """フォームの全クリア"""
         self.on_equipment_type_changed()  # 現在のタイプのフォームを再構築
@@ -444,7 +457,6 @@ class EquipmentForm(QWidget):
                     if index >= 0:
                         field.setCurrentIndex(index)
 
-
     def generate_specific_fields(self, equipment_type):
         """装備タイプ固有フィールドの生成"""
         try:
@@ -604,7 +616,6 @@ class EquipmentForm(QWidget):
             import traceback
             traceback.print_exc()
 
-
     def on_equipment_type_changed(self):
         """装備タイプ変更時の処理"""
         print("装備タイプが変更されました")
@@ -614,15 +625,16 @@ class EquipmentForm(QWidget):
         current_type = self.equipment_type_combo.currentText()
         print(f"選択された装備タイプ: '{current_type}'")
 
-        if not current_type or current_type not in self.equipment_templates:
-            print(f"無効な装備タイプまたはテンプレートに存在しません: {current_type}")
+        if not current_type:
+            print("装備タイプが選択されていません")
             return
 
         try:
-            # テンプレートから共通フィールドと固有フィールドを生成
+            # 共通フィールドの生成
             print(f"共通フィールドを生成します: {current_type}")
             self.generate_common_fields(current_type)
 
+            # 固有フィールドの生成
             print(f"固有フィールドを生成します: {current_type}")
             self.generate_specific_fields(current_type)
 
@@ -631,18 +643,16 @@ class EquipmentForm(QWidget):
             self.specific_group.update()
             QApplication.processEvents()
 
-            # 装備IDのプレフィックスを自動設定（元のコードを維持）
-            if 'ID' in self.common_fields and 'id_prefix' in self.equipment_templates[current_type]:
-                # AppControllerが利用可能であれば、次のIDを取得
+            # 装備IDのプレフィックスを自動設定
+            if 'ID' in self.common_fields:
                 if self.app_controller:
                     next_id = self.app_controller.get_next_equipment_id(current_type)
                     if next_id:
                         self.common_fields['ID'].setText(next_id)
-                        return
+                elif current_type in self.equipment_templates and 'id_prefix' in self.equipment_templates[current_type]:
+                    prefix = self.equipment_templates[current_type]['id_prefix']
+                    self.common_fields['ID'].setText(f"{prefix}")
 
-                # 従来の方法（AppControllerがない場合）
-                prefix = self.equipment_templates[current_type]['id_prefix']
-                self.common_fields['ID'].setText(f"{prefix}")
         except Exception as e:
             print(f"装備タイプ変更処理でエラーが発生しました: {e}")
             import traceback
