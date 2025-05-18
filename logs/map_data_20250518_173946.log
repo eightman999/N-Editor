@@ -1,0 +1,9 @@
+2025-05-18 17:39:54,200 - MapDataWorker - INFO - プロヴィンス定義ファイルを読み込み中: /Users/eightman/Documents/Paradox Interactive/Hearts of Iron IV/mod/SSW_mod/map/definition.csv
+2025-05-18 17:39:54,202 - MapDataWorker - ERROR - プロヴィンス定義ファイルの読み込みエラー: 'MapData' object has no attribute 'provinces'
+2025-05-18 17:39:54,211 - MapDataWorker - ERROR - Traceback (most recent call last):
+  File "/Users/eightman/Desktop/趣味・同好会/N-Editor/views/map_data.py", line 139, in load_province_definitions
+    self.provinces[province_id] = (r, g, b, province_type, is_coastal)
+    ^^^^^^^^^^^^^^
+AttributeError: 'MapData' object has no attribute 'provinces'
+
+2025-05-18 17:39:54,283 - MapDataWorker - INFO - マップデータの読み込みをキャンセルしました

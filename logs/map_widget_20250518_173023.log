@@ -1,0 +1,4 @@
+2025-05-18 17:30:23,586 - MapWidget - INFO - MapWidgetの初期化が完了しました
+2025-05-18 17:30:36,640 - MapWidget - INFO - マップデータの読み込みを開始: /Users/eightman/Documents/Paradox Interactive/Hearts of Iron IV/mod/SSW_mod
+2025-05-18 17:30:37,183 - MapWidget - INFO - マップデータの読み込みをキャンセルしました
+2025-05-18 17:30:37,183 - MapWidget - ERROR - マップデータの読み込み中にエラーが発生しました: too many values to unpack (expected 2)

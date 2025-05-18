@@ -1,54 +1,88 @@
-from PyQt5.QtWidgets import QWidget, QProgressDialog, QLabel, QVBoxLayout, QTextEdit
-from PyQt5.QtGui import QPainter, QColor, QPen, QPixmap, QImage
-from PyQt5.QtCore import Qt, QPoint, QRect, QTimer, pyqtSignal
-from .map_data import MapData
+from PyQt5.QtWidgets import QWidget, QProgressDialog, QLabel, QVBoxLayout, QTextEdit, QScrollArea, QPushButton, \
+    QHBoxLayout
+from PyQt5.QtGui import QPainter, QColor, QPen, QPixmap, QImage, QBrush, QPainterPath
+from PyQt5.QtCore import Qt, QPoint, QRect, QSize, QTimer, pyqtSignal, QThread
 import os
 import logging
 import numpy as np
 from PIL import Image
-import psutil
-import gc
+import re
+import csv
 import time
-import threading
-from pathlib import Path
-import sys
+import gc
+import traceback
+from scipy.spatial import ConvexHull
 
-class MapWidget(QWidget):
-    # シグナルの定義
-    loading_progress = pyqtSignal(int, str)  # 進捗率とメッセージ
+from views.map_data import MapData
+
+
+class MapLoadingThread(QThread):
+    """マップデータを非同期で読み込むためのスレッド"""
+    
+    progress_updated = pyqtSignal(int, str)
     loading_complete = pyqtSignal()
     loading_error = pyqtSignal(str)
+    
+    def __init__(self, map_data, mod_path):
+        super().__init__()
+        self.map_data = map_data
+        self.mod_path = mod_path
+    
+    def run(self):
+        try:
+            # プロヴィンス定義の読み込み
+            self.progress_updated.emit(10, "プロヴィンス定義を読み込み中...")
+            self.map_data.load_province_definitions(os.path.join(self.mod_path, 'map', 'definition.csv'))
+            
+            # プロヴィンス画像の読み込みと座標抽出
+            self.progress_updated.emit(30, "プロヴィンス画像を読み込み中...")
+            self.map_data.load_province_coordinates(os.path.join(self.mod_path, 'map', 'provinces.bmp'))
+            
+            # ステート情報の読み込み
+            self.progress_updated.emit(70, "ステート情報を読み込み中...")
+            self.map_data.load_states(os.path.join(self.mod_path, 'history', 'states'))
+            
+            # 国家の色定義を読み込み
+            self.progress_updated.emit(90, "国家の色定義を読み込み中...")
+            self.map_data.load_country_colors(os.path.join(self.mod_path, 'common', 'countries', 'colors.txt'))
+            
+            self.progress_updated.emit(100, "読み込みが完了しました")
+            self.loading_complete.emit()
+            
+        except Exception as e:
+            self.loading_error.emit(str(e))
 
+
+class MapWidget(QWidget):
+    """マップを表示するウィジェット"""
+    
     def __init__(self, parent=None):
         super().__init__(parent)
+        
+        # 状態変数の初期化
         self.map_data = MapData()
+        self.map_data.detailed_progress.connect(self.update_progress)
         self.zoom_level = 1.0
         self.offset = QPoint(0, 0)
         self.dragging = False
         self.last_pos = None
         self.province_image = None
         self.cached_pixmap = None
+        
+        # マウス追跡を有効化
         self.setMouseTracking(True)
-        self.loading_worker = None
-        self.progress_dialog = None
-        self.status_label = None
-        self.detail_text = None
+        
+        # ウィジェットの最小サイズを設定
+        self.setMinimumSize(800, 600)
         
         # ロガーの設定
         self.logger = logging.getLogger('MapWidget')
         self.logger.setLevel(logging.DEBUG)
         
-        # 既存のハンドラをクリア
-        self.logger.handlers.clear()
-        
-        # ログディレクトリの作成
-        log_dir = Path("logs")
-        log_dir.mkdir(exist_ok=True)
-        
-        # ファイルハンドラの設定（日付ごとにログファイルを分割）
-        current_time = time.strftime('%Y%m%d_%H%M%S')
-        log_file = log_dir / f"map_widget_{current_time}.log"
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        # ファイルハンドラの設定
+        log_dir = "logs"
+        os.makedirs(log_dir, exist_ok=True)
+        file_handler = logging.FileHandler(os.path.join(log_dir, f"map_widget_{time.strftime('%Y%m%d_%H%M%S')}.log"))
         file_handler.setLevel(logging.DEBUG)
         
         # コンソールハンドラの設定
@@ -56,9 +90,7 @@ class MapWidget(QWidget):
         console_handler.setLevel(logging.INFO)
         
         # フォーマッタの設定
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         file_handler.setFormatter(formatter)
         console_handler.setFormatter(formatter)
         
@@ -66,345 +98,545 @@ class MapWidget(QWidget):
         self.logger.addHandler(file_handler)
         self.logger.addHandler(console_handler)
         
-        # プロセスの情報を取得
-        self.process = psutil.Process()
-        
-        # システム情報のログ出力
-        self.logger.info(f"Pythonバージョン: {sys.version}")
-        self.logger.info(f"NumPyバージョン: {np.__version__}")
-        self.logger.info(f"PILバージョン: {Image.__version__}")
-        self.logger.info(f"CPUコア数: {os.cpu_count()}")
-        self.logger.info(f"メモリ情報: {psutil.virtual_memory()}")
-        
-        # シグナルの接続
-        self.loading_progress.connect(self.update_progress)
-        self.loading_complete.connect(self.on_loading_complete)
-        self.loading_error.connect(self.on_loading_error)
-        self.map_data.detailed_progress.connect(self.update_detailed_progress)
-        
-        # メモリ使用量の初期値を記録
-        self._log_memory_usage("初期化完了")
         self.logger.info("MapWidgetの初期化が完了しました")
-
-    def _log_memory_usage(self, context=""):
-        """メモリ使用量をログに記録"""
-        memory_info = self.process.memory_info()
-        memory_mb = memory_info.rss / 1024 / 1024
-        cpu_percent = self.process.cpu_percent()
+    
+    def load_map_data(self, mod_path):
+        """マップデータを非同期で読み込む"""
+        self.logger.info(f"マップデータの読み込みを開始: {mod_path}")
         
-        extra = {
-            'memory_usage': f"{memory_mb:.1f}",
-            'cpu_percent': f"{cpu_percent:.1f}",
-            'thread_name': threading.current_thread().name
-        }
+        # プログレスダイアログの作成
+        from PyQt5.QtWidgets import QProgressDialog
         
-        self.logger.info(f"メモリ使用量: {context}", extra=extra)
-
-    def create_progress_dialog(self):
-        """プログレスダイアログを作成"""
-        self.logger.info("プログレスダイアログを作成")
-        self._log_memory_usage("ダイアログ作成前")
-        
-        self.progress_dialog = QProgressDialog(self)
+        self.progress_dialog = QProgressDialog("マップデータ読み込み中...", "キャンセル", 0, 100, self)
         self.progress_dialog.setWindowTitle("マップデータ読み込み")
         self.progress_dialog.setWindowModality(Qt.WindowModal)
         self.progress_dialog.setAutoClose(False)
         self.progress_dialog.setAutoReset(False)
-        self.progress_dialog.setMinimumDuration(0)
-        self.progress_dialog.setCancelButtonText("キャンセル")
         self.progress_dialog.canceled.connect(self.cancel_loading)
-        
-        # メインレイアウト
-        main_layout = QVBoxLayout()
-        
-        # プログレスバーをレイアウトに追加
-        main_layout.addWidget(self.progress_dialog)
-        
-        # ステータスラベルの追加
-        self.status_label = QLabel()
-        self.status_label.setWordWrap(True)
-        main_layout.addWidget(self.status_label)
-        
-        # 詳細な進捗状況を表示するテキストエリア
-        self.detail_text = QTextEdit()
-        self.detail_text.setReadOnly(True)
-        self.detail_text.setMaximumHeight(150)
-        main_layout.addWidget(self.detail_text)
-        
-        # レイアウトをダイアログに設定
-        self.progress_dialog.setLayout(main_layout)
-        
         self.progress_dialog.show()
-        self._log_memory_usage("ダイアログ作成後")
-
+        
+        # 詳細なログを表示するためのテキストエリア
+        self.log_text = QTextEdit()
+        self.log_text.setReadOnly(True)
+        self.log_text.setMaximumHeight(150)
+        
+        # スクロールエリアにテキストエリアを追加
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(self.log_text)
+        
+        # プログレスダイアログのレイアウトを作成
+        layout = QVBoxLayout(self.progress_dialog)
+        layout.addWidget(scroll_area)
+        
+        # マップデータの読み込みを開始
+        self.map_data.start_loading(mod_path)
+        
+        # 進捗状況を監視するタイマーを設定
+        self.progress_timer = QTimer()
+        self.progress_timer.timeout.connect(self.check_loading_progress)
+        self.progress_timer.start(100)  # 100ミリ秒ごとにチェック
+    
+    def check_loading_progress(self):
+        """読み込みの進捗状況をチェック"""
+        if self.map_data.is_loading_complete():
+            self.progress_timer.stop()
+            self.on_loading_complete()
+        elif self.map_data.get_loading_error():
+            self.progress_timer.stop()
+            self.on_loading_error(self.map_data.get_loading_error())
+    
+    def update_progress(self, message):
+        """プログレスバーとステータスメッセージを更新"""
+        if self.progress_dialog:
+            # メッセージから進捗率を推定
+            if "プロヴィンス定義" in message:
+                value = 10
+            elif "プロヴィンス画像" in message:
+                value = 30
+            elif "ステート情報" in message:
+                value = 70
+            elif "国家の色定義" in message:
+                value = 90
+            elif "完了" in message:
+                value = 100
+            else:
+                value = self.progress_dialog.value()  # 現在の値を維持
+            
+            self.progress_dialog.setValue(value)
+            self.progress_dialog.setLabelText(message)
+            self.log_text.append(message)
+            
+            # 最新のメッセージが見えるようにスクロール
+            self.log_text.verticalScrollBar().setValue(self.log_text.verticalScrollBar().maximum())
+    
     def cancel_loading(self):
         """読み込みをキャンセル"""
         if self.map_data:
             self.map_data.cancel_loading()
-            self.status_label.setText("読み込みをキャンセルしています...")
+            self.log_text.append("読み込みをキャンセルしています...")
             self.logger.info("マップデータの読み込みをキャンセルしました")
-
-    def update_detailed_progress(self, message):
-        """詳細な進捗状況を更新"""
-        if self.detail_text:
-            self.detail_text.append(message)
-            # 最新のメッセージが見えるようにスクロール
-            self.detail_text.verticalScrollBar().setValue(
-                self.detail_text.verticalScrollBar().maximum()
-            )
-
-    def load_map_data(self, mod_path):
-        """マップデータを非同期で読み込む"""
-        self.logger.info(f"マップデータの読み込みを開始: {mod_path}")
-        self.logger.debug(f"現在のズームレベル: {self.zoom_level}")
-        self.logger.debug(f"現在のオフセット: {self.offset}")
-        self._log_memory_usage("読み込み開始")
-        
-        # プログレスダイアログの作成
-        self.create_progress_dialog()
-        self.update_progress(0, "プロヴィンス画像を読み込み中...")
-        
-        # プロヴィンス画像の読み込みと最適化
-        self.logger.info("プロヴィンス画像を読み込み中...")
-        try:
-            self._log_memory_usage("画像読み込み前")
-            
-            # PILを使用して画像を読み込み
-            image_path = os.path.join(mod_path, 'map', 'provinces.bmp')
-            self.logger.info(f"画像ファイルパス: {image_path}")
-            
-            with Image.open(image_path) as img:
-                self.logger.info(f"元画像サイズ: {img.size}")
-                # 画像をNumPy配列に変換
-                img_array = np.array(img)
-                
-                # 画像を最適化（サイズを調整）
-                max_size = 2048  # 最大サイズを制限
-                if img_array.shape[0] > max_size or img_array.shape[1] > max_size:
-                    scale = max_size / max(img_array.shape[0], img_array.shape[1])
-                    new_size = (int(img_array.shape[1] * scale), int(img_array.shape[0] * scale))
-                    self.logger.info(f"画像をリサイズ: {img.size} -> {new_size}")
-                    img = img.resize(new_size, Image.Resampling.LANCZOS)
-                    img_array = np.array(img)
-                
-                self._log_memory_usage("画像読み込み後")
-                
-                # NumPy配列をQImageに変換
-                height, width = img_array.shape[:2]
-                bytes_per_line = 3 * width
-                q_image = QImage(img_array.data, width, height, bytes_per_line, QImage.Format_RGB888)
-                
-                # QPixmapに変換
-                self.province_image = QPixmap.fromImage(q_image)
-                self.logger.info(f"QPixmapサイズ: {self.province_image.size()}")
-                
-                # キャッシュ用のQPixmapを作成
-                self.cached_pixmap = QPixmap(self.province_image.size())
-                self.cached_pixmap.fill(Qt.transparent)
-                
-                # キャッシュの描画
-                self.update_cache()
-                
-                self._log_memory_usage("キャッシュ作成後")
-                
-        except Exception as e:
-            self.logger.error(f"プロヴィンス画像の読み込みに失敗: {e}", exc_info=True)
-            self.progress_dialog.close()
-            self.loading_error.emit(f"プロヴィンス画像の読み込みに失敗しました: {e}")
-            return
-            
-        self.logger.info(f"プロヴィンス画像の読み込み完了: {self.province_image.width()}x{self.province_image.height()}")
-        self.update_progress(20, "プロヴィンス定義を読み込み中...")
-        
-        # 非同期読み込みの開始
-        self.logger.info("MapDataの非同期読み込みを開始")
-        self.loading_worker = self.map_data.start_loading(mod_path)
-        
-        # タイマーで読み込み状態を監視
-        self.check_timer = QTimer(self)
-        self.check_timer.timeout.connect(self.check_loading_status)
-        self.check_timer.start(100)  # 100ミリ秒ごとにチェック
-        self.logger.info("読み込み状態の監視を開始")
-
-    def update_cache(self):
-        """マップのキャッシュを更新"""
-        if not self.province_image or not self.cached_pixmap:
-            return
-            
-        self.logger.info("キャッシュの更新を開始")
-        self._log_memory_usage("キャッシュ更新前")
-        
-        try:
-            # キャッシュ用のQPixmapを作成（必要に応じて）
-            if self.cached_pixmap.size() != self.province_image.size():
-                self.cached_pixmap = QPixmap(self.province_image.size())
-                self.cached_pixmap.fill(Qt.transparent)
-            
-            painter = QPainter(self.cached_pixmap)
-            painter.setRenderHint(QPainter.Antialiasing)
-            painter.setRenderHint(QPainter.SmoothPixmapTransform)
-            
-            # プロヴィンス画像の描画
-            painter.drawPixmap(0, 0, self.province_image)
-            
-            # ステートの境界線と海軍基地の描画を最適化
-            if self.map_data.states:
-                # 境界線の描画をバッチ処理
-                for state_id, (name, provinces, owner) in self.map_data.states.items():
-                    if owner:
-                        color = self.map_data.get_country_color(owner)
-                        pen = QPen(QColor(*color), 2)
-                        painter.setPen(pen)
-                        
-                        # プロヴィンスの境界を描画
-                        for i, prov_id in enumerate(provinces):
-                            if i < len(provinces) - 1:
-                                next_prov_id = provinces[i + 1]
-                                coords1 = self.map_data.get_province_coordinates(prov_id)
-                                coords2 = self.map_data.get_province_coordinates(next_prov_id)
-                                
-                                if coords1 and coords2:
-                                    # 最も近い座標ペアを見つける
-                                    coords1_array = np.array(coords1)
-                                    coords2_array = np.array(coords2)
-                                    
-                                    # 距離行列を計算（メモリ効率を考慮）
-                                    chunk_size = 1000
-                                    min_dist = float('inf')
-                                    best_pair = None
-                                    
-                                    for i in range(0, len(coords1_array), chunk_size):
-                                        chunk1 = coords1_array[i:i + chunk_size]
-                                        for j in range(0, len(coords2_array), chunk_size):
-                                            chunk2 = coords2_array[j:j + chunk_size]
-                                            dist_matrix = np.sum((chunk1[:, np.newaxis] - chunk2) ** 2, axis=2)
-                                            min_idx = np.unravel_index(np.argmin(dist_matrix), dist_matrix.shape)
-                                            min_chunk_dist = dist_matrix[min_idx]
-                                            
-                                            if min_chunk_dist < min_dist:
-                                                min_dist = min_chunk_dist
-                                                best_pair = (
-                                                    coords1[i + min_idx[0]],
-                                                    coords2[j + min_idx[1]]
-                                                )
-                                    
-                                    if best_pair:
-                                        painter.drawLine(
-                                            best_pair[0][0], best_pair[0][1],
-                                            best_pair[1][0], best_pair[1][1]
-                                        )
-            
-            # 海軍基地の描画を最適化
-            if self.map_data.naval_bases:
-                painter.setPen(QPen(Qt.red, 2))
-                for prov_id, level in self.map_data.naval_bases.items():
-                    if level > 0:
-                        coords = self.map_data.get_province_coordinates(prov_id)
-                        if coords:
-                            coords_array = np.array(coords)
-                            min_x, min_y = np.min(coords_array, axis=0)
-                            max_x, max_y = np.max(coords_array, axis=0)
-                            painter.drawRect(min_x, min_y, max_x - min_x, max_y - min_y)
-            
-            painter.end()
-            
-            self._log_memory_usage("キャッシュ更新後")
-            self.logger.info("キャッシュの更新が完了")
-            
-        except Exception as e:
-            self.logger.error(f"キャッシュの更新中にエラーが発生: {e}")
-            self.loading_error.emit(str(e))
-        finally:
-            # メモリ解放
-            gc.collect()
-
-    def update_progress(self, value, message=""):
-        """プログレスバーとステータスメッセージを更新"""
-        if self.progress_dialog:
-            self.progress_dialog.setValue(value)
-            if self.status_label and message:
-                self.status_label.setText(message)
-                self.logger.info(message)
-                self._log_memory_usage(f"進捗更新: {message}")
-
-    def check_loading_status(self):
-        """非同期読み込みの状態を確認"""
-        if self.map_data.is_loading_complete():
-            self.check_timer.stop()
-            
-            if self.map_data.get_loading_error():
-                error_msg = str(self.map_data.get_loading_error())
-                self.logger.error(f"マップデータの読み込み中にエラーが発生しました: {error_msg}")
-                self.loading_error.emit(error_msg)
-                return
-                
-            self.logger.info("マップデータの読み込みが完了しました")
-            self._log_memory_usage("読み込み完了")
-            self.loading_complete.emit()
-            self.update()
-
+    
     def on_loading_complete(self):
         """読み込み完了時の処理"""
         if self.progress_dialog:
             self.progress_dialog.close()
-        self.statusBar().showMessage("マップデータの読み込みが完了しました")
-        self._log_memory_usage("完了処理後")
-
+        
+        self.logger.info("マップデータの読み込みが完了しました")
+        
+        # プロヴィンス画像を作成
+        self.create_province_image()
+        
+        # 画面を更新
+        self.update()
+        
+        # ステータスバーがあれば更新
+        if hasattr(self, 'statusBar') and callable(getattr(self, 'statusBar', None)):
+            self.statusBar().showMessage("マップデータの読み込みが完了しました")
+        elif self.parent() and hasattr(self.parent(), 'statusBar') and callable(getattr(self.parent(), 'statusBar', None)):
+            self.parent().statusBar().showMessage("マップデータの読み込みが完了しました")
+    
     def on_loading_error(self, error_msg):
         """エラー発生時の処理"""
         if self.progress_dialog:
             self.progress_dialog.close()
-        self.statusBar().showMessage(f"エラー: {error_msg}")
-        self._log_memory_usage("エラー処理後")
-
-    def paintEvent(self, event):
-        if not self.cached_pixmap:
-            return
-
+        
+        self.logger.error(f"マップデータの読み込み中にエラーが発生しました: {error_msg}")
+        
+        # エラーメッセージを表示
+        from PyQt5.QtWidgets import QMessageBox
+        QMessageBox.critical(self, "エラー", f"マップデータの読み込み中にエラーが発生しました:\n{error_msg}")
+        
+        # ステータスバーがあれば更新
+        if hasattr(self, 'statusBar') and callable(getattr(self, 'statusBar', None)):
+            self.statusBar().showMessage(f"エラー: {error_msg}")
+        elif self.parent() and hasattr(self.parent(), 'statusBar') and callable(getattr(self.parent(), 'statusBar', None)):
+            self.parent().statusBar().showMessage(f"エラー: {error_msg}")
+    
+    
+    def create_province_image(self):
+        """プロヴィンス画像を作成"""
         try:
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.Antialiasing)
-            painter.setRenderHint(QPainter.SmoothPixmapTransform)
-
-            # ズームとオフセットを適用
-            painter.translate(self.offset)
-            painter.scale(self.zoom_level, self.zoom_level)
-
-            # キャッシュされたピクスマップを描画
-            painter.drawPixmap(0, 0, self.cached_pixmap)
+            # 座標情報がなければ何もしない
+            if not self.map_data.province_coords:
+                return
+            
+            # マップのサイズを計算
+            max_x = max_y = 0
+            for coords in self.map_data.province_coords.values():
+                for x, y in coords:
+                    max_x = max(max_x, x)
+                    max_y = max(max_y, y)
+            
+            # 少し余裕を持たせる
+            width = max_x + 10
+            height = max_y + 10
+            
+            self.logger.info(f"マップ画像のサイズ: {width}x{height}")
+            
+            # QPixmapを作成
+            self.province_image = QPixmap(width, height)
+            self.province_image.fill(Qt.white)
+            
+            # 描画用のペインタを作成
+            painter = QPainter(self.province_image)
+            painter.setRenderHint(QPainter.Antialiasing, False)  # アンチエイリアスを無効化
+            
+            # プロヴィンスIDからステートIDへのマッピングを作成
+            province_to_state = {}
+            for state_id, (_, provinces, _) in self.map_data.states.items():
+                for province_id in provinces:
+                    province_to_state[province_id] = state_id
+            
+            # プロヴィンスの色情報を保持する配列を作成
+            province_colors = np.zeros((height, width, 3), dtype=np.uint8)
+            province_ids = np.zeros((height, width), dtype=np.int32)
+            
+            # プロヴィンスの色情報を設定
+            for province_id, coords in self.map_data.province_coords.items():
+                if province_id in self.map_data.provinces:
+                    r, g, b, _, _ = self.map_data.provinces[province_id]
+                    
+                    # 座標をソートして連続した境界線を作成
+                    sorted_coords = self._sort_boundary_coords(coords)
+                    
+                    # 境界線の座標を配列に設定
+                    for x, y in sorted_coords:
+                        if 0 <= y < height and 0 <= x < width:
+                            province_colors[y, x] = [r, g, b]
+                            province_ids[y, x] = province_id
+                    
+                    # 境界線の内部を塗りつぶす
+                    if len(sorted_coords) > 2:
+                        # 境界線の最小・最大座標を計算
+                        min_x = min(x for x, _ in sorted_coords)
+                        max_x = max(x for x, _ in sorted_coords)
+                        min_y = min(y for _, y in sorted_coords)
+                        max_y = max(y for _, y in sorted_coords)
+                        
+                        # 内部を塗りつぶす
+                        for y in range(min_y, max_y + 1):
+                            for x in range(min_x, max_x + 1):
+                                if 0 <= y < height and 0 <= x < width:
+                                    # 点が境界線の内側にあるかチェック
+                                    if self._is_point_inside_polygon(x, y, sorted_coords):
+                                        province_colors[y, x] = [r, g, b]
+                                        province_ids[y, x] = province_id
+            
+            # プロヴィンスを描画（1ピクセルずつ）
+            for y in range(height):
+                for x in range(width):
+                    current_province = province_ids[y, x]
+                    if current_province > 0:
+                        # プロヴィンスの色を描画
+                        r, g, b = province_colors[y, x]
+                        color = QColor(r, g, b)
+                        painter.setPen(color)
+                        painter.setBrush(color)
+                        painter.drawPoint(x, y)
+                        
+                        # 境界線の描画（ステート境界と港湾境界のみ）
+                        # 右隣のプロヴィンスをチェック
+                        if x + 1 < width:
+                            next_province = province_ids[y, x + 1]
+                            if next_province != current_province:
+                                # ステート境界または港湾境界のチェック
+                                current_state = province_to_state.get(current_province)
+                                next_state = province_to_state.get(next_province)
+                                
+                                if current_state != next_state:
+                                    # ステート境界
+                                    painter.setPen(QColor(0, 0, 0))
+                                    painter.drawPoint(x + 1, y)
+                                    # 色を元に戻す
+                                    painter.setPen(color)
+                                elif current_province in self.map_data.naval_bases or next_province in self.map_data.naval_bases:
+                                    # 港湾境界
+                                    painter.setPen(QColor(255, 0, 0))
+                                    painter.drawPoint(x + 1, y)
+                                    # 色を元に戻す
+                                    painter.setPen(color)
+                        
+                        # 下隣のプロヴィンスをチェック
+                        if y + 1 < height:
+                            next_province = province_ids[y + 1, x]
+                            if next_province != current_province:
+                                # ステート境界または港湾境界のチェック
+                                current_state = province_to_state.get(current_province)
+                                next_state = province_to_state.get(next_province)
+                                
+                                if current_state != next_state:
+                                    # ステート境界
+                                    painter.setPen(QColor(0, 0, 0))
+                                    painter.drawPoint(x, y + 1)
+                                    # 色を元に戻す
+                                    painter.setPen(color)
+                                elif current_province in self.map_data.naval_bases or next_province in self.map_data.naval_bases:
+                                    # 港湾境界
+                                    painter.setPen(QColor(255, 0, 0))
+                                    painter.drawPoint(x, y + 1)
+                                    # 色を元に戻す
+                                    painter.setPen(color)
+            
             painter.end()
             
+            self.logger.info("プロヴィンス画像の作成が完了しました")
+            
+            # 画面を更新
+            self.update()
+            
         except Exception as e:
-            self.logger.error(f"描画中にエラーが発生: {e}")
-
+            self.logger.error(f"プロヴィンス画像の作成中にエラーが発生しました: {e}")
+            self.logger.error(traceback.format_exc())
+    
+    def _is_point_inside_polygon(self, x, y, polygon):
+        """点が多角形の内側にあるかどうかを判定（レイキャスティングアルゴリズム）"""
+        n = len(polygon)
+        inside = False
+        p1x, p1y = polygon[0]
+        for i in range(n + 1):
+            p2x, p2y = polygon[i % n]
+            if y > min(p1y, p2y):
+                if y <= max(p1y, p2y):
+                    if x <= max(p1x, p2x):
+                        if p1y != p2y:
+                            xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                        if p1x == p2x or x <= xinters:
+                            inside = not inside
+            p1x, p1y = p2x, p2y
+        return inside
+    
+    def _sort_boundary_coords(self, coords):
+        """境界線の座標を連続した順序にソートする（1ピクセル単位の直線用）"""
+        if not coords or len(coords) < 3:
+            return coords
+        
+        # 座標をNumPy配列に変換
+        points = np.array(coords)
+        
+        try:
+            # 座標を1ピクセル単位にスナップ
+            snapped_points = np.round(points)
+            
+            # 重複を除去
+            unique_points = np.unique(snapped_points, axis=0)
+            
+            # 点が3つ未満の場合は、そのまま返す
+            if len(unique_points) < 3:
+                return unique_points.tolist()
+            
+            # 点が直線状に並んでいるかチェック
+            if self._are_points_collinear(unique_points):
+                # 直線状の場合は、単純に距離順にソート
+                return self._sort_collinear_points(unique_points)
+            
+            # 凸包を計算
+            try:
+                hull = ConvexHull(unique_points)
+                hull_points = unique_points[hull.vertices]
+                
+                # 凸包の頂点を時計回りにソート
+                center = np.mean(hull_points, axis=0)
+                angles = np.arctan2(hull_points[:, 1] - center[1], hull_points[:, 0] - center[0])
+                sorted_indices = np.argsort(angles)
+                sorted_points = hull_points[sorted_indices]
+                
+                # 直線で構成された境界線の座標を生成
+                boundary_points = []
+                for i in range(len(sorted_points)):
+                    current = sorted_points[i]
+                    next_point = sorted_points[(i + 1) % len(sorted_points)]
+                    
+                    # 現在の点を追加
+                    boundary_points.append(current)
+                    
+                    # 2点間の直線上の点を追加
+                    dx = next_point[0] - current[0]
+                    dy = next_point[1] - current[1]
+                    steps = max(abs(dx), abs(dy))
+                    
+                    if steps > 0:
+                        for t in range(1, int(steps)):
+                            x = current[0] + (dx * t) / steps
+                            y = current[1] + (dy * t) / steps
+                            boundary_points.append([round(x), round(y)])
+                
+                return np.array(boundary_points).tolist()
+                
+            except Exception as e:
+                self.logger.warning(f"凸包の計算に失敗しました: {e}")
+                return self._sort_boundary_coords_fallback(coords)
+            
+        except Exception as e:
+            self.logger.warning(f"境界線の計算に失敗しました: {e}")
+            return self._sort_boundary_coords_fallback(coords)
+    
+    def _are_points_collinear(self, points):
+        """点が直線状に並んでいるかどうかを判定"""
+        if len(points) < 3:
+            return True
+        
+        # 最初の3点で直線の方程式を計算
+        p1, p2, p3 = points[:3]
+        
+        # 2点間のベクトルを計算
+        v1 = p2 - p1
+        v2 = p3 - p1
+        
+        # 外積が0に近い場合、点は直線状に並んでいる
+        cross_product = np.abs(np.cross(v1, v2))
+        return cross_product < 1e-10
+    
+    def _sort_collinear_points(self, points):
+        """直線状に並んだ点を距離順にソート"""
+        # 最初の点を基準点として選択
+        reference = points[0]
+        
+        # 各点までの距離を計算
+        distances = np.sqrt(np.sum((points - reference) ** 2, axis=1))
+        
+        # 距離でソート
+        sorted_indices = np.argsort(distances)
+        sorted_points = points[sorted_indices]
+        
+        return sorted_points.tolist()
+    
+    def _sort_boundary_coords_fallback(self, coords):
+        """境界線の座標を連続した順序にソートする（フォールバック用の最近傍探索）"""
+        if not coords:
+            return []
+        
+        # 座標をNumPy配列に変換
+        coords_array = np.array(coords)
+        
+        # 座標を1ピクセル単位にスナップ
+        snapped_coords = np.round(coords_array)
+        
+        # 最初の点を選択
+        sorted_coords = [snapped_coords[0].tolist()]
+        remaining_coords = snapped_coords[1:]
+        
+        while len(remaining_coords) > 0:
+            # 最後の点から最も近い点を見つける
+            last_point = np.array(sorted_coords[-1])
+            distances = np.sqrt(np.sum((remaining_coords - last_point) ** 2, axis=1))
+            nearest_idx = np.argmin(distances)
+            
+            # 最も近い点を追加（リストとして）
+            sorted_coords.append(remaining_coords[nearest_idx].tolist())
+            remaining_coords = np.delete(remaining_coords, nearest_idx, axis=0)
+        
+        return sorted_coords
+    
+    def paintEvent(self, event):
+        """描画イベント"""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        # 背景を描画
+        painter.fillRect(event.rect(), QColor(200, 200, 200))
+        
+        # プロヴィンス画像がなければ何もしない
+        if not self.province_image:
+            painter.drawText(event.rect(), Qt.AlignCenter, "マップデータを読み込んでください")
+            painter.end()
+            return
+        
+        # ズームとオフセットを適用
+        painter.translate(self.offset)
+        painter.scale(self.zoom_level, self.zoom_level)
+        
+        # プロヴィンス画像を描画
+        painter.drawPixmap(0, 0, self.province_image)
+        
+        painter.end()
+    
     def wheelEvent(self, event):
-        """マウスホイールでズーム"""
-        factor = 1.1 if event.angleDelta().y() > 0 else 0.9
-        old_zoom = self.zoom_level
-        self.zoom_level *= factor
+        """マウスホイールイベント（ズーム）"""
+        # ズーム前の状態を保存
+        old_pos = event.pos()
+        old_scene_pos = (old_pos - self.offset) / self.zoom_level
+        
+        # ズームレベルを更新
+        zoom_factor = 1.1
+        if event.angleDelta().y() > 0:
+            self.zoom_level *= zoom_factor  # ズームイン
+        else:
+            self.zoom_level /= zoom_factor  # ズームアウト
+        
+        # ズームレベルの範囲を制限
         self.zoom_level = max(0.1, min(5.0, self.zoom_level))
-        if old_zoom != self.zoom_level:
-            self.logger.debug(f"ズームレベル変更: {old_zoom:.2f} -> {self.zoom_level:.2f}")
+        
+        # 新しいシーン座標を計算
+        new_scene_pos = (old_pos - self.offset) / self.zoom_level
+        
+        # オフセットを調整して、マウス位置が同じ場所を指すようにする
+        delta = (new_scene_pos - old_scene_pos) * self.zoom_level
+        self.offset -= delta
+        
+        # 画面を更新
         self.update()
-
+    
     def mousePressEvent(self, event):
-        """マウスドラッグ開始"""
+        """マウスボタン押下イベント（ドラッグ開始）"""
         if event.button() == Qt.LeftButton:
             self.dragging = True
             self.last_pos = event.pos()
-            self.logger.debug("マウスドラッグ開始")
-
+            self.setCursor(Qt.ClosedHandCursor)
+    
     def mouseReleaseEvent(self, event):
-        """マウスドラッグ終了"""
+        """マウスボタン解放イベント（ドラッグ終了）"""
         if event.button() == Qt.LeftButton:
             self.dragging = False
-            self.logger.debug("マウスドラッグ終了")
-
+            self.setCursor(Qt.ArrowCursor)
+    
     def mouseMoveEvent(self, event):
-        """マウスドラッグ中"""
+        """マウス移動イベント（ドラッグ中）"""
         if self.dragging and self.last_pos:
+            # マウス移動量を計算
             delta = event.pos() - self.last_pos
-            self.offset += delta
             self.last_pos = event.pos()
-            self.logger.debug(f"マップ移動: {delta.x()}, {delta.y()}")
-            self.update() 
+            
+            # オフセットを更新
+            self.offset += delta
+            
+            # 画面を更新
+            self.update()
+        elif self.province_image:
+            # ドラッグ中でなく、マウスが動いた場合
+            # マウス位置のプロヴィンス情報を表示（オーバーレイやステータスバーなど）
+            scene_pos = (event.pos() - self.offset) / self.zoom_level
+            x, y = int(scene_pos.x()), int(scene_pos.y())
+            
+            # ここで必要に応じてプロヴィンス情報を取得して表示
+            # self.show_province_info(x, y)
+    
+    def resizeEvent(self, event):
+        """ウィジェットサイズ変更イベント"""
+        super().resizeEvent(event)
+        self.update()
+    
+    def show_province_info(self, x, y):
+        """指定座標のプロヴィンス情報を表示"""
+        # この機能は将来的に実装する予定
+        pass
+
+
+class MapViewWidget(QWidget):
+    """マップビューを表示するためのウィジェット"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        # レイアウトの設定
+        layout = QVBoxLayout(self)
+        
+        # マップウィジェットを追加
+        self.map_widget = MapWidget()
+        layout.addWidget(self.map_widget)
+        
+        # コントロールパネルの追加
+        control_layout = QHBoxLayout()
+        
+        # ズームインボタン
+        zoom_in_button = QPushButton("+")
+        zoom_in_button.clicked.connect(self.zoom_in)
+        control_layout.addWidget(zoom_in_button)
+        
+        # ズームアウトボタン
+        zoom_out_button = QPushButton("-")
+        zoom_out_button.clicked.connect(self.zoom_out)
+        control_layout.addWidget(zoom_out_button)
+        
+        # リセットボタン
+        reset_button = QPushButton("Reset")
+        reset_button.clicked.connect(self.reset_view)
+        control_layout.addWidget(reset_button)
+        
+        # スペーサーを追加
+        control_layout.addStretch(1)
+        
+        # コントロールパネルをレイアウトに追加
+        layout.addLayout(control_layout)
+    
+    def load_map_data(self, mod_path):
+        """マップデータを読み込む"""
+        self.map_widget.load_map_data(mod_path)
+    
+    def zoom_in(self):
+        """ズームイン"""
+        self.map_widget.zoom_level *= 1.2
+        self.map_widget.zoom_level = min(5.0, self.map_widget.zoom_level)
+        self.map_widget.update()
+    
+    def zoom_out(self):
+        """ズームアウト"""
+        self.map_widget.zoom_level /= 1.2
+        self.map_widget.zoom_level = max(0.1, self.map_widget.zoom_level)
+        self.map_widget.update()
+    
+    def reset_view(self):
+        """ビューをリセット"""
+        self.map_widget.zoom_level = 1.0
+        self.map_widget.offset = QPoint(0, 0)
+        self.map_widget.update()

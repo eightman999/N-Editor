@@ -725,3 +725,18 @@ class ShipDialog(QDialog):
 
     def get_data(self):
         return self.name_edit.text(), self.exp_spin.value(), self.pride_check.isChecked()
+
+    def load_map_data(self):
+        """マップデータを読み込む"""
+        # App Controllerから現在のMODパスを取得
+        if self.app_controller:
+            current_mod = self.app_controller.get_current_mod()
+            
+            if current_mod and "path" in current_mod:
+                # マップデータを読み込む
+                self.map_widget.load_map_data(current_mod["path"])
+            else:
+                QMessageBox.warning(self, "警告", "MODが選択されていません。\nホーム画面からMODを選択してください。")
+        else:
+            QMessageBox.warning(self, "警告", "App Controllerが設定されていません。")
+    
