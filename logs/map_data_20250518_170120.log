@@ -1,0 +1,7 @@
+2025-05-18 17:01:20,332 - MapData - INFO - OpenCV GPU利用可能: False
+2025-05-18 17:01:20,332 - MapData - INFO - Pythonバージョン: 3.13.3 (main, Apr  8 2025, 13:54:08) [Clang 16.0.0 (clang-1600.0.26.6)]
+2025-05-18 17:01:20,332 - MapData - INFO - OpenCVバージョン: 4.11.0
+2025-05-18 17:01:20,332 - MapData - INFO - NumPyバージョン: 2.2.5
+2025-05-18 17:01:20,332 - MapData - INFO - CPUコア数: 16
+2025-05-18 17:01:20,332 - MapData - INFO - メモリ情報: svmem(total=17179869184, available=6126891008, percent=64.3, used=9778749440, free=1741553664, active=4394504192, inactive=4367319040, wired=5384245248)
+2025-05-18 17:01:20,332 - MapData - INFO - メモリ使用量: 初期化完了

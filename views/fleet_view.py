@@ -9,6 +9,7 @@ import json
 import os
 from PIL import Image
 import io
+from .map_widget import MapWidget
 
 class FleetView(QWidget):
     def __init__(self, parent=None):
@@ -50,14 +51,12 @@ class FleetView(QWidget):
         formation_layout.addWidget(self.fleet_tree, 2)
         formation_layout.addWidget(self.design_list, 1)
         
-        # 下部のマップエリア（仮）
-        map_widget = QWidget()
-        map_layout = QVBoxLayout(map_widget)
-        map_layout.addWidget(QLabel("マップエリア（後で実装）"))
+        # 下部のマップエリア
+        self.map_widget = MapWidget()
         
         # スプリッターに追加
         splitter.addWidget(formation_widget)
-        splitter.addWidget(map_widget)
+        splitter.addWidget(self.map_widget)
         
         # メインレイアウトに追加
         main_layout.addWidget(splitter)
@@ -76,6 +75,11 @@ class FleetView(QWidget):
         self.country_combo.currentIndexChanged.connect(self.on_country_changed)
         toolbar_layout.addWidget(QLabel("国家:"))
         toolbar_layout.addWidget(self.country_combo)
+        
+        # 更新ボタン
+        refresh_btn = QPushButton("更新")
+        refresh_btn.clicked.connect(self.refresh_countries)
+        toolbar_layout.addWidget(refresh_btn)
         
         # 艦隊追加ボタン
         add_fleet_btn = QPushButton("艦隊追加")
@@ -176,44 +180,73 @@ class FleetView(QWidget):
             QMessageBox.warning(self, "警告", "アプリケーションコントローラーが設定されていません。")
             return
 
-        # 現在のMODを取得
-        current_mod = self.app_controller.get_current_mod()
-        if not current_mod or "path" not in current_mod:
-            QMessageBox.warning(self, "警告", "MODが選択されていません。\nホーム画面からMODを選択してください。")
-            return
+        try:
+            # designsディレクトリから国家タグを収集
+            designs_dir = os.path.join(self.app_controller.app_settings.data_dir, "designs")
+            if not os.path.exists(designs_dir):
+                QMessageBox.warning(self, "警告", "設計データディレクトリが見つかりません。")
+                return
 
-        # コントローラから国家情報を取得
-        nations = self.app_controller.get_nations(current_mod["path"])
-        if not nations:
-            QMessageBox.information(self, "情報", "国家情報が見つかりませんでした。\nMODのディレクトリ構造を確認してください。")
-            return
+            # 国家タグとその設計データを収集
+            country_designs = {}
+            for filename in os.listdir(designs_dir):
+                if not filename.endswith('.json'):
+                    continue
 
-        # コンボボックスに国家を追加
-        for nation in nations:
-            tag = nation["tag"]
-            name = nation["name"]
-            flag_path = nation["flag_path"]
-
-            # コンボボックスアイテムの作成
-            self.country_combo.addItem(name, tag)
-
-            # 国旗画像の設定（存在する場合）
-            if flag_path and os.path.exists(flag_path):
+                file_path = os.path.join(designs_dir, filename)
                 try:
-                    img = Image.open(flag_path)
-                    img_data = io.BytesIO()
-                    img.save(img_data, format='PNG')
-                    pixmap = QPixmap()
-                    pixmap.loadFromData(img_data.getvalue())
-                    pixmap = pixmap.scaled(32, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                    
-                    # 最後に追加したアイテムにアイコンを設定
-                    self.country_combo.setItemIcon(self.country_combo.count() - 1, QIcon(pixmap))
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        design_data = json.load(f)
+                        country_tag = design_data.get('country')
+                        if country_tag:
+                            if country_tag not in country_designs:
+                                country_designs[country_tag] = []
+                            country_designs[country_tag].append(design_data)
                 except Exception as e:
-                    print(f"国旗画像の読み込みエラー: {e}")
+                    print(f"設計ファイル '{filename}' の読み込みエラー: {e}")
 
-        # 国家データを保持
-        self.countries = {nation["tag"]: nation for nation in nations}
+            # 現在のMODを取得
+            current_mod = self.app_controller.get_current_mod()
+            if not current_mod or "path" not in current_mod:
+                QMessageBox.warning(self, "警告", "MODが選択されていません。\nホーム画面からMODを選択してください。")
+                return
+
+            # 国家情報を取得
+            nations = self.app_controller.get_nations(current_mod["path"])
+            if not nations:
+                QMessageBox.warning(self, "警告", "国家情報が見つかりません。")
+                return
+
+            # 設計データがある国家のみをコンボボックスに追加
+            for nation in nations:
+                tag = nation["tag"]
+                if tag in country_designs:
+                    name = nation["name"]
+                    flag_path = nation["flag_path"]
+
+                    # コンボボックスアイテムの作成
+                    self.country_combo.addItem(name, tag)
+
+                    # 国旗画像の設定（存在する場合）
+                    if flag_path and os.path.exists(flag_path):
+                        try:
+                            img = Image.open(flag_path)
+                            img_data = io.BytesIO()
+                            img.save(img_data, format='PNG')
+                            pixmap = QPixmap()
+                            pixmap.loadFromData(img_data.getvalue())
+                            pixmap = pixmap.scaled(32, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                            
+                            # 最後に追加したアイテムにアイコンを設定
+                            self.country_combo.setItemIcon(self.country_combo.count() - 1, QIcon(pixmap))
+                        except Exception as e:
+                            print(f"国旗画像の読み込みエラー: {e}")
+
+            # 国家データを保持
+            self.countries = {nation["tag"]: nation for nation in nations if nation["tag"] in country_designs}
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"国家データの読み込み中にエラーが発生しました：\n{str(e)}")
 
     def on_country_changed(self, index):
         """国家が変更された時の処理"""
@@ -226,6 +259,12 @@ class FleetView(QWidget):
             self.load_designs()
             # 艦隊データを読み込み
             self.load_fleet_data()
+            
+            # マップデータを読み込み
+            if self.app_controller:
+                current_mod = self.app_controller.get_current_mod()
+                if current_mod and "path" in current_mod:
+                    self.map_widget.load_map_data(current_mod["path"])
 
     def design_list_mouse_move_event(self, event):
         """設計リストのドラッグ開始イベント"""
@@ -387,9 +426,16 @@ class FleetView(QWidget):
         dialog = FleetDialog(self)
         if dialog.exec_():
             name, province_id = dialog.get_data()
-            item = QTreeWidgetItem(self.fleet_tree)
-            item.setText(0, f"艦隊: {name} (Province: {province_id})")
-            item.setData(0, Qt.UserRole, {"type": "fleet", "name": name, "province_id": province_id})
+            try:
+                province_id = int(province_id)
+                if not self.map_widget.map_data.is_valid_deployment_location(province_id):
+                    QMessageBox.warning(self, "警告", "艦隊は沿岸部の陸地にのみ配備できます。")
+                    return
+                item = QTreeWidgetItem(self.fleet_tree)
+                item.setText(0, f"艦隊: {name} (Province: {province_id})")
+                item.setData(0, Qt.UserRole, {"type": "fleet", "name": name, "province_id": province_id})
+            except ValueError:
+                QMessageBox.warning(self, "警告", "Province IDは数値で入力してください。")
 
     def add_task_force(self):
         selected = self.fleet_tree.currentItem()
@@ -400,9 +446,16 @@ class FleetView(QWidget):
         dialog = TaskForceDialog(self)
         if dialog.exec_():
             name, province_id = dialog.get_data()
-            item = QTreeWidgetItem(selected)
-            item.setText(0, f"任務部隊: {name} (Province: {province_id})")
-            item.setData(0, Qt.UserRole, {"type": "task_force", "name": name, "province_id": province_id})
+            try:
+                province_id = int(province_id)
+                if not self.map_widget.map_data.is_valid_deployment_location(province_id):
+                    QMessageBox.warning(self, "警告", "任務部隊は沿岸部の陸地にのみ配備できます。")
+                    return
+                item = QTreeWidgetItem(selected)
+                item.setText(0, f"任務部隊: {name} (Province: {province_id})")
+                item.setData(0, Qt.UserRole, {"type": "task_force", "name": name, "province_id": province_id})
+            except ValueError:
+                QMessageBox.warning(self, "警告", "Province IDは数値で入力してください。")
 
     def on_item_double_clicked(self, item, column):
         data = item.data(0, Qt.UserRole)
@@ -556,6 +609,30 @@ class FleetView(QWidget):
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"艦隊データの読み込み中にエラーが発生しました：\n{str(e)}")
+
+    def refresh_countries(self):
+        """設計データから国家タグを再収集"""
+        try:
+            # 現在選択されている国家タグを保存
+            current_tag = self.country_combo.currentData() if self.country_combo.currentIndex() >= 0 else None
+            
+            # 国家リストを再読み込み
+            self.load_countries()
+            
+            # 前回選択していた国家があれば、その国家を選択
+            if current_tag:
+                index = self.country_combo.findData(current_tag)
+                if index >= 0:
+                    self.country_combo.setCurrentIndex(index)
+                else:
+                    # 前回の国家が存在しない場合は、最初の国家を選択
+                    if self.country_combo.count() > 0:
+                        self.country_combo.setCurrentIndex(0)
+            
+            QMessageBox.information(self, "成功", "国家リストを更新しました。")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"国家リストの更新中にエラーが発生しました：\n{str(e)}")
 
 class FleetDialog(QDialog):
     def __init__(self, parent=None):

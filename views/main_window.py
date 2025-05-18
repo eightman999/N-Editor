@@ -1,9 +1,14 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QStatusBar, QListWidget, QSizePolicy
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QFont, QCloseEvent
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QStatusBar, \
+    QListWidget, QSizePolicy, QProgressDialog, QMessageBox
+from PyQt5.QtCore import Qt, QSize, QThread, pyqtSignal
+from PyQt5.QtGui import QFont, QCloseEvent, QImage, QPixmap
 
 import os
 import json
+import cv2
+import numpy as np
+import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from views.home_view import HomeView
 from views.equipment_view import EquipmentView
@@ -14,6 +19,74 @@ from views.fleet_view import FleetView
 from views.settings_view import SettingsView
 from views.nation_view import NationView
 from views.nation_details_view import NationDetailsView
+
+class MenuLoadingWorker(QThread):
+    """メニュー読み込み用のワーカースレッド"""
+    progress = pyqtSignal(int)
+    finished = pyqtSignal()
+    error = pyqtSignal(str)
+
+    def __init__(self, views_to_load):
+        super().__init__()
+        self.views_to_load = views_to_load
+        self.logger = logging.getLogger('MenuLoadingWorker')
+
+    def run(self):
+        try:
+            total_views = len(self.views_to_load)
+            for i, (view_name, view_class) in enumerate(self.views_to_load):
+                self.progress.emit(int((i + 1) / total_views * 100))
+                self.logger.info(f"ビューの読み込み中: {view_name}")
+                # ビューの初期化処理
+                view_class.initialize()
+            self.finished.emit()
+        except Exception as e:
+            self.error.emit(str(e))
+            self.logger.error(f"ビューの読み込み中にエラーが発生: {str(e)}")
+
+class ImageProcessingWorker(QThread):
+    """画像処理用のワーカースレッド"""
+    progress = pyqtSignal(int)
+    finished = pyqtSignal(object)
+    error = pyqtSignal(str)
+
+    def __init__(self, image_path):
+        super().__init__()
+        self.image_path = image_path
+        self.logger = logging.getLogger('ImageProcessingWorker')
+
+    def run(self):
+        try:
+            # OpenCVで画像を読み込み
+            img = cv2.imread(self.image_path)
+            if img is None:
+                raise Exception(f"画像の読み込みに失敗: {self.image_path}")
+
+            # GPUが利用可能な場合はGPUを使用
+            if cv2.cuda.getCudaEnabledDeviceCount() > 0:
+                self.logger.info("GPUを使用して画像処理を実行")
+                # GPUメモリに画像をアップロード
+                gpu_img = cv2.cuda_GpuMat()
+                gpu_img.upload(img)
+                
+                # GPU上で画像処理を実行
+                # 例：ガウシアンブラー
+                gpu_blur = cv2.cuda.createGaussianFilter(
+                    cv2.CV_8UC3, cv2.CV_8UC3, (5, 5), 1.5
+                )
+                gpu_result = gpu_blur.apply(gpu_img)
+                
+                # 結果をCPUメモリにダウンロード
+                result = gpu_result.download()
+            else:
+                self.logger.info("CPUを使用して画像処理を実行")
+                # CPUで画像処理を実行
+                result = cv2.GaussianBlur(img, (5, 5), 1.5)
+
+            self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
+            self.logger.error(f"画像処理中にエラーが発生: {str(e)}")
 
 class NavalDesignSystem(QMainWindow):
     """Naval Design Systemのメインウィンドウ"""
@@ -33,6 +106,18 @@ class NavalDesignSystem(QMainWindow):
 
         # アプリケーション設定の読み込み
         self.load_config()
+
+        # スレッドプールの初期化
+        self.thread_pool = ThreadPoolExecutor(max_workers=4)
+        
+        # ロガーの設定
+        self.logger = logging.getLogger('NavalDesignSystem')
+        self.logger.setLevel(logging.INFO)
+        if not self.logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
 
         # UIの初期化
         self.init_ui()
@@ -184,53 +269,86 @@ class NavalDesignSystem(QMainWindow):
         parent_layout.addWidget(main_view_widget)
 
     def initialize_views(self):
-        """各ビューを初期化して登録"""
-        # アプリケーションコントローラー状態の確認
-        print(f"NavalDesignSystem.initialize_views: app_controller = {self.app_controller}")
+        """各ビューを非同期で初期化"""
+        self.logger.info("ビューの非同期初期化を開始")
+        
+        # プログレスダイアログの表示
+        self.progress_dialog = QProgressDialog("ビューを読み込み中...", "キャンセル", 0, 100, self)
+        self.progress_dialog.setWindowModality(Qt.WindowModal)
+        self.progress_dialog.setAutoClose(False)
+        self.progress_dialog.setAutoReset(False)
+        self.progress_dialog.show()
 
-        # ホームビュー
-        home_view = HomeView(self, self.app_settings, self.app_controller)
-        self.add_view("home", home_view)
+        # 読み込むビューのリスト
+        views_to_load = [
+            ("home", HomeView(self, self.app_settings, self.app_controller)),
+            ("equipment", EquipmentView(self, self.app_controller)),
+            ("hull_list", HullListView(self, self.app_controller)),
+            ("hull", HullForm(self, self.app_controller)),
+            ("design", DesignView(self)),
+            ("fleet", FleetView(self)),
+            ("nation", NationView(self, self.app_controller)),
+            ("nation_details", NationDetailsView(self, self.app_controller)),
+            ("settings", SettingsView(self, self.app_settings))
+        ]
 
-        # 装備ビュー
-        equipment_view = EquipmentView(self, self.app_controller)
-        self.add_view("equipment", equipment_view)
+        # ワーカースレッドの開始
+        self.menu_worker = MenuLoadingWorker(views_to_load)
+        self.menu_worker.progress.connect(self.update_progress)
+        self.menu_worker.finished.connect(self.on_views_loaded)
+        self.menu_worker.error.connect(self.on_loading_error)
+        self.menu_worker.start()
 
-        # 船体リストビュー
-        hull_list_view = HullListView(self, self.app_controller)
-        self.add_view("hull_list", hull_list_view)
+    def update_progress(self, value):
+        """プログレスバーの更新"""
+        self.progress_dialog.setValue(value)
 
-        # 船体ビュー
-        hull_view = HullForm(self, self.app_controller)
-        self.add_view("hull", hull_view)
+    def on_views_loaded(self):
+        """ビューの読み込み完了時の処理"""
+        self.progress_dialog.close()
+        self.logger.info("すべてのビューの読み込みが完了しました")
+        
+        # メニューリストの更新
+        self.menu_list.setEnabled(True)
+        self.statusBar.showMessage("準備完了")
 
-        # 設計ビュー
-        design_view = DesignView(self)
-        self.add_view("design", design_view)
+    def on_loading_error(self, error_msg):
+        """読み込みエラー時の処理"""
+        self.progress_dialog.close()
+        self.logger.error(f"ビューの読み込み中にエラーが発生: {error_msg}")
+        QMessageBox.critical(self, "エラー", f"ビューの読み込み中にエラーが発生しました：\n{error_msg}")
 
-        # 艦隊ビュー
-        fleet_view = FleetView(self)
-        self.add_view("fleet", fleet_view)
+    def process_image(self, image_path):
+        """画像処理を非同期で実行"""
+        self.logger.info(f"画像処理を開始: {image_path}")
+        
+        # プログレスダイアログの表示
+        self.progress_dialog = QProgressDialog("画像を処理中...", "キャンセル", 0, 100, self)
+        self.progress_dialog.setWindowModality(Qt.WindowModal)
+        self.progress_dialog.setAutoClose(False)
+        self.progress_dialog.setAutoReset(False)
+        self.progress_dialog.show()
 
-        # 国家ビュー
-        nation_view = NationView(self, self.app_controller)
-        self.add_view("nation", nation_view)
+        # 画像処理ワーカーの開始
+        self.image_worker = ImageProcessingWorker(image_path)
+        self.image_worker.progress.connect(self.update_progress)
+        self.image_worker.finished.connect(self.on_image_processed)
+        self.image_worker.error.connect(self.on_loading_error)
+        self.image_worker.start()
 
-        # 国家詳細ビュー
-        nation_details_view = NationDetailsView(self, self.app_controller)
-        self.add_view("nation_details", nation_details_view)
-
-        # 設定ビュー
-        settings_view = SettingsView(self, self.app_settings)
-        self.add_view("settings", settings_view)
-
-        # 初期化後にapp_controllerが正しく渡されているか確認
-        home_view_controller = getattr(home_view, 'app_controller', None)
-        home_view_mod_selector = getattr(home_view, 'mod_selector', None)
-
-        if home_view_mod_selector:
-            mod_selector_controller = getattr(home_view_mod_selector, 'app_controller', None)
-            print(f"ホームビューのModSelectorWidgetのapp_controller: {mod_selector_controller}")
+    def on_image_processed(self, processed_image):
+        """画像処理完了時の処理"""
+        self.progress_dialog.close()
+        self.logger.info("画像処理が完了しました")
+        
+        # 処理済み画像をQPixmapに変換
+        height, width = processed_image.shape[:2]
+        bytes_per_line = 3 * width
+        q_image = QImage(processed_image.data, width, height, bytes_per_line, QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(q_image)
+        
+        # 画像の表示（例：ステータスバーに表示）
+        self.statusBar.showMessage("画像処理が完了しました")
 
     def add_view(self, view_name, view_widget):
         """ビューをスタックウィジェットに追加"""
@@ -245,7 +363,7 @@ class NavalDesignSystem(QMainWindow):
         # ステータスバーにメッセージを表示
         menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "国家確認", "国家詳細", "設定"]
         if 0 <= index < len(menu_texts):
-            self.statusBar.showMessage(f"{menu_texts[index]}ページを表示しています")
+            self.statusBar().showMessage(f"{menu_texts[index]}ページを表示しています")
 
     # show_view メソッド内の対応も修正
     def show_view(self, view_name):
@@ -270,10 +388,13 @@ class NavalDesignSystem(QMainWindow):
             # ステータスバーにメッセージを表示
             menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "国家確認", "国家詳細", "設定"]
             if 0 <= index < len(menu_texts):
-                self.statusBar.showMessage(f"{menu_texts[index]}ページを表示しています")
+                self.statusBar().showMessage(f"{menu_texts[index]}ページを表示しています")
 
     def closeEvent(self, event: QCloseEvent):
         """ウィンドウが閉じられる時の処理"""
+        # スレッドプールのシャットダウン
+        self.thread_pool.shutdown(wait=True)
+        
         if self.app_controller:
             self.app_controller.on_quit()
         event.accept()

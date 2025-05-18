@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QListWidget, QListWidgetItem,
-                             QSizePolicy, QMessageBox, QTabWidget, QComboBox)
+                             QSizePolicy, QMessageBox, QTabWidget, QComboBox,
+                             QTreeWidget, QTreeWidgetItem)
 from PyQt5.QtCore import Qt
 
 class NationDetailsView(QWidget):
@@ -77,10 +78,22 @@ class NationDetailsView(QWidget):
         self.tab_widget.addTab(self.mod_design_list, "mod内の設計")
 
         # 編成タブ
-        self.formation_list = QListWidget()
-        self.formation_list.setStyleSheet(self.equipment_list.styleSheet())
-        self.formation_list.itemDoubleClicked.connect(self.on_formation_double_clicked)
-        self.tab_widget.addTab(self.formation_list, "編成")
+        self.formation_tree = QTreeWidget()
+        self.formation_tree.setHeaderLabels(["編成"])
+        self.formation_tree.setStyleSheet("""
+            QTreeWidget {
+                font-size: 12px;
+                padding: 5px;
+            }
+            QTreeWidget::item {
+                padding: 5px;
+                border-bottom: 1px solid #ddd;
+            }
+            QTreeWidget::item:selected {
+                background-color: #e0e0e0;
+            }
+        """)
+        self.tab_widget.addTab(self.formation_tree, "編成")
 
         # mod内の編成タブ
         self.mod_formation_list = QListWidget()
@@ -213,15 +226,31 @@ class NationDetailsView(QWidget):
     def load_formations(self, nation_tag):
         """編成データを読み込む"""
         try:
-            self.formation_list.clear()
+            self.formation_tree.clear()
             if self.app_controller:
-                # TODO: app_controllerに実装が必要
-                formation_data = self.app_controller.get_nation_formations(nation_tag)
-                for item in formation_data:
-                    list_item = QListWidgetItem()
-                    list_item.setText(f"{item['name']}")
-                    list_item.setData(Qt.UserRole, item)
-                    self.formation_list.addItem(list_item)
+                formation_data = self.app_controller.load_fleet_data(nation_tag)
+                if formation_data:
+                    for fleet in formation_data.get("fleets", []):
+                        # 艦隊アイテムを作成
+                        fleet_item = QTreeWidgetItem(self.formation_tree)
+                        fleet_item.setText(0, f"艦隊: {fleet['name']} (Province: {fleet['province_id']})")
+                        fleet_item.setData(0, Qt.UserRole, fleet)
+
+                        # 任務部隊を追加
+                        for task_force in fleet.get("task_forces", []):
+                            task_force_item = QTreeWidgetItem(fleet_item)
+                            task_force_item.setText(0, f"任務部隊: {task_force['name']} (Province: {task_force['province_id']})")
+                            task_force_item.setData(0, Qt.UserRole, task_force)
+
+                            # 艦艇を追加
+                            for ship in task_force.get("ships", []):
+                                ship_item = QTreeWidgetItem(task_force_item)
+                                ship_item.setText(0, f"艦艇: {ship['name']} (Exp: {ship['exp']:.2f}, Pride: {ship['is_pride']})")
+                                ship_item.setData(0, Qt.UserRole, ship)
+
+                        # 艦隊アイテムを展開
+                        fleet_item.setExpanded(True)
+
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"編成データの読み込み中にエラーが発生しました：\n{str(e)}")
 
@@ -295,12 +324,37 @@ class NationDetailsView(QWidget):
             if not self.app_controller:
                 return
 
-            formation_data = item.data(Qt.UserRole)
-            if formation_data:
-                # TODO: app_controllerに実装が必要
-                self.app_controller.show_formation_view(formation_data)
+            data = item.data(0, Qt.UserRole)
+            if not data:
+                return
+
+            # アイテムの種類に応じて詳細を表示
+            if "task_forces" in data:  # 艦隊
+                details = []
+                details.append(f"艦隊名: {data['name']}")
+                details.append(f"Province ID: {data['province_id']}")
+                details.append(f"\n任務部隊数: {len(data['task_forces'])}")
+                QMessageBox.information(self, "艦隊詳細", "\n".join(details))
+
+            elif "ships" in data:  # 任務部隊
+                details = []
+                details.append(f"任務部隊名: {data['name']}")
+                details.append(f"Province ID: {data['province_id']}")
+                details.append(f"\n艦艇数: {len(data['ships'])}")
+                QMessageBox.information(self, "任務部隊詳細", "\n".join(details))
+
+            else:  # 艦艇
+                details = []
+                details.append(f"艦艇名: {data['name']}")
+                details.append(f"経験値: {data['exp']:.2f}")
+                details.append(f"艦隊の誇り: {'あり' if data['is_pride'] else 'なし'}")
+                if isinstance(data['design'], dict):
+                    details.append(f"\n設計名: {data['design'].get('design_name', '不明')}")
+                    details.append(f"艦種: {data['design'].get('ship_type', '不明')}")
+                QMessageBox.information(self, "艦艇詳細", "\n".join(details))
+
         except Exception as e:
-            QMessageBox.critical(self, "エラー", f"編成ビューの表示中にエラーが発生しました：\n{str(e)}")
+            QMessageBox.critical(self, "エラー", f"編成データの表示中にエラーが発生しました：\n{str(e)}")
 
     def on_mod_formation_double_clicked(self, item):
         """mod内の編成アイテムがダブルクリックされた時の処理"""
