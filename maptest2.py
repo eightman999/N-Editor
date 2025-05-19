@@ -460,9 +460,9 @@ class MapView(QMainWindow):
                         pid = int(pid_str)
                     except ValueError:
                         continue
-                    b, g, r = row['b'], row['g'], row['r']
+                    r, g, b = row['r'], row['g'], row['b']  # RとBの順序を修正
                     try:
-                        rgb = (int(b), int(g), int(r))
+                        rgb = (int(r), int(g), int(b))  # RとBの順序を修正
                         prov_colors[pid] = rgb
                     except ValueError:
                         continue
