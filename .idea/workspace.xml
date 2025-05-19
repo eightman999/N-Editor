@@ -5,11 +5,56 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e49128cf-ccc2-46fc-97ad-f395874b0dab" name="変更" comment="">
-      <change afterPath="$PROJECT_DIR$/maptest2.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/views/fleet_view.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/fleet_view.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/views/map_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/map_data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/views/map_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/map_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_170120.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_171902.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_171927.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_172548.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_173023.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_173626.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_173946.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_174330.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_174422.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_174522.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_175221.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_175548.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_180234.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_180345.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_180933.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_181010.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_181423.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_182240.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_182544.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_210813.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_211052.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_211312.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_211835.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_data_20250518_212119.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_170120.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_171902.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_171927.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_172548.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_173023.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_173626.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_173946.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_174422.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_174522.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_175221.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_175548.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_180234.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_180345.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_180933.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_181010.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_181423.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_182240.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_182544.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_210813.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_211052.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_211312.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_211835.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/map_widget_20250518_212119.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/maptest2.py" beforeDir="false" afterPath="$PROJECT_DIR$/maptest2.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,26 +94,26 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.MapTestApp.executor": "Run",
-    "Python.design_view.executor": "Run",
-    "Python.equipment_form.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.maptest2.executor": "Run",
-    "Python.n.executor": "Run",
-    "Python.setup.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.MapTestApp.executor&quot;: &quot;Run&quot;,
+    &quot;Python.design_view.executor&quot;: &quot;Run&quot;,
+    &quot;Python.equipment_form.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.maptest2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.n.executor&quot;: &quot;Run&quot;,
+    &quot;Python.setup.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
@@ -223,7 +268,8 @@
       <workItem from="1747295196486" duration="3403000" />
       <workItem from="1747314111360" duration="5053000" />
       <workItem from="1747386969106" duration="25037000" />
-      <workItem from="1747553728147" duration="8906000" />
+      <workItem from="1747553728147" duration="8995000" />
+      <workItem from="1747616022556" duration="1477000" />
     </task>
     <servers />
   </component>
@@ -234,7 +280,7 @@
     <SUITE FILE_PATH="coverage/N_Editor$main.coverage" NAME="main のカバレッジ結果" MODIFIED="1747555277378" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/N_Editor$MapTestApp.coverage" NAME="MapTestApp のカバレッジ結果" MODIFIED="1747570876892" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/N_Editor$setup.coverage" NAME="setup のカバレッジ結果" MODIFIED="1747288754536" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/N_Editor$maptest2.coverage" NAME="maptest2 のカバレッジ結果" MODIFIED="1747579988496" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/N_Editor$maptest2.coverage" NAME="maptest2 のカバレッジ結果" MODIFIED="1747617104197" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/N_Editor$n.coverage" NAME="n のカバレッジ結果" MODIFIED="1747454375775" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/N_Editor$equipment_form.coverage" NAME="equipment_form のカバレッジ結果" MODIFIED="1747145704654" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/views" />
     <SUITE FILE_PATH="coverage/N_Editor$design_view.coverage" NAME="design_view のカバレッジ結果" MODIFIED="1747454863283" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/views" />

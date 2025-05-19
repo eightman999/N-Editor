@@ -1,7 +1,0 @@
-2025-05-18 17:26:04,925 - MapData - INFO - プロヴィンス定義ファイルを読み込み中: /Users/eightman/Documents/Paradox Interactive/Hearts of Iron IV/mod/SSW_mod/map/definition.csv
-2025-05-18 17:26:05,038 - MapData - INFO - プロヴィンス定義の読み込みが完了しました: 15744件
-2025-05-18 17:26:05,042 - MapData - INFO - プロヴィンス画像を読み込み中: /Users/eightman/Documents/Paradox Interactive/Hearts of Iron IV/mod/SSW_mod/map/provinces.bmp
-2025-05-18 17:26:05,243 - MapData - INFO - プロヴィンス画像サイズ: (5632, 2048)
-2025-05-18 17:26:05,243 - MapData - INFO - 画像を縮小: (5632, 2048) -> (2048, 744)
-2025-05-18 17:26:06,189 - MapData - ERROR - プロヴィンス画像の読み込みエラー: too many values to unpack (expected 2)
-2025-05-18 17:26:06,202 - MapData - INFO - マップデータの読み込みをキャンセルしました
