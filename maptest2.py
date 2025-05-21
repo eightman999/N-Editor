@@ -16,53 +16,177 @@ from PyQt5.QtCore import Qt, QRectF, QPointF
 from PIL import Image
 import numpy as np
 import random # 色をランダムに割り当てるため
+import time # パフォーマンス計測用
 
-# HoI4データのパーサーユーティリティ
+# HoI4データのパーサーユーティリティ (ブレースカウント方式に修正)
 def parse_hoi4_file_content(content):
-    data = {}
+    # 行頭の 形式を除去
+    content = re.sub(r'^\s*\\s*', '', content, flags=re.MULTILINE)
 
     # コメント行を除去
     content = re.sub(r'#.*', '', content)
 
-    # より柔軟な正規表現で key = value または key = { ... } の形式を抽出
-    # \s+ は1つ以上の空白文字（スペース、タブ、改行）にマッチ
-    # (?:...) は非キャプチャグループ
-    # block_contentは非貪欲マッチ `.+?` で、最短のマッチを試みる
-    # key もしくは 数値のkey に対応 (\w+|\d+)
-    pattern = re.compile(r'^\s*(\w+|\d+)\s*=\s*(?:([\"\'\w\d\.\-]+)|{\s*(.+?)\s*})', re.MULTILINE | re.DOTALL)
+    # provincesブロックを先に抽出
+    provinces_match = re.search(r'provinces\s*=\s*{([^}]+)}', content, re.DOTALL)
+    provinces_data = []
+    if provinces_match:
+        provinces_content = provinces_match.group(1)
+        # 数字のみを抽出
+        provinces_data = [int(x) for x in re.findall(r'\d+', provinces_content) if x.isdigit()]
 
-    for match in pattern.finditer(content):
-        key = match.group(1).strip()
-        value_direct = match.group(2) # name = "STATE_1" の "STATE_1" など
-        value_block = match.group(3)  # { ... } の中身
+    # トップレベルに "state = { ... }" または "strategic_region = { ... }" のようなブロックがあるか検索
+    main_block_match = re.search(
+        r'^\s*([a-zA-Z_][a-zA-Z0-9_]*|\d+)\s*=\s*{\s*(.+?)\s*}',
+        content,
+        re.MULTILINE | re.DOTALL
+    )
 
-        # 数値キーをintに変換
-        try:
-            key_converted = int(key)
-        except ValueError:
-            key_converted = key
+    if main_block_match:
+        main_key = main_block_match.group(1).strip()
+        main_content = main_block_match.group(2)
+        print(f"DEBUG: parse_hoi4_file_content - Found top-level block '{main_key}'. Content start: '{main_content[:100]}...'")
+        parsed_data = _parse_block_content(main_content)
+        # provincesデータを追加
+        if provinces_data:
+            parsed_data['provinces'] = provinces_data
+        return parsed_data
+    else:
+        print("DEBUG: parse_hoi4_file_content - No top-level block 'key = { ... }' found. Parsing entire file content directly.")
+        parsed_data = _parse_block_content(content)
+        # provincesデータを追加
+        if provinces_data:
+            parsed_data['provinces'] = provinces_data
+        return parsed_data
 
-        if value_direct:
+# 修正: ブレースカウント方式によるブロック内容のパース
+def _parse_block_content(block_content):
+    parsed_data = {}
+    lines = block_content.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        # 行コメント除去（念のため）
+        line = re.sub(r'#.*', '', line).strip()
+
+        if not line:
+            i += 1
+            continue
+
+        # キー = 値; の形式
+        match_direct = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*|\d+)\s*=\s*([\"\'\w\d\.\-]+)', line)
+        if match_direct:
+            key_str = match_direct.group(1).strip()
+            value_str = match_direct.group(2).strip()
+
             try:
-                # 数値に変換を試みる (整数 -> 浮動小数点数)
-                data[key_converted] = int(value_direct)
+                key = int(key_str)
+            except ValueError:
+                key = key_str
+
+            try:
+                parsed_data[key] = int(value_str)
             except ValueError:
                 try:
-                    data[key_converted] = float(value_direct)
+                    parsed_data[key] = float(value_str)
                 except ValueError:
-                    data[key_converted] = value_direct.strip().strip('"').strip("'") # 文字列のクォーテーションを除去
-        elif value_block:
-            # ブロック内の内容をパース
-            if key == 'provinces':
-                # provinces = { 1 2 3 } または provinces = { 12299 } 形式に対応
-                # \b\d+\b は単語境界に囲まれた数字にマッチ (タブ区切りも対応)
-                province_ids = [int(x) for x in re.findall(r'\b\d+\b', value_block) if x.isdigit()]
-                data[key_converted] = province_ids
-            else:
-                # historyやbuildingsなどのブロックを再帰パース
-                data[key_converted] = parse_hoi4_file_content(value_block)
+                    parsed_data[key] = value_str.strip('"').strip("'")
+            i += 1
+            continue
 
-    return data
+        # キー = { ブロック } の形式
+        match_block_start = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*|\d+)\s*=\s*\{', line)
+        if match_block_start:
+            key_str = match_block_start.group(1).strip()
+
+            try:
+                key = int(key_str)
+            except ValueError:
+                key = key_str
+
+            block_level = 1 # 現在のブロックレベル
+            block_content_lines = []
+
+            # ブロックの開始行から次の行へ
+            current_line_index = i + 1
+
+            while current_line_index < len(lines):
+                sub_line = lines[current_line_index]
+                block_level += sub_line.count('{')
+                block_level -= sub_line.count('}')
+
+                if block_level == 0:
+                    # ブロック終了
+                    break
+
+                block_content_lines.append(sub_line)
+                current_line_index += 1
+
+            if block_level != 0:
+                print(f"WARNING: Unbalanced braces for key '{key_str}' starting at line {i+1}. Block not closed.")
+                # 不完全なブロックでも、可能な限りパースを試みる
+
+            block_content_str = "\n".join(block_content_lines)
+
+            if key_str == 'resources': # resourcesブロックの特別処理
+                # resourcesブロックは空でも有効なデータとして扱う
+                if not block_content_str.strip():
+                    parsed_data[key] = {}
+                else:
+                    parsed_data[key] = _parse_block_content(block_content_str)
+            elif key_str == 'buildings': # buildingsブロックの特別処理
+                # buildingsブロック内のプロビンスIDをキーとした特殊な構造を処理
+                buildings_data = {}
+                for sub_line in block_content_lines:
+                    sub_line = sub_line.strip()
+                    if not sub_line:
+                        continue
+                    
+                    # プロビンスID = { ... } の形式を処理
+                    prov_match = re.match(r'(\d+)\s*=\s*\{', sub_line)
+                    if prov_match:
+                        prov_id = int(prov_match.group(1))
+                        # プロビンスIDのブロック内容を抽出
+                        prov_block_start = sub_line.find('{')
+                        prov_block_end = sub_line.rfind('}')
+                        if prov_block_start != -1 and prov_block_end != -1:
+                            prov_block_content = sub_line[prov_block_start+1:prov_block_end].strip()
+                            # プロビンス内の建物データをパース
+                            prov_buildings = {}
+                            for building_line in prov_block_content.split(';'):
+                                building_line = building_line.strip()
+                                if not building_line:
+                                    continue
+                                building_match = re.match(r'(\w+)\s*=\s*(\d+)', building_line)
+                                if building_match:
+                                    building_type = building_match.group(1)
+                                    building_level = int(building_match.group(2))
+                                    prov_buildings[building_type] = building_level
+                            buildings_data[prov_id] = prov_buildings
+                    else:
+                        # 通常の建物データ（プロビンスIDなし）を処理
+                        building_match = re.match(r'(\w+)\s*=\s*(\d+)', sub_line)
+                        if building_match:
+                            building_type = building_match.group(1)
+                            building_level = int(building_match.group(2))
+                            buildings_data[building_type] = building_level
+                
+                parsed_data[key] = buildings_data
+            elif key_str == 'history': # historyブロックの特別処理
+                # historyブロックの内容を再帰的にパース
+                history_data = _parse_block_content(block_content_str)
+                parsed_data[key] = history_data
+            else:
+                # ネストされたブロックを再帰的にパース
+                parsed_data[key] = _parse_block_content(block_content_str)
+
+            i = current_line_index + 1 # 次のブロックの開始行へ
+            continue
+
+        # どのパターンにもマッチしない行はスキップ
+        i += 1
+
+    return parsed_data
+
 
 def get_file_content(file_path):
     try:
@@ -88,7 +212,7 @@ class Province:
         self.type = type
         self.state_id = None
         self.strategic_region_id = None
-        self.display_color = QColor(r, g, b) # デフォルトの表示色
+        self.display_color = QColor(r, g, b)
 
 class MapViewer(QGraphicsView):
     def __init__(self, parent=None):
@@ -97,7 +221,7 @@ class MapViewer(QGraphicsView):
         self.setScene(self.scene)
         self.setRenderHint(QPainter.Antialiasing)
 
-        self.setDragMode(QGraphicsView.NoDrag) # デフォルトはNoDrag
+        self.setDragMode(QGraphicsView.NoDrag)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
 
         self.map_image_item = None
@@ -105,17 +229,21 @@ class MapViewer(QGraphicsView):
         self.provinces_data_by_rgb = {} # (R, G, B) -> Province オブジェクト
         self.provinces_data_by_id = {} # province_id -> Province オブジェクト
 
-        self.states_data = {} # state_id -> {'name': ..., 'provinces': [...], 'color': ..., 'raw_data': {...}}
-        self.strategic_regions_data = {} # region_id -> {'name': ..., 'provinces': [...], 'color': ..., 'raw_data': {...}}
+        self.states_data = {}
+        self.strategic_regions_data = {}
 
         self.original_width = 0
         self.original_height = 0
 
-        self.current_filter = "provinces" # デフォルトはプロビンス表示
+        self.current_filter = "provinces"
         self.base_qimage_cache = {} # フィルターごとのQImageをキャッシュ
 
+        # 高速化のためのルックアップ配列を準備
+        self._rgb_to_id_map_array = np.full(256*256*256, -1, dtype=np.int32)
+
     def load_map_data(self, mod_path):
-        self.scene.clear() # 既存のマップがあればクリア
+        start_time = time.time()
+        self.scene.clear()
         self.map_image_item = None
         self.original_map_image_data = None
         self.provinces_data_by_rgb = {}
@@ -124,17 +252,16 @@ class MapViewer(QGraphicsView):
         self.strategic_regions_data = {}
         self.base_qimage_cache = {} # キャッシュをクリア
 
-        # Modディレクトリのみを対象とする
+        self._rgb_to_id_map_array.fill(-1)
+
         base_mod_dir = mod_path
 
-        # provinces.bmp をロード
         provinces_img_path = os.path.join(base_mod_dir, 'map', 'provinces.bmp')
         print(f"Searching for provinces.bmp at: {provinces_img_path}")
         if not os.path.exists(provinces_img_path):
             QMessageBox.critical(self, "エラー", f"provinces.bmp が指定されたModパスのmap/ ディレクトリ以下に見つかりません。\n({provinces_img_path})")
             return False
 
-        # definition.csv をロード
         definition_csv_path = os.path.join(base_mod_dir, 'map', 'definition.csv')
         print(f"Searching for definition.csv at: {definition_csv_path}")
         if not os.path.exists(definition_csv_path):
@@ -142,19 +269,15 @@ class MapViewer(QGraphicsView):
             return False
 
         try:
-            # provinces.bmp をPillowで読み込み、NumPy配列に変換
             print(f"Loading provinces image from: {provinces_img_path}")
             img_pil = Image.open(provinces_img_path).convert("RGB")
             self.original_width, self.original_height = img_pil.size
             self.original_map_image_data = np.array(img_pil) # 元の画像データを保存
 
-            # definition.csv を読み込み
             print(f"Loading definition.csv from: {definition_csv_path}")
-            self.provinces_data_by_rgb = {}
-            self.provinces_data_by_id = {}
             with open(definition_csv_path, 'r', encoding='latin-1') as f:
                 reader = csv.reader(f, delimiter=';')
-                next(reader) # ヘッダー行をスキップ
+                next(reader)
                 for row in reader:
                     if len(row) >= 5:
                         try:
@@ -165,13 +288,15 @@ class MapViewer(QGraphicsView):
                             province = Province(id, r, g, b, name, province_type)
                             self.provinces_data_by_rgb[(r, g, b)] = province
                             self.provinces_data_by_id[id] = province
+
+                            rgb_hash = r * 65536 + g * 256 + b
+                            if rgb_hash < len(self._rgb_to_id_map_array): # 範囲チェック
+                                self._rgb_to_id_map_array[rgb_hash] = id
                         except ValueError as e:
                             print(f"Skipping malformed row in definition.csv: {row} - Error: {e}")
-                            continue
             print(f"Loaded {len(self.provinces_data_by_id)} provinces from definition.csv.")
 
             # ステートデータの読み込み
-            self.states_data = {}
             states_dir = os.path.join(base_mod_dir, 'history', 'states')
 
             if os.path.exists(states_dir):
@@ -181,39 +306,42 @@ class MapViewer(QGraphicsView):
                         file_path = os.path.join(states_dir, filename)
                         content = get_file_content(file_path)
                         if content:
-                            state_raw_data = parse_hoi4_file_content(content)
+                            state_raw_data = parse_hoi4_file_content(content) # 直接パース結果を取得
+
                             state_id = state_raw_data.get('id')
 
-                            if state_id is None:
+                            if state_id is None: # ファイル名からIDを推測するフォールバック
                                 try:
-                                    # ファイル名からIDを推測 (例: 1-France.txt -> ID 1)
-                                    # ファイル名が 'ID-Name.txt' の形式の場合
                                     match = re.match(r'(\d+)[-].*\.txt', filename)
-                                    if match:
-                                        state_id = int(match.group(1))
-                                    else: # IDのみのファイル名の場合
-                                        state_id = int(os.path.splitext(filename)[0])
+                                    state_id = int(match.group(1)) if match else int(os.path.splitext(filename)[0])
+                                    print(f"DEBUG: Guessed state ID {state_id} from filename {filename}")
                                 except ValueError:
                                     state_id = None
 
-                            if state_id is not None and 'provinces' in state_raw_data and isinstance(state_raw_data['provinces'], list):
+                            # `provinces` キーのチェックを強化
+                            if state_id is not None and \
+                                    'provinces' in state_raw_data and \
+                                    isinstance(state_raw_data['provinces'], list) and \
+                                    len(state_raw_data['provinces']) > 0: # プロビンスリストが空でないことも確認
                                 state_name = state_raw_data.get('name', f"State {state_id}").strip('"')
                                 state_color = QColor(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
                                 self.states_data[state_id] = {
                                     'name': state_name,
                                     'provinces': state_raw_data['provinces'],
-                                    'color': state_color,
-                                    'raw_data': state_raw_data # 元のデータを保存
+                                    'color': (state_color.red(), state_color.green(), state_color.blue()),
+                                    'raw_data': state_raw_data
                                 }
                                 for prov_id in state_raw_data['provinces']:
                                     if prov_id in self.provinces_data_by_id:
                                         self.provinces_data_by_id[prov_id].state_id = state_id
+                                print(f"Successfully loaded state file: {filename} (ID: {state_id}, Provinces: {len(state_raw_data['provinces'])})")
                             else:
-                                print(f"Skipping state file {filename}: Missing 'id' or 'provinces' (or provinces not a list). Parsed data: {state_raw_data}")
+                                print(f"Skipping state file {filename}: Missing 'id', 'provinces' key, or 'provinces' is not a non-empty list. Parsed data: {state_raw_data}")
+                        else:
+                            print(f"Skipping state file {filename}: Could not read content.")
             else:
                 print(f"State directory not found: {states_dir}")
             print(f"Loaded {len(self.states_data)} states.")
-
 
             # 戦略地域の読み込み (map/strategicregions)
             self.strategic_regions_data = {}
@@ -226,93 +354,113 @@ class MapViewer(QGraphicsView):
                         file_path = os.path.join(strategic_regions_dir, filename)
                         content = get_file_content(file_path)
                         if content:
-                            region_raw_data = parse_hoi4_file_content(content)
+                            region_raw_data = parse_hoi4_file_content(content) # 直接パース結果を取得
+
                             region_id = region_raw_data.get('id')
 
-                            # IDがなければファイル名から推測
-                            if region_id is None:
+                            if region_id is None: # ファイル名からIDを推測するフォールバック
                                 try:
-                                    # ファイル名が 'ID-Name.txt' の形式の場合
                                     match = re.match(r'(\d+)[-].*\.txt', filename)
-                                    if match:
-                                        region_id = int(match.group(1))
-                                    else: # IDのみのファイル名の場合
-                                        region_id = int(os.path.splitext(filename)[0])
+                                    region_id = int(match.group(1)) if match else int(os.path.splitext(filename)[0])
+                                    print(f"DEBUG: Guessed strategic region ID {region_id} from filename {filename}")
                                 except ValueError:
                                     region_id = None
 
-                            if region_id is not None and 'provinces' in region_raw_data and isinstance(region_raw_data['provinces'], list):
+                            if region_id is not None and \
+                                    'provinces' in region_raw_data and \
+                                    isinstance(region_raw_data['provinces'], list) and \
+                                    len(region_raw_data['provinces']) > 0: # プロビンスリストが空でないことも確認
                                 region_name = region_raw_data.get('name', f"Strategic Region {region_id}").strip('"')
                                 region_color = QColor(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
                                 self.strategic_regions_data[region_id] = {
                                     'name': region_name,
                                     'provinces': region_raw_data['provinces'],
-                                    'color': region_color,
-                                    'raw_data': region_raw_data # 元のデータを保存
+                                    'color': (region_color.red(), region_color.green(), region_color.blue()),
+                                    'raw_data': region_raw_data
                                 }
                                 for prov_id in region_raw_data['provinces']:
                                     if prov_id in self.provinces_data_by_id:
                                         self.provinces_data_by_id[prov_id].strategic_region_id = region_id
+                                print(f"Successfully loaded strategic region file: {filename} (ID: {region_id}, Provinces: {len(region_raw_data['provinces'])})")
                             else:
-                                print(f"Skipping strategic region file {filename}: Missing 'id' or 'provinces' (or provinces not a list). Parsed data: {region_raw_data}")
+                                print(f"Skipping strategic region file {filename}: Missing 'id', 'provinces' key, or 'provinces' is not a non-empty list. Parsed data: {region_raw_data}")
+                        else:
+                            print(f"Skipping strategic region file {filename}: Could not read content.")
             else:
                 print(f"Strategic region directory not found: {strategic_regions_dir}")
             print(f"Loaded {len(self.strategic_regions_data)} strategic regions.")
 
+            # 高速化用の色マップを構築 (NumPy配列として)
+            max_prov_id = max(self.provinces_data_by_id.keys()) if self.provinces_data_by_id else 0
 
-            self.render_map() # 初期表示を現在のフィルターで描画
-            print("All map data loaded successfully.")
+            default_unknown_color = (50, 50, 50)
+
+            self._palette_province = np.full((max_prov_id + 1, 3), (0,0,0), dtype=np.uint8)
+            self._palette_state = np.full((max_prov_id + 1, 3), default_unknown_color, dtype=np.uint8)
+            self._palette_region = np.full((max_prov_id + 1, 3), default_unknown_color, dtype=np.uint8)
+
+            for prov_id, prov_obj in self.provinces_data_by_id.items():
+                if prov_id <= max_prov_id:
+                    self._palette_province[prov_id] = prov_obj.color_rgb
+
+                    if prov_obj.state_id is not None and prov_obj.state_id in self.states_data:
+                        self._palette_state[prov_id] = self.states_data[prov_obj.state_id]['color']
+
+                    if prov_obj.strategic_region_id is not None and prov_obj.strategic_region_id in self.strategic_regions_data:
+                        self._palette_region[prov_id] = self.strategic_regions_data[prov_obj.strategic_region_id]['color']
+
+            self.render_map()
+            end_time = time.time()
+            print(f"Total map data loading and initial rendering time: {end_time - start_time:.2f} seconds.")
             return True
 
         except Exception as e:
             QMessageBox.critical(self, "ロードエラー", f"地図データの読み込み中にエラーが発生しました: {e}")
             import traceback
-            traceback.print_exc() # 詳細なエラー情報を出力
+            traceback.print_exc()
             return False
 
     def render_map(self):
+        start_time = time.time()
         if self.original_map_image_data is None:
             return
 
-        # キャッシュからQImageをロード、なければ生成
         if self.current_filter not in self.base_qimage_cache:
             print(f"Rendering map for filter: {self.current_filter} (and caching)")
-            # NumPy配列を直接操作して色を割り当てる
-            display_array = np.copy(self.original_map_image_data) # 元のデータをコピーして変更
 
-            # 各ピクセルに対して色を適用
-            # このループは依然として時間がかかり得るが、Python-NumPyの範囲ではこれが一般的
-            for y in range(self.original_height):
-                for x in range(self.original_width):
-                    pixel_rgb = tuple(self.original_map_image_data[y, x])
-                    province = self.provinces_data_by_rgb.get(pixel_rgb)
+            original_pixels_flat = self.original_map_image_data.reshape(-1, 3)
 
-                    color_to_apply = (0, 0, 0) # デフォルトは黒 (海など)
+            pixel_hashes = (original_pixels_flat[:, 0].astype(np.int32) * 65536 +
+                            original_pixels_flat[:, 1].astype(np.int32) * 256 +
+                            original_pixels_flat[:, 2].astype(np.int32))
 
-                    if province:
-                        if self.current_filter == "provinces":
-                            color_to_apply = province.color_rgb
-                        elif self.current_filter == "states":
-                            if province.state_id is not None and province.state_id in self.states_data:
-                                color = self.states_data[province.state_id]['color']
-                                color_to_apply = (color.red(), color.green(), color.blue())
-                            else:
-                                color_to_apply = (50, 50, 50) # 未定義のステートは灰色
-                        elif self.current_filter == "strategic_regions":
-                            if province.strategic_region_id is not None and province.strategic_region_id in self.strategic_regions_data:
-                                color = self.strategic_regions_data[province.strategic_region_id]['color']
-                                color_to_apply = (color.red(), color.green(), color.blue())
-                            else:
-                                color_to_apply = (50, 50, 50) # 未定義の戦略地域は灰色
+            prov_ids_flat = np.full_like(pixel_hashes, -1)
+            valid_hash_indices = (pixel_hashes >= 0) & (pixel_hashes < len(self._rgb_to_id_map_array))
+            prov_ids_flat[valid_hash_indices] = self._rgb_to_id_map_array[pixel_hashes[valid_hash_indices]]
 
-                    display_array[y, x] = color_to_apply
+            if self.current_filter == "provinces":
+                selected_palette = self._palette_province
+            elif self.current_filter == "states":
+                selected_palette = self._palette_state
+            elif self.current_filter == "strategic_regions":
+                selected_palette = self._palette_region
+            else:
+                selected_palette = np.full((max(self.provinces_data_by_id.keys()) + 1 if self.provinces_data_by_id else 1, 3), (0,0,0), dtype=np.uint8)
 
-            # NumPy配列からQImageを作成 (これが最も時間のかかる部分)
-            # `display_array.data` を直接使うことで、メモリコピーを減らす
+            default_unknown_color = (50, 50, 50)
+            filtered_colors_flat = np.full_like(original_pixels_flat, default_unknown_color, dtype=np.uint8)
+
+            max_id_in_palette = selected_palette.shape[0] - 1
+            valid_indices_for_palette_lookup = (prov_ids_flat >= 0) & (prov_ids_flat <= max_id_in_palette)
+
+            filtered_colors_flat[valid_indices_for_palette_lookup] = selected_palette[prov_ids_flat[valid_indices_for_palette_lookup]]
+
+            display_array = filtered_colors_flat.reshape(self.original_height, self.original_width, 3)
+
             height, width, channel = display_array.shape
             bytes_per_line = channel * width
             q_image = QImage(display_array.data, width, height, bytes_per_line, QImage.Format_RGB888)
-            self.base_qimage_cache[self.current_filter] = q_image.copy() # QImageは参照を渡すのでコピーを保存
+            self.base_qimage_cache[self.current_filter] = q_image.copy()
         else:
             print(f"Loading map from cache for filter: {self.current_filter}")
 
@@ -322,6 +470,8 @@ class MapViewer(QGraphicsView):
         self.map_image_item = self.scene.addPixmap(pixmap)
         self.setSceneRect(QRectF(pixmap.rect()))
         self.fitInView(self.sceneRect(), Qt.KeepAspectRatio)
+        end_time = time.time()
+        print(f"Map rendering time for filter '{self.current_filter}': {end_time - start_time:.2f} seconds.")
 
     def set_filter(self, filter_type):
         self.current_filter = filter_type
@@ -335,7 +485,6 @@ class MapViewer(QGraphicsView):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            # クリックされた位置のプロビンス情報を表示
             scene_pos = self.mapToScene(event.pos())
             x, y = int(scene_pos.x()), int(scene_pos.y())
 
@@ -375,20 +524,22 @@ class MapViewer(QGraphicsView):
                                 if history_data:
                                     info_text += "履歴:\n"
                                     for h_key, h_val in history_data.items():
-                                        if isinstance(h_val, dict): # buildings = { infrastructure = 2 } や 12299 = { naval_base = 3 }
-                                            if h_key == 'buildings':
+                                        h_key_str = str(h_key) if isinstance(h_key, int) else h_key
+                                        if isinstance(h_val, dict):
+                                            if h_key_str == 'buildings':
                                                 info_text += "  建物:\n"
                                                 for b_key, b_val in h_val.items():
+                                                    b_key_str = str(b_key) if isinstance(b_key, int) else b_key
                                                     if isinstance(b_val, dict):
-                                                        info_text += f"    {b_key}: {', '.join([f'{k}={v}' for k, v in b_val.items()])}\n"
+                                                        info_text += f"    {b_key_str}: {', '.join([f'{k}={v}' for k, v in b_val.items()])}\n"
                                                     else:
-                                                        info_text += f"    {b_key}: {b_val}\n"
+                                                        info_text += f"    {b_key_str}: {b_val}\n"
                                             else:
-                                                info_text += f"  {h_key}: {', '.join([f'{k}={v}' for k, v in h_val.items()])}\n"
-                                        elif isinstance(h_val, list): # victory_points = { 3838 3 }
-                                            info_text += f"  {h_key}: {', '.join(map(str, h_val))}\n"
+                                                info_text += f"  {h_key_str}: {', '.join([f'{k}={v}' for k, v in h_val.items()])}\n"
+                                        elif isinstance(h_val, list):
+                                            info_text += f"  {h_key_str}: {', '.join(map(str, h_val))}\n"
                                         else:
-                                            info_text += f"  {h_key}: {h_val}\n"
+                                            info_text += f"  {h_key_str}: {h_val}\n"
 
                                 info_text += f"含むプロビンス数: {len(state_info['provinces'])}"
                             else:
@@ -403,23 +554,22 @@ class MapViewer(QGraphicsView):
                                 raw_data = region_info['raw_data']
                                 info_text += f"ID: {raw_data.get('id', 'N/A')}\n"
                                 info_text += f"名前: {raw_data.get('name', 'N/A')}\n"
-                                # 天候情報も簡易的に表示
                                 weather_data = raw_data.get('weather', {})
                                 if weather_data:
                                     info_text += "天気情報:\n"
-                                    # weatherブロック内のperiodもパースできるように改善されたため、表示
                                     for w_key, w_val in weather_data.items():
-                                        if isinstance(w_val, list): # periodブロックが複数ある場合
-                                            info_text += f"  {w_key} ({len(w_val)} periods):\n"
+                                        w_key_str = str(w_key) if isinstance(w_key, int) else w_key
+                                        if isinstance(w_val, list):
+                                            info_text += f"  {w_key_str} ({len(w_val)} periods):\n"
                                             for i, period in enumerate(w_val):
                                                 if isinstance(period, dict):
                                                     info_text += f"    Period {i+1}: {', '.join([f'{k}={v}' for k, v in period.items()])}\n"
                                                 else:
                                                     info_text += f"    Period {i+1}: {period}\n"
-                                        elif isinstance(w_val, dict): # 単一のperiodブロック
-                                            info_text += f"  {w_key}: {', '.join([f'{k}={v}' for k, v in w_val.items()])}\n"
+                                        elif isinstance(w_val, dict):
+                                            info_text += f"  {w_key_str}: {', '.join([f'{k}={v}' for k, v in w_val.items()])}\n"
                                         else:
-                                            info_text += f"  {w_key}: {w_val}\n"
+                                            info_text += f"  {w_key_str}: {w_val}\n"
                                 info_text += f"含むプロビンス数: {len(region_info['provinces'])}"
                             else:
                                 info_text = f"このプロビンス({found_province.id})は戦略地域に属していません。"
@@ -432,14 +582,14 @@ class MapViewer(QGraphicsView):
                         QMessageBox.information(self, "情報", "情報が見つかりませんでした。")
                 else:
                     QMessageBox.information(self, "プロビンス情報", f"ID: なし (RGB: {pixel_rgb})\n恐らく海域など")
-        elif event.button() == Qt.MiddleButton: # 中ボタンでドラッグ開始
+        elif event.button() == Qt.MiddleButton:
             self.setDragMode(QGraphicsView.ScrollHandDrag)
-            super().mousePressEvent(event) # デフォルトのハンドドラッグ動作を呼び出す
+            super().mousePressEvent(event)
         else:
             super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
-        if event.button() == Qt.MiddleButton: # 中ボタンを離したらドラッグ終了
+        if event.button() == Qt.MiddleButton:
             self.setDragMode(QGraphicsView.NoDrag)
         super().mouseReleaseEvent(event)
 
@@ -453,16 +603,13 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_widget)
         self.layout = QVBoxLayout(self.central_widget)
 
-        # コントロールパネル
         control_panel_layout = QHBoxLayout()
 
-        # ズームボタン
         self.zoom_in_button = QPushButton("ズームイン")
         self.zoom_out_button = QPushButton("ズームアウト")
         control_panel_layout.addWidget(self.zoom_in_button)
         control_panel_layout.addWidget(self.zoom_out_button)
 
-        # 地図フィルター選択
         self.filter_combobox = QComboBox()
         self.filter_combobox.addItem("プロビンス")
         self.filter_combobox.addItem("ステート")
@@ -470,7 +617,7 @@ class MainWindow(QMainWindow):
         control_panel_layout.addWidget(QLabel("表示フィルター:"))
         control_panel_layout.addWidget(self.filter_combobox)
 
-        control_panel_layout.addStretch(1) # 右寄せにするためにスペーサーを追加
+        control_panel_layout.addStretch(1)
 
         self.layout.addLayout(control_panel_layout)
 
@@ -506,7 +653,7 @@ class MainWindow(QMainWindow):
         mod_path = QFileDialog.getExistingDirectory(self, "Modディレクトリを選択")
         if mod_path:
             if not self.map_viewer.load_map_data(mod_path):
-                pass # エラーメッセージはload_map_data内で表示される
+                pass
         else:
             QMessageBox.information(self, "キャンセル", "Modディレクトリの選択がキャンセルされました。")
 
