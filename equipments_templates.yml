@@ -483,4 +483,4 @@ sensor_types:
         steel: "integer"
         chrome: "integer"
         aluminum: "integer"
-        tungsten:
+        tungsten:"integer"

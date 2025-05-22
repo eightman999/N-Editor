@@ -3,6 +3,11 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QSizePolicy, QMessageBox, QTabWidget, QComboBox,
                              QTreeWidget, QTreeWidgetItem)
 from PyQt5.QtCore import Qt
+import os
+from parser.EffectParser import EffectParser
+from parser.DivisionNameParser import DivisionNameParser
+from parser.PersonNameParser import PersonNameParser
+from parser.ShipNameParser import ShipNameParser
 
 class NationDetailsView(QWidget):
     """国家詳細画面のビュー"""
@@ -101,6 +106,29 @@ class NationDetailsView(QWidget):
         self.mod_formation_list.itemDoubleClicked.connect(self.on_mod_formation_double_clicked)
         self.tab_widget.addTab(self.mod_formation_list, "mod内の編成")
 
+        # 名前リストタブ
+        self.name_tab = QTabWidget()
+        
+        # 人名リスト
+        self.person_name_list = QListWidget()
+        self.person_name_list.setStyleSheet(self.equipment_list.styleSheet())
+        self.person_name_list.itemDoubleClicked.connect(self.on_person_name_double_clicked)
+        self.name_tab.addTab(self.person_name_list, "人名")
+        
+        # 艦名リスト
+        self.ship_name_list = QListWidget()
+        self.ship_name_list.setStyleSheet(self.equipment_list.styleSheet())
+        self.ship_name_list.itemDoubleClicked.connect(self.on_ship_name_double_clicked)
+        self.name_tab.addTab(self.ship_name_list, "艦名")
+        
+        # 師団名リスト
+        self.division_name_list = QListWidget()
+        self.division_name_list.setStyleSheet(self.equipment_list.styleSheet())
+        self.division_name_list.itemDoubleClicked.connect(self.on_division_name_double_clicked)
+        self.name_tab.addTab(self.division_name_list, "師団名")
+        
+        self.tab_widget.addTab(self.name_tab, "名前リスト")
+
         main_layout.addWidget(self.tab_widget)
 
         # 初期データの読み込み
@@ -126,8 +154,31 @@ class NationDetailsView(QWidget):
 
             # プルダウンをクリアして再設定
             self.nation_combo.clear()
+            
+            # 優先順位の高い国家タグ
+            priority_tags = ['ENG', 'JAP', 'JPN', 'GER', 'DEU', 'FRA', 'ITA', 'USA']
+            
+            # 優先順位の高い国家を先に追加
+            added_tags = set()
+            for tag in priority_tags:
+                for nation in nations:
+                    if nation['tag'] == tag and tag not in added_tags:
+                        self.nation_combo.addItem(f"{nation['tag']}: {nation['name']}", nation['tag'])
+                        added_tags.add(tag)
+                        break
+            
+            # 残りの国家を追加
             for nation in nations:
-                self.nation_combo.addItem(f"{nation['tag']}: {nation['name']}", nation['tag'])
+                if nation['tag'] not in added_tags:
+                    self.nation_combo.addItem(f"{nation['tag']}: {nation['name']}", nation['tag'])
+                    added_tags.add(nation['tag'])
+
+            # 優先順位の高い国家の最初のものを選択
+            for tag in priority_tags:
+                index = self.nation_combo.findData(tag)
+                if index >= 0:
+                    self.nation_combo.setCurrentIndex(index)
+                    break
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"国家リストの読み込み中にエラーが発生しました：\n{str(e)}")
@@ -162,6 +213,9 @@ class NationDetailsView(QWidget):
             self.load_mod_designs(nation_tag)
             self.load_formations(nation_tag)
             self.load_mod_formations(nation_tag)
+            self.load_person_names(nation_tag)
+            self.load_ship_names(nation_tag)
+            self.load_division_names(nation_tag)
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"国家データの読み込み中にエラーが発生しました：\n{str(e)}")
@@ -212,14 +266,57 @@ class NationDetailsView(QWidget):
         """mod内の設計データを読み込む"""
         try:
             self.mod_design_list.clear()
-            if self.app_controller:
-                # TODO: app_controllerに実装が必要
-                mod_design_data = self.app_controller.get_nation_mod_designs(nation_tag)
-                for item in mod_design_data:
+            if not self.app_controller:
+                return
+
+            current_mod = self.app_controller.get_current_mod()
+            if not current_mod or "path" not in current_mod:
+                QMessageBox.warning(self, "警告", "MODが選択されていません。")
+                return
+
+            # 設計ファイルのパス
+            designs_path = os.path.join(current_mod["path"], "common", "scripted_effects", "NAVY_Designs.txt")
+
+            # デバッグ情報を表示
+            print(f"MODパス: {current_mod['path']}")
+            print(f"設計ファイルパス: {designs_path}")
+
+            # 設計データを読み込む
+            designs_data = {}
+            
+            # 設計ファイルを読み込む
+            if os.path.exists(designs_path):
+                with open(designs_path, 'r', encoding='utf-8') as f:
+                    parser = EffectParser(f.read(), filename=designs_path)
+                    designs_data.update(parser.parse_designs())
+            else:
+                QMessageBox.warning(self, "警告", "設計ファイルが見つかりません。\n以下のパスを確認してください：\n" + 
+                                  f"\n{designs_path}")
+                return
+
+            # 指定された国家の設計データを表示
+            if nation_tag in designs_data:
+                for design_name, design_data in designs_data[nation_tag].items():
                     list_item = QListWidgetItem()
-                    list_item.setText(f"{item['name']} (船体: {item['hull']})")
-                    list_item.setData(Qt.UserRole, item)
+                    
+                    # 設計名の処理
+                    display_name = design_name
+                    if 'override_name' in design_data:
+                        override_name = design_data['override_name'].get('value', '').strip('"')
+                        original_name = design_data.get('name', '').strip('"')
+                        if override_name and original_name:
+                            display_name = f"{override_name}({original_name})"
+                    
+                    # 設計タイプの取得
+                    design_type = design_data.get('type', '不明')
+                    
+                    # 表示テキストの設定
+                    list_item.setText(f"{display_name} (タイプ: {design_type})")
+                    list_item.setData(Qt.UserRole, design_data)
                     self.mod_design_list.addItem(list_item)
+            else:
+                QMessageBox.information(self, "情報", f"国家 {nation_tag} の設計データが見つかりません。")
+
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"mod内の設計データの読み込み中にエラーが発生しました：\n{str(e)}")
 
@@ -269,6 +366,136 @@ class NationDetailsView(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"mod内の編成データの読み込み中にエラーが発生しました：\n{str(e)}")
 
+    def load_person_names(self, nation_tag):
+        """人名データを読み込む"""
+        try:
+            self.person_name_list.clear()
+            if not self.app_controller:
+                return
+
+            current_mod = self.app_controller.get_current_mod()
+            if not current_mod or "path" not in current_mod:
+                QMessageBox.warning(self, "警告", "MODが選択されていません。")
+                return
+
+            # 名前ファイルのディレクトリパス
+            names_dir = os.path.join(current_mod["path"], "common", "characters")
+            
+            # ディレクトリ内の全ファイルを処理
+            if os.path.exists(names_dir):
+                for filename in os.listdir(names_dir):
+                    if filename.endswith('.txt'):
+                        file_path = os.path.join(names_dir, filename)
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            parser = PersonNameParser(f.read(), filename=file_path)
+                            names_data = parser.parse()
+
+                            if nation_tag in names_data:
+                                tag_data = names_data[nation_tag]
+                                
+                                # 男性名の表示
+                                for name in tag_data['male_name']:
+                                    list_item = QListWidgetItem()
+                                    list_item.setText(f"男性名: {name}")
+                                    list_item.setData(Qt.UserRole, {'name': name, 'type': 'male_name'})
+                                    self.person_name_list.addItem(list_item)
+
+                                # 女性名の表示
+                                for name in tag_data['female_name']:
+                                    list_item = QListWidgetItem()
+                                    list_item.setText(f"女性名: {name}")
+                                    list_item.setData(Qt.UserRole, {'name': name, 'type': 'female_name'})
+                                    self.person_name_list.addItem(list_item)
+
+                                # 姓の表示
+                                for name in tag_data['surname']:
+                                    list_item = QListWidgetItem()
+                                    list_item.setText(f"姓: {name}")
+                                    list_item.setData(Qt.UserRole, {'name': name, 'type': 'surname'})
+                                    self.person_name_list.addItem(list_item)
+
+                                # コールサインの表示
+                                for name in tag_data['callsign']:
+                                    list_item = QListWidgetItem()
+                                    list_item.setText(f"コールサイン: {name}")
+                                    list_item.setData(Qt.UserRole, {'name': name, 'type': 'callsign'})
+                                    self.person_name_list.addItem(list_item)
+            else:
+                QMessageBox.information(self, "情報", f"名前ディレクトリが見つかりません：\n{names_dir}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"人名データの読み込み中にエラーが発生しました：\n{str(e)}")
+
+    def load_ship_names(self, nation_tag):
+        """艦名データを読み込む"""
+        try:
+            self.ship_name_list.clear()
+            if not self.app_controller:
+                return
+
+            current_mod = self.app_controller.get_current_mod()
+            if not current_mod or "path" not in current_mod:
+                QMessageBox.warning(self, "警告", "MODが選択されていません。")
+                return
+
+            # 艦名ファイルのディレクトリパス
+            ship_names_dir = os.path.join(current_mod["path"], "common", "units", "names_ships")
+            
+            # ディレクトリ内の全ファイルを処理
+            if os.path.exists(ship_names_dir):
+                for filename in os.listdir(ship_names_dir):
+                    if filename.endswith('.txt'):
+                        file_path = os.path.join(ship_names_dir, filename)
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            parser = ShipNameParser(f.read(), filename=file_path)
+                            ship_names = parser.parse()
+
+                            for ship_name in ship_names:
+                                list_item = QListWidgetItem()
+                                list_item.setText(f"{ship_name['name']} ({ship_name['type']})")
+                                list_item.setData(Qt.UserRole, ship_name)
+                                self.ship_name_list.addItem(list_item)
+            else:
+                QMessageBox.information(self, "情報", f"艦名ディレクトリが見つかりません：\n{ship_names_dir}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"艦名データの読み込み中にエラーが発生しました：\n{str(e)}")
+
+    def load_division_names(self, nation_tag):
+        """師団名データを読み込む"""
+        try:
+            self.division_name_list.clear()
+            if not self.app_controller:
+                return
+
+            current_mod = self.app_controller.get_current_mod()
+            if not current_mod or "path" not in current_mod:
+                QMessageBox.warning(self, "警告", "MODが選択されていません。")
+                return
+
+            # 師団名ファイルのディレクトリパス
+            division_names_dir = os.path.join(current_mod["path"], "common", "units", "names_divisions")
+            
+            # ディレクトリ内の全ファイルを処理
+            if os.path.exists(division_names_dir):
+                for filename in os.listdir(division_names_dir):
+                    if filename.endswith('.txt'):
+                        file_path = os.path.join(division_names_dir, filename)
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            parser = DivisionNameParser(f.read(), filename=file_path)
+                            division_names = parser.parse()
+
+                            for name_data in division_names:
+                                list_item = QListWidgetItem()
+                                list_item.setText(f"{name_data['name']} ({name_data['category']}) - No.{name_data['number']}")
+                                list_item.setData(Qt.UserRole, name_data)
+                                self.division_name_list.addItem(list_item)
+            else:
+                QMessageBox.information(self, "情報", f"師団名ディレクトリが見つかりません：\n{division_names_dir}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"師団名データの読み込み中にエラーが発生しました：\n{str(e)}")
+
     def on_equipment_double_clicked(self, item):
         """装備アイテムがダブルクリックされた時の処理"""
         try:
@@ -311,12 +538,63 @@ class NationDetailsView(QWidget):
             if not self.app_controller:
                 return
 
-            mod_design_data = item.data(Qt.UserRole)
-            if mod_design_data:
-                # TODO: app_controllerに実装が必要
-                self.app_controller.show_mod_design_view(mod_design_data)
+            design_data = item.data(Qt.UserRole)
+            if not design_data:
+                return
+
+            # 設計の詳細情報を収集
+            details = []
+            
+            # 設計名の処理
+            if 'override_name' in design_data:
+                override_name = design_data['override_name'].get('value', '').strip('"')
+                original_name = design_data.get('name', '').strip('"')
+                if override_name and original_name:
+                    details.append(f"設計名: {override_name}({original_name})")
+                else:
+                    details.append(f"設計名: {original_name}")
+            else:
+                details.append(f"設計名: {design_data.get('name', '不明')}")
+            
+            details.append(f"タイプ: {design_data.get('type', '不明')}")
+            
+            # 船体情報
+            hull = design_data.get('type', '不明')
+            details.append(f"船体: {hull}")
+            
+            # モジュール情報
+            modules = design_data.get('modules', {})
+            if modules:
+                details.append("\nモジュール:")
+                for module_type, module_data in modules.items():
+                    if isinstance(module_data, dict):
+                        module_name = module_data.get('name', '不明')
+                        details.append(f"- {module_type}: {module_name}")
+                    else:
+                        details.append(f"- {module_type}: {module_data}")
+
+            # アップグレード情報
+            upgrades = design_data.get('upgrades', {})
+            if upgrades:
+                details.append("\nアップグレード:")
+                for upgrade_type, upgrade_level in upgrades.items():
+                    details.append(f"- {upgrade_type}: {upgrade_level}")
+
+            # その他の重要な情報
+            for key, value in design_data.items():
+                if key not in ['name', 'type', 'modules', 'upgrades', 'override_name'] and not key.startswith('original_'):
+                    if isinstance(value, dict):
+                        details.append(f"\n{key}:")
+                        for sub_key, sub_value in value.items():
+                            details.append(f"- {sub_key}: {sub_value}")
+                    else:
+                        details.append(f"\n{key}: {value}")
+
+            # 詳細情報をダイアログで表示
+            QMessageBox.information(self, "設計詳細", "\n".join(details))
+
         except Exception as e:
-            QMessageBox.critical(self, "エラー", f"mod内の設計ビューの表示中にエラーが発生しました：\n{str(e)}")
+            QMessageBox.critical(self, "エラー", f"設計詳細の表示中にエラーが発生しました：\n{str(e)}")
 
     def on_formation_double_clicked(self, item):
         """編成アイテムがダブルクリックされた時の処理"""
@@ -368,6 +646,61 @@ class NationDetailsView(QWidget):
                 self.app_controller.show_mod_formation_view(mod_formation_data)
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"mod内の編成ビューの表示中にエラーが発生しました：\n{str(e)}")
+
+    def on_person_name_double_clicked(self, item):
+        """人名アイテムがダブルクリックされた時の処理"""
+        try:
+            if not self.app_controller:
+                return
+
+            name_data = item.data(Qt.UserRole)
+            if name_data:
+                # 名前の詳細情報を表示
+                details = []
+                details.append(f"名前: {name_data.get('name', '不明')}")
+                details.append(f"タイプ: {name_data.get('type', '不明')}")
+
+                QMessageBox.information(self, "人名詳細", "\n".join(details))
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"人名詳細の表示中にエラーが発生しました：\n{str(e)}")
+
+    def on_ship_name_double_clicked(self, item):
+        """艦名アイテムがダブルクリックされた時の処理"""
+        try:
+            if not self.app_controller:
+                return
+
+            ship_data = item.data(Qt.UserRole)
+            if ship_data:
+                # 艦名の詳細情報を表示
+                details = []
+                details.append(f"艦名: {ship_data.get('name', '不明')}")
+                details.append(f"タイプ: {ship_data.get('type', '不明')}")
+
+                QMessageBox.information(self, "艦名詳細", "\n".join(details))
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"艦名詳細の表示中にエラーが発生しました：\n{str(e)}")
+
+    def on_division_name_double_clicked(self, item):
+        """師団名アイテムがダブルクリックされた時の処理"""
+        try:
+            if not self.app_controller:
+                return
+
+            name_data = item.data(Qt.UserRole)
+            if name_data:
+                # 師団名の詳細情報を表示
+                details = []
+                details.append(f"師団名: {name_data.get('name', '不明')}")
+                details.append(f"カテゴリー: {name_data.get('category', '不明')}")
+                details.append(f"タイプ: {name_data.get('type', '不明')}")
+
+                QMessageBox.information(self, "師団名詳細", "\n".join(details))
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"師団名詳細の表示中にエラーが発生しました：\n{str(e)}")
 
     def go_back(self):
         """前の画面に戻る"""

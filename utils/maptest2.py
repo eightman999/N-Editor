@@ -32,10 +32,10 @@ def get_file_content(file_path):
             with open(file_path, 'r', encoding='latin-1') as f:
                 return f.read()
         except Exception as e:
-            print(f"ファイルの読み込みに失敗しました: {file_path} - {str(e)}")
+            # print(f"ファイルの読み込みに失敗しました: {file_path} - {str(e)}")
             return None
     except Exception as e:
-        print(f"ファイルの読み込みに失敗しました: {file_path} - {str(e)}")
+        # print(f"ファイルの読み込みに失敗しました: {file_path} - {str(e)}")
         return None
 
 # プロビンスデータを保持するクラス
@@ -209,37 +209,37 @@ class MapViewer(QGraphicsView):
         # 国家の色情報を読み込む
         colors_txt_path = os.path.join(base_mod_dir, 'common', 'countries', 'colors.txt')
         if os.path.exists(colors_txt_path):
-            print(f"Loading country colors from: {colors_txt_path}")
+            # print(f"Loading country colors from: {colors_txt_path}")
             content = get_file_content(colors_txt_path)
             if content:
                 parser = CountryColorParser(content)
                 self.country_colors = parser.parse()
-                print(f"Loaded {len(self.country_colors)} country colors")
+                # print(f"Loaded {len(self.country_colors)} country colors")
                 # デバッグ: 国家の色情報を出力
-                print("\n=== 国家の色情報 ===")
-                for country, color_data in self.country_colors.items():
-                    print(f"国家: {country}, 色: {color_data['color']}")
-                print("===================\n")
+                # print("\n=== 国家の色情報 ===")
+                # for country, color_data in self.country_colors.items():
+                #     print(f"国家: {country}, 色: {color_data['color']}")
+                # print("===================\n")
 
         provinces_img_path = os.path.join(base_mod_dir, 'map', 'provinces.bmp')
-        print(f"Searching for provinces.bmp at: {provinces_img_path}")
+        # print(f"Searching for provinces.bmp at: {provinces_img_path}")
         if not os.path.exists(provinces_img_path):
             QMessageBox.critical(self, "エラー", f"provinces.bmp が指定されたModパスのmap/ ディレクトリ以下に見つかりません。\n({provinces_img_path})")
             return False
 
         definition_csv_path = os.path.join(base_mod_dir, 'map', 'definition.csv')
-        print(f"Searching for definition.csv at: {definition_csv_path}")
+        # print(f"Searching for definition.csv at: {definition_csv_path}")
         if not os.path.exists(definition_csv_path):
             QMessageBox.critical(self, "エラー", f"definition.csv が指定されたModパスのmap/ ディレクトリ以下に見つかりません。\n({definition_csv_path})")
             return False
 
         try:
-            print(f"Loading provinces image from: {provinces_img_path}")
+            # print(f"Loading provinces image from: {provinces_img_path}")
             img_pil = Image.open(provinces_img_path).convert("RGB")
             self.original_width, self.original_height = img_pil.size
             self.original_map_image_data = np.array(img_pil)
 
-            print(f"Loading definition.csv from: {definition_csv_path}")
+            # print(f"Loading definition.csv from: {definition_csv_path}")
             with open(definition_csv_path, 'r', encoding='latin-1') as f:
                 reader = csv.reader(f, delimiter=';')
                 next(reader)
@@ -258,14 +258,15 @@ class MapViewer(QGraphicsView):
                             if rgb_hash < len(self._rgb_to_id_map_array):
                                 self._rgb_to_id_map_array[rgb_hash] = id
                         except ValueError as e:
-                            print(f"Skipping malformed row in definition.csv: {row} - Error: {e}")
-            print(f"Loaded {len(self.provinces_data_by_id)} provinces from definition.csv.")
+                            # print(f"Skipping malformed row in definition.csv: {row} - Error: {e}")
+                            pass
+            # print(f"Loaded {len(self.provinces_data_by_id)} provinces from definition.csv.")
 
             # ステートデータの読み込み
             states_dir = os.path.join(base_mod_dir, 'history', 'states')
 
             if os.path.exists(states_dir):
-                print(f"Loading states from: {states_dir}")
+                # print(f"Loading states from: {states_dir}")
                 for filename in os.listdir(states_dir):
                     if filename.endswith('.txt'):
                         file_path = os.path.join(states_dir, filename)
@@ -288,9 +289,11 @@ class MapViewer(QGraphicsView):
                                     # デバッグ: ステートの所有者情報を出力
                                     owner = state_data.get('owner')
                                     if owner:
-                                        print(f"ステート {state_id} ({state_name}) の所有者: {owner}")
+                                        # print(f"ステート {state_id} ({state_name}) の所有者: {owner}")
+                                        pass
                                     else:
-                                        print(f"ステート {state_id} ({state_name}) の所有者: なし")
+                                        # print(f"ステート {state_id} ({state_name}) の所有者: なし")
+                                        pass
                                     for prov_id in state_data['provinces']:
                                         if prov_id in self.provinces_data_by_id:
                                             self.provinces_data_by_id[prov_id].state_id = state_id
@@ -300,27 +303,32 @@ class MapViewer(QGraphicsView):
                                         for prov_id, buildings in state_data['province_buildings'].items():
                                             if isinstance(buildings, dict) and 'naval_base' in buildings:
                                                 self.naval_base_locations[prov_id] = buildings['naval_base']
-                                                print(f"Found naval base in province {prov_id} with level {buildings['naval_base']}")
+                                                # print(f"Found naval base in province {prov_id} with level {buildings['naval_base']}")
 
                                     # print(f"Successfully loaded state file: {filename} (ID: {state_id}, Provinces: {len(state_data['provinces'])})")
                                 else:
-                                    print(f"Skipping state file {filename}: Missing 'id', 'provinces' key, or 'provinces' is empty.")
+                                    # print(f"Skipping state file {filename}: Missing 'id', 'provinces' key, or 'provinces' is empty.")
+                                    pass
                             except ParserError as e:
-                                print(f"Error parsing state file {filename}: {e}")
+                                # print(f"Error parsing state file {filename}: {e}")
+                                pass
                             except Exception as e:
-                                print(f"Unexpected error processing state file {filename}: {e}")
+                                # print(f"Unexpected error processing state file {filename}: {e}")
+                                pass
                         else:
-                            print(f"Skipping state file {filename}: Could not read content.")
+                            # print(f"Skipping state file {filename}: Could not read content.")
+                            pass
             else:
-                print(f"State directory not found: {states_dir}")
-            print(f"Loaded {len(self.states_data)} states.")
+                # print(f"State directory not found: {states_dir}")
+                pass
+            # print(f"Loaded {len(self.states_data)} states.")
 
             # 戦略地域の読み込み (map/strategicregions)
             self.strategic_regions_data = {}
             strategic_regions_dir = os.path.join(base_mod_dir, 'map', 'strategicregions')
 
             if os.path.exists(strategic_regions_dir):
-                print(f"Loading strategic regions from: {strategic_regions_dir}")
+                # print(f"Loading strategic regions from: {strategic_regions_dir}")
                 for filename in os.listdir(strategic_regions_dir):
                     if filename.endswith('.txt'):
                         file_path = os.path.join(strategic_regions_dir, filename)
@@ -345,16 +353,21 @@ class MapViewer(QGraphicsView):
                                             self.provinces_data_by_id[prov_id].strategic_region_id = region_id
                                     # print(f"Successfully loaded strategic region file: {filename} (ID: {region_id}, Provinces: {len(region_data['provinces'])})")
                                 else:
-                                    print(f"Skipping strategic region file {filename}: Missing 'id', 'provinces' key, or 'provinces' is empty.")
+                                    # print(f"Skipping strategic region file {filename}: Missing 'id', 'provinces' key, or 'provinces' is empty.")
+                                    pass
                             except ParserError as e:
-                                print(f"Error parsing strategic region file {filename}: {e}")
+                                # print(f"Error parsing strategic region file {filename}: {e}")
+                                pass
                             except Exception as e:
-                                print(f"Unexpected error processing strategic region file {filename}: {e}")
+                                # print(f"Unexpected error processing strategic region file {filename}: {e}")
+                                pass
                         else:
-                            print(f"Skipping strategic region file {filename}: Could not read content.")
+                            # print(f"Skipping strategic region file {filename}: Could not read content.")
+                            pass
             else:
-                print(f"Strategic region directory not found: {strategic_regions_dir}")
-            print(f"Loaded {len(self.strategic_regions_data)} strategic regions.")
+                # print(f"Strategic region directory not found: {strategic_regions_dir}")
+                pass
+            # print(f"Loaded {len(self.strategic_regions_data)} strategic regions.")
 
             # プロビンス重心の計算
             self.calculate_province_centroids()
@@ -384,8 +397,8 @@ class MapViewer(QGraphicsView):
 
             self.render_map()
             end_time = time.time()
-            print(f"Total map data loading and initial rendering time: {end_time - start_time:.2f} seconds.")
-            print(f"DEBUG: naval_base_locations: {self.naval_base_locations}")
+            # print(f"Total map data loading and initial rendering time: {end_time - start_time:.2f} seconds.")
+            # print(f"DEBUG: naval_base_locations: {self.naval_base_locations}")
             return True
 
         except Exception as e:
@@ -395,7 +408,7 @@ class MapViewer(QGraphicsView):
             return False
 
     def calculate_province_centroids(self):
-        print("Calculating province centroids (highly optimized)...")
+        # print("Calculating province centroids (highly optimized)...")
         start_time = time.time()
         if self.original_map_image_data is None:
             return
@@ -417,12 +430,10 @@ class MapViewer(QGraphicsView):
         valid_prov_pixel_indices = prov_ids_flat != -1
         valid_prov_ids = prov_ids_flat[valid_prov_pixel_indices]
 
-
         # 各ピクセルの座標配列を生成 (0からwidth-1, 0からheight-1の繰り返し)
         x_indices, y_indices = np.meshgrid(np.arange(width), np.arange(height))
         x_coords_flat = x_indices.flatten()
         y_coords_flat = y_indices.flatten()
-
 
         # 有効なプロビンスピクセルに属するX, Y座標を抽出
         valid_x_coords = x_coords_flat[valid_prov_pixel_indices]
@@ -447,10 +458,10 @@ class MapViewer(QGraphicsView):
                 self.province_centroids[prov_id] = None # プロビンスが存在しない、または画像中に見つからない場合
 
         end_time = time.time()
-        print(f"Province centroid calculation time (highly optimized): {end_time - start_time:.2f} seconds.")
+        # print(f"Province centroid calculation time (highly optimized): {end_time - start_time:.2f} seconds.")
 
     def calculate_state_boundaries(self):
-        print("Calculating state boundaries...")
+        # print("Calculating state boundaries...")
         start_time = time.time()
         
         if self.original_map_image_data is None:
@@ -488,7 +499,7 @@ class MapViewer(QGraphicsView):
             self.state_boundaries[state_id] = list(boundaries)
 
         end_time = time.time()
-        print(f"State boundary calculation time: {end_time - start_time:.2f} seconds")
+        # print(f"State boundary calculation time: {end_time - start_time:.2f} seconds")
 
     def render_map(self):
         start_time = time.time()
@@ -496,7 +507,7 @@ class MapViewer(QGraphicsView):
             return
 
         if self.current_filter not in self.base_qimage_cache:
-            print(f"Rendering map for filter: {self.current_filter} (and caching)")
+            # print(f"Rendering map for filter: {self.current_filter} (and caching)")
 
             original_pixels_flat = self.original_map_image_data.reshape(-1, 3)
 
@@ -517,20 +528,21 @@ class MapViewer(QGraphicsView):
             elif self.current_filter == "countries":
                 # 国家モードの場合、ステートの所有者の色を使用
                 selected_palette = np.full((max(self.provinces_data_by_id.keys()) + 1 if self.provinces_data_by_id else 1, 3), (50, 50, 50), dtype=np.uint8)
-                print("\n=== 国家モードの着色処理 ===")
+                # print("\n=== 国家モードの着色処理 ===")
                 for state_id, state_data in self.states_data.items():
                     # StateParserから直接owner情報を取得
                     owner = state_data['raw_data'].get('owner', None)
-                    print(f"ステート {state_id} の所有者: {owner}")
+                    # print(f"ステート {state_id} の所有者: {owner}")
                     if owner and owner in self.country_colors:
                         color = self.country_colors[owner]['color']
-                        print(f"  色を適用: {color}")
+                        # print(f"  色を適用: {color}")
                         for prov_id in state_data['provinces']:
                             if prov_id <= max(self.provinces_data_by_id.keys()):
                                 selected_palette[prov_id] = color
                     else:
-                        print(f"  色が見つからないか所有者なし")
-                print("========================\n")
+                        # print(f"  色が見つからないか所有者なし")
+                        pass
+                # print("========================\n")
             else:
                 selected_palette = np.full((max(self.provinces_data_by_id.keys()) + 1 if self.provinces_data_by_id else 1, 3), (0,0,0), dtype=np.uint8)
 
@@ -549,7 +561,8 @@ class MapViewer(QGraphicsView):
             q_image = QImage(display_array.data, width, height, bytes_per_line, QImage.Format_RGB888)
             self.base_qimage_cache[self.current_filter] = q_image.copy()
         else:
-            print(f"Loading map from cache for filter: {self.current_filter}")
+            # print(f"Loading map from cache for filter: {self.current_filter}")
+            pass
 
         current_pixmap = QPixmap.fromImage(self.base_qimage_cache[self.current_filter])
 
@@ -567,7 +580,7 @@ class MapViewer(QGraphicsView):
         self.scale(4.0, 4.0)
 
         end_time = time.time()
-        print(f"Map rendering time for filter '{self.current_filter}': {end_time - start_time:.2f} seconds.")
+        # print(f"Map rendering time for filter '{self.current_filter}': {end_time - start_time:.2f} seconds.")
 
     def draw_state_boundaries(self, target_pixmap: QPixmap):
         painter = QPainter(target_pixmap)

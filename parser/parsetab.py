@@ -6,9 +6,9 @@ _tabversion = '3.10'
 
 _lr_method = 'LALR'
 
-_lr_signature = 'COLOR COLOR_UI EQUALS HSV ID LBRACE NUMBER RBRACE RGBcountry_file : country_blockscountry_blocks : country_block\n| country_blocks country_blockcountry_block : ID EQUALS LBRACE color_defs RBRACEcolor_defs : color_def\n| color_defs color_defcolor_def : COLOR EQUALS color_value\n| COLOR_UI EQUALS color_valuecolor_value : HSV LBRACE NUMBER NUMBER NUMBER RBRACE\n| RGB LBRACE NUMBER NUMBER NUMBER RBRACE'
+_lr_signature = 'EQUALS IDENTIFIER LBRACE NUMBER RBRACE STRINGship_names : ship_name_block\n| ship_names ship_name_block\n| emptyship_name_block : IDENTIFIER EQUALS LBRACE block_content RBRACEblock_content : block_item\n| block_content block_item\n| emptyblock_item : IDENTIFIER EQUALS value\n| IDENTIFIER EQUALS LBRACE value_list RBRACEvalue : STRING\n| NUMBER\n| IDENTIFIERvalue_list : value\n| value_list value\n| emptyempty :'
     
-_lr_action_items = {'ID':([0,2,3,5,12,],[4,4,-2,-3,-4,]),'$end':([1,2,3,5,12,],[0,-1,-2,-3,-4,]),'EQUALS':([4,10,11,],[6,14,15,]),'LBRACE':([6,17,18,],[7,20,21,]),'COLOR':([7,8,9,13,16,19,28,29,],[10,10,-5,-6,-7,-8,-9,-10,]),'COLOR_UI':([7,8,9,13,16,19,28,29,],[11,11,-5,-6,-7,-8,-9,-10,]),'RBRACE':([8,9,13,16,19,26,27,28,29,],[12,-5,-6,-7,-8,28,29,-9,-10,]),'HSV':([14,15,],[17,17,]),'RGB':([14,15,],[18,18,]),'NUMBER':([20,21,22,23,24,25,],[22,23,24,25,26,27,]),}
+_lr_action_items = {'IDENTIFIER':([0,1,2,3,5,7,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,],[4,4,-1,-3,-2,8,8,-5,-7,15,-4,-6,-12,-8,15,-10,-11,15,-13,-15,-9,-14,]),'$end':([0,1,2,3,5,13,],[-16,0,-1,-3,-2,-4,]),'EQUALS':([4,8,],[6,12,]),'LBRACE':([6,12,],[7,17,]),'RBRACE':([7,9,10,11,14,15,16,17,18,19,20,21,22,23,24,],[-16,13,-5,-7,-6,-12,-8,-16,-10,-11,23,-13,-15,-9,-14,]),'STRING':([12,15,17,18,19,20,21,22,24,],[18,-12,18,-10,-11,18,-13,-15,-14,]),'NUMBER':([12,15,17,18,19,20,21,22,24,],[19,-12,19,-10,-11,19,-13,-15,-14,]),}
 
 _lr_action = {}
 for _k, _v in _lr_action_items.items():
@@ -17,7 +17,7 @@ for _k, _v in _lr_action_items.items():
       _lr_action[_x][_k] = _y
 del _lr_action_items
 
-_lr_goto_items = {'country_file':([0,],[1,]),'country_blocks':([0,],[2,]),'country_block':([0,2,],[3,5,]),'color_defs':([7,],[8,]),'color_def':([7,8,],[9,13,]),'color_value':([14,15,],[16,19,]),}
+_lr_goto_items = {'ship_names':([0,],[1,]),'ship_name_block':([0,1,],[2,5,]),'empty':([0,7,17,],[3,11,22,]),'block_content':([7,],[9,]),'block_item':([7,9,],[10,14,]),'value':([12,17,20,],[16,21,24,]),'value_list':([17,],[20,]),}
 
 _lr_goto = {}
 for _k, _v in _lr_goto_items.items():
@@ -26,15 +26,21 @@ for _k, _v in _lr_goto_items.items():
        _lr_goto[_x][_k] = _y
 del _lr_goto_items
 _lr_productions = [
-  ("S' -> country_file","S'",1,None,None,None),
-  ('country_file -> country_blocks','country_file',1,'p_country_file','CountryColorParser.py',72),
-  ('country_blocks -> country_block','country_blocks',1,'p_country_blocks','CountryColorParser.py',76),
-  ('country_blocks -> country_blocks country_block','country_blocks',2,'p_country_blocks','CountryColorParser.py',77),
-  ('country_block -> ID EQUALS LBRACE color_defs RBRACE','country_block',5,'p_country_block','CountryColorParser.py',84),
-  ('color_defs -> color_def','color_defs',1,'p_color_defs','CountryColorParser.py',88),
-  ('color_defs -> color_defs color_def','color_defs',2,'p_color_defs','CountryColorParser.py',89),
-  ('color_def -> COLOR EQUALS color_value','color_def',3,'p_color_def','CountryColorParser.py',96),
-  ('color_def -> COLOR_UI EQUALS color_value','color_def',3,'p_color_def','CountryColorParser.py',97),
-  ('color_value -> HSV LBRACE NUMBER NUMBER NUMBER RBRACE','color_value',6,'p_color_value','CountryColorParser.py',101),
-  ('color_value -> RGB LBRACE NUMBER NUMBER NUMBER RBRACE','color_value',6,'p_color_value','CountryColorParser.py',102),
+  ("S' -> ship_names","S'",1,None,None,None),
+  ('ship_names -> ship_name_block','ship_names',1,'p_ship_names','ShipNameParser.py',60),
+  ('ship_names -> ship_names ship_name_block','ship_names',2,'p_ship_names','ShipNameParser.py',61),
+  ('ship_names -> empty','ship_names',1,'p_ship_names','ShipNameParser.py',62),
+  ('ship_name_block -> IDENTIFIER EQUALS LBRACE block_content RBRACE','ship_name_block',5,'p_ship_name_block','ShipNameParser.py',72),
+  ('block_content -> block_item','block_content',1,'p_block_content','ShipNameParser.py',79),
+  ('block_content -> block_content block_item','block_content',2,'p_block_content','ShipNameParser.py',80),
+  ('block_content -> empty','block_content',1,'p_block_content','ShipNameParser.py',81),
+  ('block_item -> IDENTIFIER EQUALS value','block_item',3,'p_block_item','ShipNameParser.py',93),
+  ('block_item -> IDENTIFIER EQUALS LBRACE value_list RBRACE','block_item',5,'p_block_item','ShipNameParser.py',94),
+  ('value -> STRING','value',1,'p_value','ShipNameParser.py',101),
+  ('value -> NUMBER','value',1,'p_value','ShipNameParser.py',102),
+  ('value -> IDENTIFIER','value',1,'p_value','ShipNameParser.py',103),
+  ('value_list -> value','value_list',1,'p_value_list','ShipNameParser.py',107),
+  ('value_list -> value_list value','value_list',2,'p_value_list','ShipNameParser.py',108),
+  ('value_list -> empty','value_list',1,'p_value_list','ShipNameParser.py',109),
+  ('empty -> <empty>','empty',0,'p_empty','ShipNameParser.py',119),
 ]

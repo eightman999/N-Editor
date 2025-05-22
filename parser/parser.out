@@ -2,294 +2,322 @@ Created by PLY version 3.11 (http://www.dabeaz.com/ply)
 
 Grammar
 
-Rule 0     S' -> country_file
-Rule 1     country_file -> country_blocks
-Rule 2     country_blocks -> country_block
-Rule 3     country_blocks -> country_blocks country_block
-Rule 4     country_block -> ID EQUALS LBRACE color_defs RBRACE
-Rule 5     color_defs -> color_def
-Rule 6     color_defs -> color_defs color_def
-Rule 7     color_def -> COLOR EQUALS color_value
-Rule 8     color_def -> COLOR_UI EQUALS color_value
-Rule 9     color_value -> HSV LBRACE NUMBER NUMBER NUMBER RBRACE
-Rule 10    color_value -> RGB LBRACE NUMBER NUMBER NUMBER RBRACE
+Rule 0     S' -> ship_names
+Rule 1     ship_names -> ship_name_block
+Rule 2     ship_names -> ship_names ship_name_block
+Rule 3     ship_names -> empty
+Rule 4     ship_name_block -> IDENTIFIER EQUALS LBRACE block_content RBRACE
+Rule 5     block_content -> block_item
+Rule 6     block_content -> block_content block_item
+Rule 7     block_content -> empty
+Rule 8     block_item -> IDENTIFIER EQUALS value
+Rule 9     block_item -> IDENTIFIER EQUALS LBRACE value_list RBRACE
+Rule 10    value -> STRING
+Rule 11    value -> NUMBER
+Rule 12    value -> IDENTIFIER
+Rule 13    value_list -> value
+Rule 14    value_list -> value_list value
+Rule 15    value_list -> empty
+Rule 16    empty -> <empty>
 
 Terminals, with rules where they appear
 
-COLOR                : 7
-COLOR_UI             : 8
-EQUALS               : 4 7 8
-HSV                  : 9
-ID                   : 4
-LBRACE               : 4 9 10
-NUMBER               : 9 9 9 10 10 10
-RBRACE               : 4 9 10
-RGB                  : 10
+EQUALS               : 4 8 9
+IDENTIFIER           : 4 8 9 12
+LBRACE               : 4 9
+NUMBER               : 11
+RBRACE               : 4 9
+STRING               : 10
 error                : 
 
 Nonterminals, with rules where they appear
 
-color_def            : 5 6
-color_defs           : 4 6
-color_value          : 7 8
-country_block        : 2 3
-country_blocks       : 1 3
-country_file         : 0
+block_content        : 4 6
+block_item           : 5 6
+empty                : 3 7 15
+ship_name_block      : 1 2
+ship_names           : 2 0
+value                : 8 13 14
+value_list           : 9 14
 
 Parsing method: LALR
 
 state 0
 
-    (0) S' -> . country_file
-    (1) country_file -> . country_blocks
-    (2) country_blocks -> . country_block
-    (3) country_blocks -> . country_blocks country_block
-    (4) country_block -> . ID EQUALS LBRACE color_defs RBRACE
+    (0) S' -> . ship_names
+    (1) ship_names -> . ship_name_block
+    (2) ship_names -> . ship_names ship_name_block
+    (3) ship_names -> . empty
+    (4) ship_name_block -> . IDENTIFIER EQUALS LBRACE block_content RBRACE
+    (16) empty -> .
 
-    ID              shift and go to state 4
+  ! shift/reduce conflict for IDENTIFIER resolved as shift
+    IDENTIFIER      shift and go to state 4
+    $end            reduce using rule 16 (empty -> .)
 
-    country_file                   shift and go to state 1
-    country_blocks                 shift and go to state 2
-    country_block                  shift and go to state 3
+  ! IDENTIFIER      [ reduce using rule 16 (empty -> .) ]
+
+    ship_names                     shift and go to state 1
+    ship_name_block                shift and go to state 2
+    empty                          shift and go to state 3
 
 state 1
 
-    (0) S' -> country_file .
+    (0) S' -> ship_names .
+    (2) ship_names -> ship_names . ship_name_block
+    (4) ship_name_block -> . IDENTIFIER EQUALS LBRACE block_content RBRACE
 
+    IDENTIFIER      shift and go to state 4
 
+    ship_name_block                shift and go to state 5
 
 state 2
 
-    (1) country_file -> country_blocks .
-    (3) country_blocks -> country_blocks . country_block
-    (4) country_block -> . ID EQUALS LBRACE color_defs RBRACE
+    (1) ship_names -> ship_name_block .
 
-    $end            reduce using rule 1 (country_file -> country_blocks .)
-    ID              shift and go to state 4
+    IDENTIFIER      reduce using rule 1 (ship_names -> ship_name_block .)
+    $end            reduce using rule 1 (ship_names -> ship_name_block .)
 
-    country_block                  shift and go to state 5
 
 state 3
 
-    (2) country_blocks -> country_block .
+    (3) ship_names -> empty .
 
-    ID              reduce using rule 2 (country_blocks -> country_block .)
-    $end            reduce using rule 2 (country_blocks -> country_block .)
+    IDENTIFIER      reduce using rule 3 (ship_names -> empty .)
+    $end            reduce using rule 3 (ship_names -> empty .)
 
 
 state 4
 
-    (4) country_block -> ID . EQUALS LBRACE color_defs RBRACE
+    (4) ship_name_block -> IDENTIFIER . EQUALS LBRACE block_content RBRACE
 
     EQUALS          shift and go to state 6
 
 
 state 5
 
-    (3) country_blocks -> country_blocks country_block .
+    (2) ship_names -> ship_names ship_name_block .
 
-    ID              reduce using rule 3 (country_blocks -> country_blocks country_block .)
-    $end            reduce using rule 3 (country_blocks -> country_blocks country_block .)
+    IDENTIFIER      reduce using rule 2 (ship_names -> ship_names ship_name_block .)
+    $end            reduce using rule 2 (ship_names -> ship_names ship_name_block .)
 
 
 state 6
 
-    (4) country_block -> ID EQUALS . LBRACE color_defs RBRACE
+    (4) ship_name_block -> IDENTIFIER EQUALS . LBRACE block_content RBRACE
 
     LBRACE          shift and go to state 7
 
 
 state 7
 
-    (4) country_block -> ID EQUALS LBRACE . color_defs RBRACE
-    (5) color_defs -> . color_def
-    (6) color_defs -> . color_defs color_def
-    (7) color_def -> . COLOR EQUALS color_value
-    (8) color_def -> . COLOR_UI EQUALS color_value
+    (4) ship_name_block -> IDENTIFIER EQUALS LBRACE . block_content RBRACE
+    (5) block_content -> . block_item
+    (6) block_content -> . block_content block_item
+    (7) block_content -> . empty
+    (8) block_item -> . IDENTIFIER EQUALS value
+    (9) block_item -> . IDENTIFIER EQUALS LBRACE value_list RBRACE
+    (16) empty -> .
 
-    COLOR           shift and go to state 10
-    COLOR_UI        shift and go to state 11
+  ! shift/reduce conflict for IDENTIFIER resolved as shift
+    IDENTIFIER      shift and go to state 8
+    RBRACE          reduce using rule 16 (empty -> .)
 
-    color_defs                     shift and go to state 8
-    color_def                      shift and go to state 9
+  ! IDENTIFIER      [ reduce using rule 16 (empty -> .) ]
+
+    block_content                  shift and go to state 9
+    block_item                     shift and go to state 10
+    empty                          shift and go to state 11
 
 state 8
 
-    (4) country_block -> ID EQUALS LBRACE color_defs . RBRACE
-    (6) color_defs -> color_defs . color_def
-    (7) color_def -> . COLOR EQUALS color_value
-    (8) color_def -> . COLOR_UI EQUALS color_value
+    (8) block_item -> IDENTIFIER . EQUALS value
+    (9) block_item -> IDENTIFIER . EQUALS LBRACE value_list RBRACE
 
-    RBRACE          shift and go to state 12
-    COLOR           shift and go to state 10
-    COLOR_UI        shift and go to state 11
+    EQUALS          shift and go to state 12
 
-    color_def                      shift and go to state 13
 
 state 9
 
-    (5) color_defs -> color_def .
+    (4) ship_name_block -> IDENTIFIER EQUALS LBRACE block_content . RBRACE
+    (6) block_content -> block_content . block_item
+    (8) block_item -> . IDENTIFIER EQUALS value
+    (9) block_item -> . IDENTIFIER EQUALS LBRACE value_list RBRACE
 
-    RBRACE          reduce using rule 5 (color_defs -> color_def .)
-    COLOR           reduce using rule 5 (color_defs -> color_def .)
-    COLOR_UI        reduce using rule 5 (color_defs -> color_def .)
+    RBRACE          shift and go to state 13
+    IDENTIFIER      shift and go to state 8
 
+    block_item                     shift and go to state 14
 
 state 10
 
-    (7) color_def -> COLOR . EQUALS color_value
+    (5) block_content -> block_item .
 
-    EQUALS          shift and go to state 14
+    RBRACE          reduce using rule 5 (block_content -> block_item .)
+    IDENTIFIER      reduce using rule 5 (block_content -> block_item .)
 
 
 state 11
 
-    (8) color_def -> COLOR_UI . EQUALS color_value
+    (7) block_content -> empty .
 
-    EQUALS          shift and go to state 15
+    RBRACE          reduce using rule 7 (block_content -> empty .)
+    IDENTIFIER      reduce using rule 7 (block_content -> empty .)
 
 
 state 12
 
-    (4) country_block -> ID EQUALS LBRACE color_defs RBRACE .
+    (8) block_item -> IDENTIFIER EQUALS . value
+    (9) block_item -> IDENTIFIER EQUALS . LBRACE value_list RBRACE
+    (10) value -> . STRING
+    (11) value -> . NUMBER
+    (12) value -> . IDENTIFIER
 
-    ID              reduce using rule 4 (country_block -> ID EQUALS LBRACE color_defs RBRACE .)
-    $end            reduce using rule 4 (country_block -> ID EQUALS LBRACE color_defs RBRACE .)
+    LBRACE          shift and go to state 17
+    STRING          shift and go to state 18
+    NUMBER          shift and go to state 19
+    IDENTIFIER      shift and go to state 15
 
+    value                          shift and go to state 16
 
 state 13
 
-    (6) color_defs -> color_defs color_def .
+    (4) ship_name_block -> IDENTIFIER EQUALS LBRACE block_content RBRACE .
 
-    RBRACE          reduce using rule 6 (color_defs -> color_defs color_def .)
-    COLOR           reduce using rule 6 (color_defs -> color_defs color_def .)
-    COLOR_UI        reduce using rule 6 (color_defs -> color_defs color_def .)
+    IDENTIFIER      reduce using rule 4 (ship_name_block -> IDENTIFIER EQUALS LBRACE block_content RBRACE .)
+    $end            reduce using rule 4 (ship_name_block -> IDENTIFIER EQUALS LBRACE block_content RBRACE .)
 
 
 state 14
 
-    (7) color_def -> COLOR EQUALS . color_value
-    (9) color_value -> . HSV LBRACE NUMBER NUMBER NUMBER RBRACE
-    (10) color_value -> . RGB LBRACE NUMBER NUMBER NUMBER RBRACE
+    (6) block_content -> block_content block_item .
 
-    HSV             shift and go to state 17
-    RGB             shift and go to state 18
+    RBRACE          reduce using rule 6 (block_content -> block_content block_item .)
+    IDENTIFIER      reduce using rule 6 (block_content -> block_content block_item .)
 
-    color_value                    shift and go to state 16
 
 state 15
 
-    (8) color_def -> COLOR_UI EQUALS . color_value
-    (9) color_value -> . HSV LBRACE NUMBER NUMBER NUMBER RBRACE
-    (10) color_value -> . RGB LBRACE NUMBER NUMBER NUMBER RBRACE
+    (12) value -> IDENTIFIER .
 
-    HSV             shift and go to state 17
-    RGB             shift and go to state 18
+    RBRACE          reduce using rule 12 (value -> IDENTIFIER .)
+    IDENTIFIER      reduce using rule 12 (value -> IDENTIFIER .)
+    STRING          reduce using rule 12 (value -> IDENTIFIER .)
+    NUMBER          reduce using rule 12 (value -> IDENTIFIER .)
 
-    color_value                    shift and go to state 19
 
 state 16
 
-    (7) color_def -> COLOR EQUALS color_value .
+    (8) block_item -> IDENTIFIER EQUALS value .
 
-    RBRACE          reduce using rule 7 (color_def -> COLOR EQUALS color_value .)
-    COLOR           reduce using rule 7 (color_def -> COLOR EQUALS color_value .)
-    COLOR_UI        reduce using rule 7 (color_def -> COLOR EQUALS color_value .)
+    RBRACE          reduce using rule 8 (block_item -> IDENTIFIER EQUALS value .)
+    IDENTIFIER      reduce using rule 8 (block_item -> IDENTIFIER EQUALS value .)
 
 
 state 17
 
-    (9) color_value -> HSV . LBRACE NUMBER NUMBER NUMBER RBRACE
+    (9) block_item -> IDENTIFIER EQUALS LBRACE . value_list RBRACE
+    (13) value_list -> . value
+    (14) value_list -> . value_list value
+    (15) value_list -> . empty
+    (10) value -> . STRING
+    (11) value -> . NUMBER
+    (12) value -> . IDENTIFIER
+    (16) empty -> .
 
-    LBRACE          shift and go to state 20
+  ! shift/reduce conflict for STRING resolved as shift
+  ! shift/reduce conflict for NUMBER resolved as shift
+  ! shift/reduce conflict for IDENTIFIER resolved as shift
+    STRING          shift and go to state 18
+    NUMBER          shift and go to state 19
+    IDENTIFIER      shift and go to state 15
+    RBRACE          reduce using rule 16 (empty -> .)
 
+  ! STRING          [ reduce using rule 16 (empty -> .) ]
+  ! NUMBER          [ reduce using rule 16 (empty -> .) ]
+  ! IDENTIFIER      [ reduce using rule 16 (empty -> .) ]
+
+    value_list                     shift and go to state 20
+    value                          shift and go to state 21
+    empty                          shift and go to state 22
 
 state 18
 
-    (10) color_value -> RGB . LBRACE NUMBER NUMBER NUMBER RBRACE
+    (10) value -> STRING .
 
-    LBRACE          shift and go to state 21
+    RBRACE          reduce using rule 10 (value -> STRING .)
+    IDENTIFIER      reduce using rule 10 (value -> STRING .)
+    STRING          reduce using rule 10 (value -> STRING .)
+    NUMBER          reduce using rule 10 (value -> STRING .)
 
 
 state 19
 
-    (8) color_def -> COLOR_UI EQUALS color_value .
+    (11) value -> NUMBER .
 
-    RBRACE          reduce using rule 8 (color_def -> COLOR_UI EQUALS color_value .)
-    COLOR           reduce using rule 8 (color_def -> COLOR_UI EQUALS color_value .)
-    COLOR_UI        reduce using rule 8 (color_def -> COLOR_UI EQUALS color_value .)
+    RBRACE          reduce using rule 11 (value -> NUMBER .)
+    IDENTIFIER      reduce using rule 11 (value -> NUMBER .)
+    STRING          reduce using rule 11 (value -> NUMBER .)
+    NUMBER          reduce using rule 11 (value -> NUMBER .)
 
 
 state 20
 
-    (9) color_value -> HSV LBRACE . NUMBER NUMBER NUMBER RBRACE
+    (9) block_item -> IDENTIFIER EQUALS LBRACE value_list . RBRACE
+    (14) value_list -> value_list . value
+    (10) value -> . STRING
+    (11) value -> . NUMBER
+    (12) value -> . IDENTIFIER
 
-    NUMBER          shift and go to state 22
+    RBRACE          shift and go to state 23
+    STRING          shift and go to state 18
+    NUMBER          shift and go to state 19
+    IDENTIFIER      shift and go to state 15
 
+    value                          shift and go to state 24
 
 state 21
 
-    (10) color_value -> RGB LBRACE . NUMBER NUMBER NUMBER RBRACE
+    (13) value_list -> value .
 
-    NUMBER          shift and go to state 23
+    RBRACE          reduce using rule 13 (value_list -> value .)
+    STRING          reduce using rule 13 (value_list -> value .)
+    NUMBER          reduce using rule 13 (value_list -> value .)
+    IDENTIFIER      reduce using rule 13 (value_list -> value .)
 
 
 state 22
 
-    (9) color_value -> HSV LBRACE NUMBER . NUMBER NUMBER RBRACE
+    (15) value_list -> empty .
 
-    NUMBER          shift and go to state 24
+    RBRACE          reduce using rule 15 (value_list -> empty .)
+    STRING          reduce using rule 15 (value_list -> empty .)
+    NUMBER          reduce using rule 15 (value_list -> empty .)
+    IDENTIFIER      reduce using rule 15 (value_list -> empty .)
 
 
 state 23
 
-    (10) color_value -> RGB LBRACE NUMBER . NUMBER NUMBER RBRACE
+    (9) block_item -> IDENTIFIER EQUALS LBRACE value_list RBRACE .
 
-    NUMBER          shift and go to state 25
+    RBRACE          reduce using rule 9 (block_item -> IDENTIFIER EQUALS LBRACE value_list RBRACE .)
+    IDENTIFIER      reduce using rule 9 (block_item -> IDENTIFIER EQUALS LBRACE value_list RBRACE .)
 
 
 state 24
 
-    (9) color_value -> HSV LBRACE NUMBER NUMBER . NUMBER RBRACE
+    (14) value_list -> value_list value .
 
-    NUMBER          shift and go to state 26
+    RBRACE          reduce using rule 14 (value_list -> value_list value .)
+    STRING          reduce using rule 14 (value_list -> value_list value .)
+    NUMBER          reduce using rule 14 (value_list -> value_list value .)
+    IDENTIFIER      reduce using rule 14 (value_list -> value_list value .)
 
-
-state 25
-
-    (10) color_value -> RGB LBRACE NUMBER NUMBER . NUMBER RBRACE
-
-    NUMBER          shift and go to state 27
-
-
-state 26
-
-    (9) color_value -> HSV LBRACE NUMBER NUMBER NUMBER . RBRACE
-
-    RBRACE          shift and go to state 28
-
-
-state 27
-
-    (10) color_value -> RGB LBRACE NUMBER NUMBER NUMBER . RBRACE
-
-    RBRACE          shift and go to state 29
-
-
-state 28
-
-    (9) color_value -> HSV LBRACE NUMBER NUMBER NUMBER RBRACE .
-
-    RBRACE          reduce using rule 9 (color_value -> HSV LBRACE NUMBER NUMBER NUMBER RBRACE .)
-    COLOR           reduce using rule 9 (color_value -> HSV LBRACE NUMBER NUMBER NUMBER RBRACE .)
-    COLOR_UI        reduce using rule 9 (color_value -> HSV LBRACE NUMBER NUMBER NUMBER RBRACE .)
-
-
-state 29
-
-    (10) color_value -> RGB LBRACE NUMBER NUMBER NUMBER RBRACE .
-
-    RBRACE          reduce using rule 10 (color_value -> RGB LBRACE NUMBER NUMBER NUMBER RBRACE .)
-    COLOR           reduce using rule 10 (color_value -> RGB LBRACE NUMBER NUMBER NUMBER RBRACE .)
-    COLOR_UI        reduce using rule 10 (color_value -> RGB LBRACE NUMBER NUMBER NUMBER RBRACE .)
-
+WARNING: 
+WARNING: Conflicts:
+WARNING: 
+WARNING: shift/reduce conflict for IDENTIFIER in state 0 resolved as shift
+WARNING: shift/reduce conflict for IDENTIFIER in state 7 resolved as shift
+WARNING: shift/reduce conflict for STRING in state 17 resolved as shift
+WARNING: shift/reduce conflict for NUMBER in state 17 resolved as shift
+WARNING: shift/reduce conflict for IDENTIFIER in state 17 resolved as shift

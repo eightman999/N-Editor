@@ -47,3 +47,6 @@ siam_navy = {
 		}
 	}
 }
+
+#/Users/eightman/Documents/Paradox Interactive/Hearts of Iron IV/mod/SSW_mod/common/scripted_effects/NAVY_Designs.txt
+#/Users/eightman/Documents/Paradox Interactive/Hearts of Iron IV/mod/SSW_mod/common/scripted_effects/NAVY_Designs_single.txt

@@ -52,7 +52,7 @@ def t_newline(t):
 
 # エラーハンドリング
 def t_error(t):
-    print(f"Illegal character '{t.value[0]}' at line {t.lexer.lineno}, position {t.lexer.lexpos}")
+    # print(f"Illegal character '{t.value[0]}' at line {t.lexer.lineno}, position {t.lexer.lexpos}")
     t.lexer.skip(1)
 
 # レクサーの構築
@@ -123,9 +123,11 @@ def p_value_item(p):
 # エラーハンドリング
 def p_error(p):
     if p:
-        print(f"Syntax error at token '{p.value}' (type: {p.type}) at line {p.lineno}, index {p.lexpos}")
+        # print(f"Syntax error at token '{p.value}' (type: {p.type}) at line {p.lineno}, index {p.lexpos}")
+        pass
     else:
-        print("Syntax error at EOF (Unexpected end of file).")
+        # print("Syntax error at EOF (Unexpected end of file).")
+        pass
     raise SyntaxError("Parsing failed due to syntax error.")
 
 # パーサーの構築
