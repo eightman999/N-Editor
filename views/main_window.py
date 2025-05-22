@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QStatusBar, \
     QListWidget, QSizePolicy, QProgressDialog, QMessageBox
-from PyQt5.QtCore import Qt, QSize, QThread, pyqtSignal
+from PyQt5.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QFont, QCloseEvent, QImage, QPixmap
 
 import os
@@ -9,6 +9,8 @@ import cv2
 import numpy as np
 import logging
 from concurrent.futures import ThreadPoolExecutor
+import psutil
+import time
 
 from views.home_view import HomeView
 from views.equipment_view import EquipmentView
@@ -37,8 +39,6 @@ class MenuLoadingWorker(QThread):
             for i, (view_name, view_class) in enumerate(self.views_to_load):
                 self.progress.emit(int((i + 1) / total_views * 100))
                 self.logger.info(f"ビューの読み込み中: {view_name}")
-                # ビューの初期化処理
-                view_class.initialize()
             self.finished.emit()
         except Exception as e:
             self.error.emit(str(e))
@@ -107,8 +107,14 @@ class NavalDesignSystem(QMainWindow):
         # アプリケーション設定の読み込み
         self.load_config()
 
-        # スレッドプールの初期化
-        self.thread_pool = ThreadPoolExecutor(max_workers=4)
+        # スレッドプールの初期化（ワーカー数を制限）
+        self.thread_pool = ThreadPoolExecutor(max_workers=2)
+        
+        # メモリ管理用の変数
+        self._memory_warning_threshold = 500  # MB
+        self._memory_critical_threshold = 800  # MB
+        self._last_cleanup_time = 0
+        self._cleanup_interval = 60  # 秒
         
         # ロガーの設定
         self.logger = logging.getLogger('NavalDesignSystem')
@@ -160,17 +166,6 @@ class NavalDesignSystem(QMainWindow):
         # 全画面表示の設定を読み込み
         is_fullscreen = self.config.get("display", {}).get("fullscreen", False)
 
-        if not is_fullscreen:
-            # 通常サイズで表示する場合
-            width = self.config.get("display", {}).get("width", 1024)
-            height = self.config.get("display", {}).get("height", 768)
-            self.resize(width, height)  # setFixedSizeではなくresizeを使用
-        else:
-            # 全画面表示
-            self.showFullScreen()
-
-        # 残りの初期化コードは変更なし
-
         # 中央ウィジェット
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -186,9 +181,18 @@ class NavalDesignSystem(QMainWindow):
         self.create_main_view(main_layout)
 
         # ステータスバー
-        self.statusBar = QStatusBar()
-        self.setStatusBar(self.statusBar)
-        self.statusBar.showMessage("準備完了")
+        self.statusBar().showMessage("準備完了")
+
+        # ウィンドウサイズの設定
+        if not is_fullscreen:
+            # 通常サイズで表示する場合
+            width = self.config.get("display", {}).get("width", 1024)
+            height = self.config.get("display", {}).get("height", 768)
+            self.resize(width, height)
+        else:
+            # 全画面表示は後で設定
+            self.showNormal()  # まず通常表示で初期化
+            QTimer.singleShot(100, self.showFullScreen)  # 少し遅延させて全画面表示
 
     def create_sidebar(self, parent_layout):
         """サイドバーメニューの作成"""
@@ -201,7 +205,7 @@ class NavalDesignSystem(QMainWindow):
 
         # タイトルラベル
         title_label = QLabel("<b>Naval Design System</b>")
-        title_label.setFont(QFont("MS Gothic", 14))
+        title_label.setFont(QFont("Hiragino Sans", 14))
         title_label.setAlignment(Qt.AlignCenter)
         sidebar_layout.addWidget(title_label)
 
@@ -220,7 +224,7 @@ class NavalDesignSystem(QMainWindow):
         ])
 
         # スタイルの設定
-        self.menu_list.setFont(QFont("MS Gothic", 12))
+        self.menu_list.setFont(QFont("Hiragino Sans", 12))
         self.menu_list.setIconSize(QSize(24, 24))
         self.menu_list.setStyleSheet("""
             QListWidget {
@@ -272,11 +276,14 @@ class NavalDesignSystem(QMainWindow):
         """各ビューを非同期で初期化"""
         self.logger.info("ビューの非同期初期化を開始")
         
-        # プログレスダイアログの表示
+        # プログレスダイアログの表示（親ウィジェットを明示的に指定）
         self.progress_dialog = QProgressDialog("ビューを読み込み中...", "キャンセル", 0, 100, self)
         self.progress_dialog.setWindowModality(Qt.WindowModal)
         self.progress_dialog.setAutoClose(False)
         self.progress_dialog.setAutoReset(False)
+        self.progress_dialog.setMinimumDuration(0)  # 即時表示
+        self.progress_dialog.setWindowTitle("初期化中")
+        self.progress_dialog.setCancelButton(None)  # キャンセルボタンを無効化
         self.progress_dialog.show()
 
         # 読み込むビューのリスト
@@ -284,7 +291,7 @@ class NavalDesignSystem(QMainWindow):
             ("home", HomeView(self, self.app_settings, self.app_controller)),
             ("equipment", EquipmentView(self, self.app_controller)),
             ("hull_list", HullListView(self, self.app_controller)),
-            ("hull", HullForm(self, self.app_controller)),
+            ("hull_form", HullForm(self, self.app_controller)),
             ("design", DesignView(self)),
             ("fleet", FleetView(self)),
             ("nation", NationView(self, self.app_controller)),
@@ -292,25 +299,159 @@ class NavalDesignSystem(QMainWindow):
             ("settings", SettingsView(self, self.app_settings))
         ]
 
+        # 各ビューをスタックウィジェットに追加
+        for view_name, view_widget in views_to_load:
+            self.add_view(view_name, view_widget)
+            self.logger.info(f"ビュー '{view_name}' を追加しました")
+
         # ワーカースレッドの開始
         self.menu_worker = MenuLoadingWorker(views_to_load)
         self.menu_worker.progress.connect(self.update_progress)
         self.menu_worker.finished.connect(self.on_views_loaded)
         self.menu_worker.error.connect(self.on_loading_error)
+        
+        # メモリ使用量の監視を開始
+        self.start_memory_monitoring()
+        
+        # ワーカースレッドを開始
         self.menu_worker.start()
+
+    def start_memory_monitoring(self):
+        """メモリ使用量の監視を開始"""
+        def monitor_memory():
+            try:
+                process = psutil.Process(os.getpid())
+                memory_info = process.memory_info()
+                memory_usage = memory_info.rss / 1024 / 1024  # MB単位
+                
+                current_time = time.time()
+                
+                # メモリ使用量のログ出力
+                self.logger.info(f"メモリ使用量: {memory_usage:.2f} MB")
+                
+                # クリティカルなメモリ使用量の場合
+                if memory_usage > self._memory_critical_threshold:
+                    self.logger.critical(f"クリティカルなメモリ使用量: {memory_usage:.2f} MB")
+                    self.emergency_cleanup()
+                
+                # 警告レベルのメモリ使用量の場合
+                elif memory_usage > self._memory_warning_threshold:
+                    self.logger.warning(f"メモリ使用量が高くなっています: {memory_usage:.2f} MB")
+                    
+                    # 前回のクリーンアップから一定時間経過している場合のみ実行
+                    if current_time - self._last_cleanup_time > self._cleanup_interval:
+                        self.cleanup_resources()
+                        self._last_cleanup_time = current_time
+                
+            except Exception as e:
+                self.logger.error(f"メモリ監視中にエラーが発生: {e}")
+        
+        # 定期的なメモリ監視を開始
+        self.memory_timer = QTimer(self)
+        self.memory_timer.timeout.connect(monitor_memory)
+        self.memory_timer.start(5000)  # 5秒ごとに監視
+
+    def emergency_cleanup(self):
+        """緊急時のリソース解放"""
+        try:
+            self.logger.warning("緊急リソース解放を実行します")
+            
+            # スレッドプールのシャットダウン
+            if hasattr(self, 'thread_pool'):
+                self.thread_pool.shutdown(wait=False)
+                self.thread_pool = ThreadPoolExecutor(max_workers=1)
+            
+            # すべてのビューのキャッシュをクリア
+            if hasattr(self, 'views'):
+                for view in self.views.values():
+                    if hasattr(view, 'clear_cache'):
+                        view.clear_cache()
+                    if hasattr(view, 'clear_resources'):
+                        view.clear_resources()
+            
+            # 画像キャッシュのクリア
+            if hasattr(self, 'image_cache'):
+                self.image_cache.clear()
+            
+            # ガベージコレクションの強制実行
+            import gc
+            gc.collect()
+            
+            # メモリ使用量の再確認
+            import psutil
+            import os
+            process = psutil.Process(os.getpid())
+            memory_info = process.memory_info()
+            memory_usage = memory_info.rss / 1024 / 1024
+            self.logger.info(f"緊急クリーンアップ後のメモリ使用量: {memory_usage:.2f} MB")
+            
+        except Exception as e:
+            self.logger.error(f"緊急リソース解放中にエラーが発生: {e}")
+
+    def cleanup_resources(self):
+        """不要なリソースの解放"""
+        try:
+            # キャッシュのクリア
+            if hasattr(self, 'views'):
+                for view in self.views.values():
+                    if hasattr(view, 'clear_cache'):
+                        view.clear_cache()
+            
+            # 画像キャッシュのクリア
+            if hasattr(self, 'image_cache'):
+                self.image_cache.clear()
+            
+            # 未使用のビューの解放
+            current_view = self.stacked_widget.currentWidget()
+            for view_name, view in list(self.views.items()):
+                if view != current_view and hasattr(view, 'clear_resources'):
+                    view.clear_resources()
+            
+            # ガベージコレクションの強制実行
+            import gc
+            gc.collect()
+            
+            self.logger.info("リソースの解放を実行しました")
+        except Exception as e:
+            self.logger.error(f"リソース解放中にエラーが発生: {e}")
 
     def update_progress(self, value):
         """プログレスバーの更新"""
-        self.progress_dialog.setValue(value)
+        try:
+            if hasattr(self, 'progress_dialog') and self.progress_dialog is not None:
+                self.progress_dialog.setValue(value)
+                # プログレスメッセージの更新
+                self.progress_dialog.setLabelText(f"ビューを読み込み中... {value}%")
+        except Exception as e:
+            self.logger.error(f"プログレス更新中にエラーが発生: {e}")
 
     def on_views_loaded(self):
         """ビューの読み込み完了時の処理"""
-        self.progress_dialog.close()
-        self.logger.info("すべてのビューの読み込みが完了しました")
-        
-        # メニューリストの更新
-        self.menu_list.setEnabled(True)
-        self.statusBar.showMessage("準備完了")
+        try:
+            # メモリ監視タイマーを停止
+            if hasattr(self, 'memory_timer'):
+                self.memory_timer.stop()
+            
+            # プログレスダイアログを安全に閉じる
+            if hasattr(self, 'progress_dialog') and self.progress_dialog is not None:
+                self.progress_dialog.close()
+                self.progress_dialog = None
+            
+            # リソースの解放
+            self.cleanup_resources()
+            
+            self.logger.info("すべてのビューの読み込みが完了しました")
+            
+            # メニューリストの更新
+            self.menu_list.setEnabled(True)
+            self.statusBar().showMessage("準備完了")
+
+            # デバッグ情報の出力
+            self.logger.info(f"登録されたビュー: {list(self.views.keys())}")
+            self.logger.info(f"スタックウィジェットのページ数: {self.stacked_widget.count()}")
+            
+        except Exception as e:
+            self.logger.error(f"ビュー読み込み完了処理中にエラーが発生: {e}")
 
     def on_loading_error(self, error_msg):
         """読み込みエラー時の処理"""
@@ -348,12 +489,13 @@ class NavalDesignSystem(QMainWindow):
         pixmap = QPixmap.fromImage(q_image)
         
         # 画像の表示（例：ステータスバーに表示）
-        self.statusBar.showMessage("画像処理が完了しました")
+        self.statusBar().showMessage("画像処理が完了しました")
 
     def add_view(self, view_name, view_widget):
         """ビューをスタックウィジェットに追加"""
         self.views[view_name] = view_widget
         self.stacked_widget.addWidget(view_widget)
+        self.logger.info(f"ビュー '{view_name}' をスタックウィジェットに追加しました")
 
     def on_menu_changed(self, index):
         """メニュー選択時の処理"""
@@ -365,7 +507,6 @@ class NavalDesignSystem(QMainWindow):
         if 0 <= index < len(menu_texts):
             self.statusBar().showMessage(f"{menu_texts[index]}ページを表示しています")
 
-    # show_view メソッド内の対応も修正
     def show_view(self, view_name):
         """指定した名前のビューを表示"""
         view_mapping = {
@@ -392,19 +533,48 @@ class NavalDesignSystem(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent):
         """ウィンドウが閉じられる時の処理"""
-        # スレッドプールのシャットダウン
-        self.thread_pool.shutdown(wait=True)
-        
-        if self.app_controller:
-            self.app_controller.on_quit()
-        event.accept()
+        try:
+            # 全画面表示の場合は通常表示に戻す
+            if self.isFullScreen():
+                self.showNormal()
+            
+            # メモリ監視タイマーを停止
+            if hasattr(self, 'memory_timer'):
+                self.memory_timer.stop()
+            
+            # スレッドプールのシャットダウン
+            if hasattr(self, 'thread_pool'):
+                self.thread_pool.shutdown(wait=True)
+            
+            # リソースの解放
+            self.cleanup_resources()
+            
+            if self.app_controller:
+                self.app_controller.on_quit()
+            
+            event.accept()
+        except Exception as e:
+            self.logger.error(f"ウィンドウ終了処理中にエラーが発生: {e}")
+            event.accept()  # エラーが発生してもウィンドウは閉じる
 
     def toggle_fullscreen(self):
         """全画面表示と通常表示を切り替え"""
-        if self.isFullScreen():
+        try:
+            if self.isFullScreen():
+                self.showNormal()
+                # 通常表示時のサイズを復元
+                width = self.config.get("display", {}).get("width", 1024)
+                height = self.config.get("display", {}).get("height", 768)
+                self.resize(width, height)
+            else:
+                # 全画面表示前に現在のサイズを保存
+                self.normal_size = self.size()
+                self.showFullScreen()
+        except Exception as e:
+            self.logger.error(f"全画面表示切り替え中にエラーが発生: {e}")
+            # エラー時は通常表示に戻す
             self.showNormal()
-        else:
-            self.showFullScreen()
+            self.statusBar().showMessage("全画面表示の切り替えに失敗しました")
 
     def add_debug_menu(self):
         """デバッグ用メニューを追加"""

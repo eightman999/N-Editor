@@ -4,12 +4,14 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QDoubleSpinBox, QCheckBox, QMessageBox,
                              QComboBox, QListWidgetItem)
 from PyQt5.QtCore import Qt, QMimeData, QByteArray
-from PyQt5.QtGui import QDrag, QIcon, QPixmap
+from PyQt5.QtGui import QDrag, QIcon, QPixmap, QColor
 import json
 import os
 from PIL import Image
 import io
 from .map_widget import MapWidget
+import logging
+import time
 
 class FleetView(QWidget):
     def __init__(self, parent=None):
@@ -17,8 +19,22 @@ class FleetView(QWidget):
         self.current_country = None
         self.countries = {}  # 国家データを保持
         self.app_controller = parent.app_controller if parent else None
+        self.logger = logging.getLogger('FleetView')
+        self.logger.setLevel(logging.DEBUG)
+        self.log_dir = "logs"
+        os.makedirs(self.log_dir, exist_ok=True)
+        file_handler = logging.FileHandler(os.path.join(self.log_dir, f"fleet_view_{time.strftime('%Y%m%d_%H%M%S')}.log"))
+        file_handler.setLevel(logging.DEBUG)
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+        self.logger.addHandler(file_handler)
+        self.logger.addHandler(console_handler)
         self.initUI()
         self.load_countries()
+        self.logger.info("FleetViewの初期化が完了しました")
 
     def initUI(self):
         # メインレイアウト

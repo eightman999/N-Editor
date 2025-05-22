@@ -7,8 +7,7 @@ import numpy as np
 import os
 import logging
 import time
-from PIL import Image  # Imageモジュールを正しくインポート
-
+from PIL import Image
 
 class MapData(QObject):
     """マップデータを管理するクラス"""
@@ -55,6 +54,15 @@ class MapData(QObject):
         # ハンドラの追加
         self.logger.addHandler(file_handler)
         self.logger.addHandler(console_handler)
+        
+        # プロヴィンスデータの保持
+        self.provinces_data_by_rgb = {}
+        self.provinces_data_by_id = {}
+        self._rgb_to_id_map_array = np.full(256*256*256, -1, dtype=np.int32)
+        self.province_centroids = {}
+        self.original_map_image_data = None
+        self.original_width = 0
+        self.original_height = 0
     
     def cancel_loading(self):
         """読み込みをキャンセル"""
@@ -142,6 +150,12 @@ class MapData(QObject):
                             is_coastal = row[5] == 'true' if len(row) > 5 else False
                             
                             self.provinces[province_id] = (r, g, b, province_type, is_coastal)
+                            
+                            # プロヴィンスデータの保持
+                            rgb_hash = r * 65536 + g * 256 + b
+                            if rgb_hash < len(self._rgb_to_id_map_array):
+                                self._rgb_to_id_map_array[rgb_hash] = province_id
+                            
                             self.logger.debug(f"プロヴィンス定義を読み込み: ID={province_id}, RGB=({r},{g},{b}), タイプ={province_type}, 沿岸={is_coastal}")
                         except (ValueError, IndexError) as e:
                             self.logger.warning(f"プロヴィンス定義の読み込みでエラー: {row} - {str(e)}")
@@ -164,56 +178,70 @@ class MapData(QObject):
             self.logger.info(f"プロヴィンス画像サイズ: {img.size}")
             
             # NumPy配列に変換
-            img_array = np.array(img)
+            self.original_map_image_data = np.array(img)
+            self.original_width, self.original_height = img.size
             
-            # RGB値からプロヴィンスIDのマッピングを作成
-            rgb_to_province = {}
-            for province_id, (r, g, b, _, _) in self.provinces.items():
-                rgb_to_province[(r, g, b)] = province_id
+            # プロヴィンス重心の計算
+            self.calculate_province_centroids()
             
-            # 画像を走査してプロヴィンスの座標を抽出
-            height, width = img_array.shape[:2]
-            
-            # 処理を高速化するためにいくつかの最適化を行う
-            # 1. 画像全体を一度に処理するのではなく、分割して処理
-            # 2. 各プロヴィンスの座標をすべて保存するのではなく、サンプリングする
-            
-            # サンプリング率（メモリ使用量を削減するため）
-            sampling_rate = 5  # 5ピクセルごとに1つの座標を保存
-            
-            # 画像を分割して処理
-            chunk_size = 500  # 一度に処理する行数
-            
-            for y_start in range(0, height, chunk_size):
-                if self.is_cancelled:
-                    return
-                
-                y_end = min(y_start + chunk_size, height)
-                chunk = img_array[y_start:y_end, :, :]
-                
-                for y_offset, row in enumerate(chunk):
-                    y = y_start + y_offset
-                    if y % sampling_rate != 0:
-                        continue
-                    
-                    for x in range(0, width, sampling_rate):
-                        pixel = tuple(row[x])
-                        if len(pixel) == 3:  # RGBの場合
-                            province_id = rgb_to_province.get(pixel)
-                            if province_id:
-                                if province_id not in self.province_coords:
-                                    self.province_coords[province_id] = []
-                                self.province_coords[province_id].append((x, y))
-                
-                progress = int((y_end / height) * 100)
-                self.logger.info(f"プロヴィンス座標の抽出: {progress}%完了")
-            
-            self.logger.info(f"プロヴィンス座標の抽出が完了しました: {len(self.province_coords)}個のプロヴィンス")
+            self.logger.info(f"プロヴィンス画像の読み込みが完了しました")
             
         except Exception as e:
             self.logger.error(f"プロヴィンス画像の読み込みエラー: {e}")
             self.logger.error(traceback.format_exc())
             raise
+    
+    def calculate_province_centroids(self):
+        """プロヴィンスの重心を計算"""
+        print("Calculating province centroids (highly optimized)...")
+        start_time = time.time()
+        if self.original_map_image_data is None:
+            return
+
+        height, width, _ = self.original_map_image_data.shape
+
+        # 全ピクセルのRGBハッシュを計算
+        pixels_flat = self.original_map_image_data.reshape(-1, 3)
+        pixel_hashes = (pixels_flat[:, 0].astype(np.int32) * 65536 +
+                        pixels_flat[:, 1].astype(np.int32) * 256 +
+                        pixels_flat[:, 2].astype(np.int32))
+
+        # RGBハッシュからプロビンスIDへのマッピングを一括で適用
+        prov_ids_flat = np.full_like(pixel_hashes, -1)
+        valid_hash_indices = (pixel_hashes >= 0) & (pixel_hashes < len(self._rgb_to_id_map_array))
+        prov_ids_flat[valid_hash_indices] = self._rgb_to_id_map_array[pixel_hashes[valid_hash_indices]]
+
+        # 有効なプロビンスIDを持つピクセルのみを抽出
+        valid_prov_pixel_indices = prov_ids_flat != -1
+        valid_prov_ids = prov_ids_flat[valid_prov_pixel_indices]
+
+        # 各ピクセルの座標配列を生成
+        x_indices, y_indices = np.meshgrid(np.arange(width), np.arange(height))
+        x_coords_flat = x_indices.flatten()
+        y_coords_flat = y_indices.flatten()
+
+        # 有効なプロビンスピクセルに属するX, Y座標を抽出
+        valid_x_coords = x_coords_flat[valid_prov_pixel_indices]
+        valid_y_coords = y_coords_flat[valid_prov_pixel_indices]
+
+        # NumPyのbincountを使って、プロビンスIDごとのX座標の合計、Y座標の合計、ピクセル数を高速に計算
+        max_prov_id = valid_prov_ids.max() if len(valid_prov_ids) > 0 else 0
+
+        sum_x_per_prov = np.bincount(valid_prov_ids, weights=valid_x_coords, minlength=max_prov_id + 1)
+        sum_y_per_prov = np.bincount(valid_prov_ids, weights=valid_y_coords, minlength=max_prov_id + 1)
+        count_per_prov = np.bincount(valid_prov_ids, minlength=max_prov_id + 1)
+
+        self.province_centroids = {}
+        for prov_id in self.provinces.keys():
+            if prov_id <= max_prov_id and count_per_prov[prov_id] > 0:
+                center_x = sum_x_per_prov[prov_id] / count_per_prov[prov_id]
+                center_y = sum_y_per_prov[prov_id] / count_per_prov[prov_id]
+                self.province_centroids[prov_id] = (center_x, center_y)
+            else:
+                self.province_centroids[prov_id] = None
+
+        end_time = time.time()
+        print(f"Province centroid calculation time (highly optimized): {end_time - start_time:.2f} seconds.")
     
     def load_states(self, states_dir):
         """ステートファイルを読み込む"""
@@ -278,7 +306,6 @@ class MapData(QObject):
                 content = f.read()
                 
                 # 色定義を正規表現で抽出
-                # "TAG = { color = rgb { r g b } ..." という形式
                 color_matches = re.finditer(r'(\w+)\s*=\s*{[^}]*color\s*=\s*rgb\s*{\s*(\d+)\s+(\d+)\s+(\d+)\s*}', content)
                 
                 for match in color_matches:
@@ -297,7 +324,7 @@ class MapData(QObject):
     
     def get_province_coordinates(self, province_id):
         """プロヴィンスの座標情報を取得"""
-        return self.province_coords.get(province_id, [])
+        return self.province_centroids.get(province_id)
     
     def get_province_color(self, province_id):
         """プロヴィンスの色を取得"""

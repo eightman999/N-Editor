@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QProgressDialog, QLabel, QVBoxLayout, QTextEdit, QScrollArea, QPushButton, \
-    QHBoxLayout
+    QHBoxLayout, QMessageBox
 from PyQt5.QtGui import QPainter, QColor, QPen, QPixmap, QImage, QBrush, QPainterPath
 from PyQt5.QtCore import Qt, QPoint, QRect, QSize, QTimer, pyqtSignal, QThread
 import os
@@ -105,8 +105,6 @@ class MapWidget(QWidget):
         self.logger.info(f"マップデータの読み込みを開始: {mod_path}")
         
         # プログレスダイアログの作成
-        from PyQt5.QtWidgets import QProgressDialog
-        
         self.progress_dialog = QProgressDialog("マップデータ読み込み中...", "キャンセル", 0, 100, self)
         self.progress_dialog.setWindowTitle("マップデータ読み込み")
         self.progress_dialog.setWindowModality(Qt.WindowModal)
@@ -204,7 +202,6 @@ class MapWidget(QWidget):
         self.logger.error(f"マップデータの読み込み中にエラーが発生しました: {error_msg}")
         
         # エラーメッセージを表示
-        from PyQt5.QtWidgets import QMessageBox
         QMessageBox.critical(self, "エラー", f"マップデータの読み込み中にエラーが発生しました:\n{error_msg}")
         
         # ステータスバーがあれば更新
@@ -213,24 +210,16 @@ class MapWidget(QWidget):
         elif self.parent() and hasattr(self.parent(), 'statusBar') and callable(getattr(self.parent(), 'statusBar', None)):
             self.parent().statusBar().showMessage(f"エラー: {error_msg}")
     
-    
     def create_province_image(self):
         """プロヴィンス画像を作成"""
         try:
             # 座標情報がなければ何もしない
-            if not self.map_data.province_coords:
+            if not self.map_data.original_map_image_data is None:
                 return
             
-            # マップのサイズを計算
-            max_x = max_y = 0
-            for coords in self.map_data.province_coords.values():
-                for x, y in coords:
-                    max_x = max(max_x, x)
-                    max_y = max(max_y, y)
-            
-            # 少し余裕を持たせる
-            width = max_x + 10
-            height = max_y + 10
+            # マップのサイズを取得
+            width = self.map_data.original_width
+            height = self.map_data.original_height
             
             self.logger.info(f"マップ画像のサイズ: {width}x{height}")
             
@@ -242,101 +231,28 @@ class MapWidget(QWidget):
             painter = QPainter(self.province_image)
             painter.setRenderHint(QPainter.Antialiasing, False)  # アンチエイリアスを無効化
             
-            # プロヴィンスIDからステートIDへのマッピングを作成
-            province_to_state = {}
-            for state_id, (_, provinces, _) in self.map_data.states.items():
-                for province_id in provinces:
-                    province_to_state[province_id] = state_id
+            # プロヴィンスを描画
+            for province_id, (r, g, b, _, _) in self.map_data.provinces.items():
+                color = QColor(r, g, b)
+                painter.setPen(color)
+                painter.setBrush(color)
+                
+                # プロヴィンスの重心を取得
+                centroid = self.map_data.get_province_coordinates(province_id)
+                if centroid:
+                    x, y = centroid
+                    # プロヴィンスの中心に点を描画
+                    painter.drawPoint(int(x), int(y))
             
-            # プロヴィンスの色情報を保持する配列を作成
-            province_colors = np.zeros((height, width, 3), dtype=np.uint8)
-            province_ids = np.zeros((height, width), dtype=np.int32)
-            
-            # プロヴィンスの色情報を設定
-            for province_id, coords in self.map_data.province_coords.items():
-                if province_id in self.map_data.provinces:
-                    r, g, b, _, _ = self.map_data.provinces[province_id]
-                    
-                    # 座標をソートして連続した境界線を作成
-                    sorted_coords = self._sort_boundary_coords(coords)
-                    
-                    # 境界線の座標を配列に設定
-                    for x, y in sorted_coords:
-                        if 0 <= y < height and 0 <= x < width:
-                            province_colors[y, x] = [r, g, b]
-                            province_ids[y, x] = province_id
-                    
-                    # 境界線の内部を塗りつぶす
-                    if len(sorted_coords) > 2:
-                        # 境界線の最小・最大座標を計算
-                        min_x = min(x for x, _ in sorted_coords)
-                        max_x = max(x for x, _ in sorted_coords)
-                        min_y = min(y for _, y in sorted_coords)
-                        max_y = max(y for _, y in sorted_coords)
-                        
-                        # 内部を塗りつぶす
-                        for y in range(min_y, max_y + 1):
-                            for x in range(min_x, max_x + 1):
-                                if 0 <= y < height and 0 <= x < width:
-                                    # 点が境界線の内側にあるかチェック
-                                    if self._is_point_inside_polygon(x, y, sorted_coords):
-                                        province_colors[y, x] = [r, g, b]
-                                        province_ids[y, x] = province_id
-            
-            # プロヴィンスを描画（1ピクセルずつ）
-            for y in range(height):
-                for x in range(width):
-                    current_province = province_ids[y, x]
-                    if current_province > 0:
-                        # プロヴィンスの色を描画
-                        r, g, b = province_colors[y, x]
-                        color = QColor(r, g, b)
-                        painter.setPen(color)
-                        painter.setBrush(color)
-                        painter.drawPoint(x, y)
-                        
-                        # 境界線の描画（ステート境界と港湾境界のみ）
-                        # 右隣のプロヴィンスをチェック
-                        if x + 1 < width:
-                            next_province = province_ids[y, x + 1]
-                            if next_province != current_province:
-                                # ステート境界または港湾境界のチェック
-                                current_state = province_to_state.get(current_province)
-                                next_state = province_to_state.get(next_province)
-                                
-                                if current_state != next_state:
-                                    # ステート境界
-                                    painter.setPen(QColor(0, 0, 0))
-                                    painter.drawPoint(x + 1, y)
-                                    # 色を元に戻す
-                                    painter.setPen(color)
-                                elif current_province in self.map_data.naval_bases or next_province in self.map_data.naval_bases:
-                                    # 港湾境界
-                                    painter.setPen(QColor(255, 0, 0))
-                                    painter.drawPoint(x + 1, y)
-                                    # 色を元に戻す
-                                    painter.setPen(color)
-                        
-                        # 下隣のプロヴィンスをチェック
-                        if y + 1 < height:
-                            next_province = province_ids[y + 1, x]
-                            if next_province != current_province:
-                                # ステート境界または港湾境界のチェック
-                                current_state = province_to_state.get(current_province)
-                                next_state = province_to_state.get(next_province)
-                                
-                                if current_state != next_state:
-                                    # ステート境界
-                                    painter.setPen(QColor(0, 0, 0))
-                                    painter.drawPoint(x, y + 1)
-                                    # 色を元に戻す
-                                    painter.setPen(color)
-                                elif current_province in self.map_data.naval_bases or next_province in self.map_data.naval_bases:
-                                    # 港湾境界
-                                    painter.setPen(QColor(255, 0, 0))
-                                    painter.drawPoint(x, y + 1)
-                                    # 色を元に戻す
-                                    painter.setPen(color)
+            # 海軍基地を描画
+            for province_id, level in self.map_data.naval_bases.items():
+                centroid = self.map_data.get_province_coordinates(province_id)
+                if centroid:
+                    x, y = centroid
+                    # 海軍基地のマーカーを描画
+                    painter.setPen(QPen(QColor(0, 0, 255), 2))
+                    painter.setBrush(QColor(0, 0, 255, 100))
+                    painter.drawEllipse(QPointF(x, y), 8, 8)
             
             painter.end()
             
@@ -348,145 +264,6 @@ class MapWidget(QWidget):
         except Exception as e:
             self.logger.error(f"プロヴィンス画像の作成中にエラーが発生しました: {e}")
             self.logger.error(traceback.format_exc())
-    
-    def _is_point_inside_polygon(self, x, y, polygon):
-        """点が多角形の内側にあるかどうかを判定（レイキャスティングアルゴリズム）"""
-        n = len(polygon)
-        inside = False
-        p1x, p1y = polygon[0]
-        for i in range(n + 1):
-            p2x, p2y = polygon[i % n]
-            if y > min(p1y, p2y):
-                if y <= max(p1y, p2y):
-                    if x <= max(p1x, p2x):
-                        if p1y != p2y:
-                            xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                        if p1x == p2x or x <= xinters:
-                            inside = not inside
-            p1x, p1y = p2x, p2y
-        return inside
-    
-    def _sort_boundary_coords(self, coords):
-        """境界線の座標を連続した順序にソートする（1ピクセル単位の直線用）"""
-        if not coords or len(coords) < 3:
-            return coords
-        
-        # 座標をNumPy配列に変換
-        points = np.array(coords)
-        
-        try:
-            # 座標を1ピクセル単位にスナップ
-            snapped_points = np.round(points)
-            
-            # 重複を除去
-            unique_points = np.unique(snapped_points, axis=0)
-            
-            # 点が3つ未満の場合は、そのまま返す
-            if len(unique_points) < 3:
-                return unique_points.tolist()
-            
-            # 点が直線状に並んでいるかチェック
-            if self._are_points_collinear(unique_points):
-                # 直線状の場合は、単純に距離順にソート
-                return self._sort_collinear_points(unique_points)
-            
-            # 凸包を計算
-            try:
-                hull = ConvexHull(unique_points)
-                hull_points = unique_points[hull.vertices]
-                
-                # 凸包の頂点を時計回りにソート
-                center = np.mean(hull_points, axis=0)
-                angles = np.arctan2(hull_points[:, 1] - center[1], hull_points[:, 0] - center[0])
-                sorted_indices = np.argsort(angles)
-                sorted_points = hull_points[sorted_indices]
-                
-                # 直線で構成された境界線の座標を生成
-                boundary_points = []
-                for i in range(len(sorted_points)):
-                    current = sorted_points[i]
-                    next_point = sorted_points[(i + 1) % len(sorted_points)]
-                    
-                    # 現在の点を追加
-                    boundary_points.append(current)
-                    
-                    # 2点間の直線上の点を追加
-                    dx = next_point[0] - current[0]
-                    dy = next_point[1] - current[1]
-                    steps = max(abs(dx), abs(dy))
-                    
-                    if steps > 0:
-                        for t in range(1, int(steps)):
-                            x = current[0] + (dx * t) / steps
-                            y = current[1] + (dy * t) / steps
-                            boundary_points.append([round(x), round(y)])
-                
-                return np.array(boundary_points).tolist()
-                
-            except Exception as e:
-                self.logger.warning(f"凸包の計算に失敗しました: {e}")
-                return self._sort_boundary_coords_fallback(coords)
-            
-        except Exception as e:
-            self.logger.warning(f"境界線の計算に失敗しました: {e}")
-            return self._sort_boundary_coords_fallback(coords)
-    
-    def _are_points_collinear(self, points):
-        """点が直線状に並んでいるかどうかを判定"""
-        if len(points) < 3:
-            return True
-        
-        # 最初の3点で直線の方程式を計算
-        p1, p2, p3 = points[:3]
-        
-        # 2点間のベクトルを計算
-        v1 = p2 - p1
-        v2 = p3 - p1
-        
-        # 外積が0に近い場合、点は直線状に並んでいる
-        cross_product = np.abs(np.cross(v1, v2))
-        return cross_product < 1e-10
-    
-    def _sort_collinear_points(self, points):
-        """直線状に並んだ点を距離順にソート"""
-        # 最初の点を基準点として選択
-        reference = points[0]
-        
-        # 各点までの距離を計算
-        distances = np.sqrt(np.sum((points - reference) ** 2, axis=1))
-        
-        # 距離でソート
-        sorted_indices = np.argsort(distances)
-        sorted_points = points[sorted_indices]
-        
-        return sorted_points.tolist()
-    
-    def _sort_boundary_coords_fallback(self, coords):
-        """境界線の座標を連続した順序にソートする（フォールバック用の最近傍探索）"""
-        if not coords:
-            return []
-        
-        # 座標をNumPy配列に変換
-        coords_array = np.array(coords)
-        
-        # 座標を1ピクセル単位にスナップ
-        snapped_coords = np.round(coords_array)
-        
-        # 最初の点を選択
-        sorted_coords = [snapped_coords[0].tolist()]
-        remaining_coords = snapped_coords[1:]
-        
-        while len(remaining_coords) > 0:
-            # 最後の点から最も近い点を見つける
-            last_point = np.array(sorted_coords[-1])
-            distances = np.sqrt(np.sum((remaining_coords - last_point) ** 2, axis=1))
-            nearest_idx = np.argmin(distances)
-            
-            # 最も近い点を追加（リストとして）
-            sorted_coords.append(remaining_coords[nearest_idx].tolist())
-            remaining_coords = np.delete(remaining_coords, nearest_idx, axis=0)
-        
-        return sorted_coords
     
     def paintEvent(self, event):
         """描画イベント"""
@@ -562,24 +339,11 @@ class MapWidget(QWidget):
             
             # 画面を更新
             self.update()
-        elif self.province_image:
-            # ドラッグ中でなく、マウスが動いた場合
-            # マウス位置のプロヴィンス情報を表示（オーバーレイやステータスバーなど）
-            scene_pos = (event.pos() - self.offset) / self.zoom_level
-            x, y = int(scene_pos.x()), int(scene_pos.y())
-            
-            # ここで必要に応じてプロヴィンス情報を取得して表示
-            # self.show_province_info(x, y)
     
     def resizeEvent(self, event):
         """ウィジェットサイズ変更イベント"""
         super().resizeEvent(event)
         self.update()
-    
-    def show_province_info(self, x, y):
-        """指定座標のプロヴィンス情報を表示"""
-        # この機能は将来的に実装する予定
-        pass
 
 
 class MapViewWidget(QWidget):
