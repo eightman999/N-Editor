@@ -6,9 +6,9 @@ _tabversion = '3.10'
 
 _lr_method = 'LALR'
 
-_lr_signature = 'DOT EQUALS ID LBRACE NUMBER RBRACE STRINGstrategic_region : ID EQUALS LBRACE statements RBRACEstatements : statement\n| statements statementstatement : ID EQUALS valuevalue : ID\n| NUMBER\n| STRING\n| LBRACE block_content_inside RBRACEblock_content_inside : statements\n| value_listvalue_list : value_item\n| value_list value_itemvalue_item : ID\n| NUMBER\n| STRING'
+_lr_signature = 'COLOR COLOR_UI EQUALS HSV ID LBRACE NUMBER RBRACE RGBcountry_file : country_blockscountry_blocks : country_block\n| country_blocks country_blockcountry_block : ID EQUALS LBRACE color_defs RBRACEcolor_defs : color_def\n| color_defs color_defcolor_def : COLOR EQUALS color_value\n| COLOR_UI EQUALS color_valuecolor_value : HSV LBRACE NUMBER NUMBER NUMBER RBRACE\n| RGB LBRACE NUMBER NUMBER NUMBER RBRACE'
     
-_lr_action_items = {'ID':([0,4,6,7,8,10,11,12,13,14,15,17,18,19,20,21,22,23,24,25,],[2,5,5,-2,11,-3,-5,-4,-6,-7,20,5,25,-11,-13,-14,-15,-8,-12,-13,]),'$end':([1,9,],[0,-1,]),'EQUALS':([2,5,20,],[3,8,8,]),'LBRACE':([3,8,],[4,15,]),'RBRACE':([6,7,10,11,12,13,14,16,17,18,19,20,21,22,23,24,25,],[9,-2,-3,-5,-4,-6,-7,23,-9,-10,-11,-13,-14,-15,-8,-12,-13,]),'NUMBER':([8,15,18,19,20,21,22,24,25,],[13,21,21,-11,-13,-14,-15,-12,-13,]),'STRING':([8,15,18,19,20,21,22,24,25,],[14,22,22,-11,-13,-14,-15,-12,-13,]),}
+_lr_action_items = {'ID':([0,2,3,5,12,],[4,4,-2,-3,-4,]),'$end':([1,2,3,5,12,],[0,-1,-2,-3,-4,]),'EQUALS':([4,10,11,],[6,14,15,]),'LBRACE':([6,17,18,],[7,20,21,]),'COLOR':([7,8,9,13,16,19,28,29,],[10,10,-5,-6,-7,-8,-9,-10,]),'COLOR_UI':([7,8,9,13,16,19,28,29,],[11,11,-5,-6,-7,-8,-9,-10,]),'RBRACE':([8,9,13,16,19,26,27,28,29,],[12,-5,-6,-7,-8,28,29,-9,-10,]),'HSV':([14,15,],[17,17,]),'RGB':([14,15,],[18,18,]),'NUMBER':([20,21,22,23,24,25,],[22,23,24,25,26,27,]),}
 
 _lr_action = {}
 for _k, _v in _lr_action_items.items():
@@ -17,7 +17,7 @@ for _k, _v in _lr_action_items.items():
       _lr_action[_x][_k] = _y
 del _lr_action_items
 
-_lr_goto_items = {'strategic_region':([0,],[1,]),'statements':([4,15,],[6,17,]),'statement':([4,6,15,17,],[7,10,7,10,]),'value':([8,],[12,]),'block_content_inside':([15,],[16,]),'value_list':([15,],[18,]),'value_item':([15,18,],[19,24,]),}
+_lr_goto_items = {'country_file':([0,],[1,]),'country_blocks':([0,],[2,]),'country_block':([0,2,],[3,5,]),'color_defs':([7,],[8,]),'color_def':([7,8,],[9,13,]),'color_value':([14,15,],[16,19,]),}
 
 _lr_goto = {}
 for _k, _v in _lr_goto_items.items():
@@ -26,20 +26,15 @@ for _k, _v in _lr_goto_items.items():
        _lr_goto[_x][_k] = _y
 del _lr_goto_items
 _lr_productions = [
-  ("S' -> strategic_region","S'",1,None,None,None),
-  ('strategic_region -> ID EQUALS LBRACE statements RBRACE','strategic_region',5,'p_strategic_region','StrategicRegionParser.py',63),
-  ('statements -> statement','statements',1,'p_statements','StrategicRegionParser.py',67),
-  ('statements -> statements statement','statements',2,'p_statements','StrategicRegionParser.py',68),
-  ('statement -> ID EQUALS value','statement',3,'p_statement','StrategicRegionParser.py',88),
-  ('value -> ID','value',1,'p_value','StrategicRegionParser.py',92),
-  ('value -> NUMBER','value',1,'p_value','StrategicRegionParser.py',93),
-  ('value -> STRING','value',1,'p_value','StrategicRegionParser.py',94),
-  ('value -> LBRACE block_content_inside RBRACE','value',3,'p_value','StrategicRegionParser.py',95),
-  ('block_content_inside -> statements','block_content_inside',1,'p_block_content_inside','StrategicRegionParser.py',102),
-  ('block_content_inside -> value_list','block_content_inside',1,'p_block_content_inside','StrategicRegionParser.py',103),
-  ('value_list -> value_item','value_list',1,'p_value_list','StrategicRegionParser.py',107),
-  ('value_list -> value_list value_item','value_list',2,'p_value_list','StrategicRegionParser.py',108),
-  ('value_item -> ID','value_item',1,'p_value_item','StrategicRegionParser.py',118),
-  ('value_item -> NUMBER','value_item',1,'p_value_item','StrategicRegionParser.py',119),
-  ('value_item -> STRING','value_item',1,'p_value_item','StrategicRegionParser.py',120),
+  ("S' -> country_file","S'",1,None,None,None),
+  ('country_file -> country_blocks','country_file',1,'p_country_file','CountryColorParser.py',72),
+  ('country_blocks -> country_block','country_blocks',1,'p_country_blocks','CountryColorParser.py',76),
+  ('country_blocks -> country_blocks country_block','country_blocks',2,'p_country_blocks','CountryColorParser.py',77),
+  ('country_block -> ID EQUALS LBRACE color_defs RBRACE','country_block',5,'p_country_block','CountryColorParser.py',84),
+  ('color_defs -> color_def','color_defs',1,'p_color_defs','CountryColorParser.py',88),
+  ('color_defs -> color_defs color_def','color_defs',2,'p_color_defs','CountryColorParser.py',89),
+  ('color_def -> COLOR EQUALS color_value','color_def',3,'p_color_def','CountryColorParser.py',96),
+  ('color_def -> COLOR_UI EQUALS color_value','color_def',3,'p_color_def','CountryColorParser.py',97),
+  ('color_value -> HSV LBRACE NUMBER NUMBER NUMBER RBRACE','color_value',6,'p_color_value','CountryColorParser.py',101),
+  ('color_value -> RGB LBRACE NUMBER NUMBER NUMBER RBRACE','color_value',6,'p_color_value','CountryColorParser.py',102),
 ]

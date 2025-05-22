@@ -1,0 +1,49 @@
+siam_navy = {
+	create_equipment_variant = {
+		#雲龍級
+		name = "Chakri Naruebet Class"
+		type = ship_hull_carrier_1
+		name_group = SIA_HISTORICAL_CV
+		upgrades = {
+			ship_mtg_naval_range_upgrade = 6
+			ship_mtg_carrier_engine_upgrade = 6
+			ship_mtg_armor_upgrade = 3
+			ship_mtg_deck_space_upgrade = 5
+		}
+		modules = {
+			fixed_ship_deck_slot_1 = flush_deck
+			fixed_ship_deck_slot_2 = ship_armor_carrier_deck
+			fixed_ship_anti_air_slot = ship_old_anti_air_2A
+			fixed_ship_radar_slot = ship_radar_3
+			fixed_ship_engine_slot = SM_engine_2
+			fixed_ship_secondaries_slot = ship_dp_old_light_battery_3
+			fixed_ship_armor_slot = sm_armor_3
+			front_1_custom_slot = ship_anti_air_rocket_2
+			mid_1_custom_slot = ship_depth_charge_1
+		}
+	}
+	create_equipment_variant = {
+		name = "Great Pleiades Class"
+		type = ship_hull_cruiser_coastal_defense_ship_2
+		name_group = SIA_HISTORICAL_BB
+		upgrades = {
+			ship_mtg_naval_range_upgrade = 10
+			ship_mtg_mid_engine_upgrade = 7
+			ship_mtg_armor_upgrade = 10
+		}
+		parent_version = 0
+		modules = {
+			fixed_ship_battery_slot = ship_JAP_heavy_battery
+			fixed_ship_anti_air_slot = ship_dp_Bofors_battery_2
+			fixed_ship_fire_control_system_slot = ship_fire_control_system_3
+			fixed_ship_radar_slot = ship_radar_3
+			fixed_ship_engine_slot = SM_engine_6
+			fixed_ship_secondaries_slot = ship_old_secondaries_2
+			fixed_ship_armor_slot = sm_armor_3
+			front_1_custom_slot = ship_ITA_light_medium_battery
+			mid_1_custom_slot = dp_GER_light_battery
+			mid_2_custom_slot = ship_JAP_light_medium_battery
+			rear_1_custom_slot = ship_JAP_heavy_battery
+		}
+	}
+}

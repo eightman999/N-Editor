@@ -422,6 +422,8 @@ class NavalDesignSystem(QMainWindow):
                 self.progress_dialog.setValue(value)
                 # プログレスメッセージの更新
                 self.progress_dialog.setLabelText(f"ビューを読み込み中... {value}%")
+            else:
+                self.logger.warning("プログレスダイアログが存在しません")
         except Exception as e:
             self.logger.error(f"プログレス更新中にエラーが発生: {e}")
 

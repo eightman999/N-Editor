@@ -4,12 +4,12 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QDoubleSpinBox, QCheckBox, QMessageBox,
                              QComboBox, QListWidgetItem)
 from PyQt5.QtCore import Qt, QMimeData, QByteArray
-from PyQt5.QtGui import QDrag, QIcon, QPixmap, QColor
+from PyQt5.QtGui import QDrag, QIcon, QPixmap, QColor, QPainter, QPen
 import json
 import os
 from PIL import Image
 import io
-from .map_widget import MapWidget
+from utils.maptest2 import MapViewer
 import logging
 import time
 
@@ -68,7 +68,7 @@ class FleetView(QWidget):
         formation_layout.addWidget(self.design_list, 1)
         
         # 下部のマップエリア
-        self.map_widget = MapWidget()
+        self.map_widget = MapViewer()
         
         # スプリッターに追加
         splitter.addWidget(formation_widget)
@@ -281,6 +281,11 @@ class FleetView(QWidget):
                 current_mod = self.app_controller.get_current_mod()
                 if current_mod and "path" in current_mod:
                     self.map_widget.load_map_data(current_mod["path"])
+                    # 選択された国家の海軍基地を赤色で描画
+                    self.map_widget.draw_selected_country_naval_bases(self.map_widget.map_image_item.pixmap(), tag)
+                    self.logger.info(f"マップデータを読み込みました: {current_mod['path']}")
+                else:
+                    self.logger.warning("MODが選択されていません。マップデータを読み込めません。")
 
     def design_list_mouse_move_event(self, event):
         """設計リストのドラッグ開始イベント"""
@@ -649,6 +654,68 @@ class FleetView(QWidget):
             
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"国家リストの更新中にエラーが発生しました：\n{str(e)}")
+
+    def draw_naval_bases(self, target_pixmap: QPixmap):
+        painter = QPainter(target_pixmap)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+
+        # 固定の円のサイズを使用
+        circle_radius = 8
+
+        for prov_id, level in self.naval_base_locations.items():
+            if prov_id in self.province_centroids and self.province_centroids[prov_id] is not None:
+                center_x, center_y = self.province_centroids[prov_id]
+
+                # 外側の円（青い輪郭）
+                painter.setPen(QPen(QColor(0, 0, 255, 200), 2))
+                painter.setBrush(QColor(0, 0, 255, 100))
+                painter.drawEllipse(QPointF(center_x, center_y), circle_radius, circle_radius)
+
+                # 内側の円（白い輪郭）
+                inner_radius = circle_radius * 0.7
+                painter.setPen(QPen(QColor(255, 255, 255, 200), 1))
+                painter.setBrush(QColor(255, 255, 255, 150))
+                painter.drawEllipse(QPointF(center_x, center_y), inner_radius, inner_radius)
+
+        painter.end()
+
+    def draw_selected_country_naval_bases(self, target_pixmap: QPixmap, country_tag: str):
+        """選択された国家の海軍基地を赤色で描画"""
+        if not country_tag or not self.states_data:
+            return
+
+        painter = QPainter(target_pixmap)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+
+        # 固定の円のサイズを使用
+        circle_radius = 10  # 通常の海軍基地より少し大きく
+
+        # 選択された国家のステートを特定
+        selected_country_states = []
+        for state_id, state_data in self.states_data.items():
+            if state_data['raw_data'].get('owner') == country_tag:
+                selected_country_states.append(state_id)
+
+        # 選択された国家のステートに属する海軍基地を描画
+        for prov_id, level in self.naval_base_locations.items():
+            if prov_id in self.province_centroids and self.province_centroids[prov_id] is not None:
+                # プロビンスが選択された国家のステートに属しているか確認
+                prov_obj = self.provinces_data_by_id.get(prov_id)
+                if prov_obj and prov_obj.state_id in selected_country_states:
+                    center_x, center_y = self.province_centroids[prov_id]
+
+                    # 外側の円（赤い輪郭）
+                    painter.setPen(QPen(QColor(255, 0, 0, 200), 2))
+                    painter.setBrush(QColor(255, 0, 0, 100))
+                    painter.drawEllipse(QPointF(center_x, center_y), circle_radius, circle_radius)
+
+                    # 内側の円（白い輪郭）
+                    inner_radius = circle_radius * 0.7
+                    painter.setPen(QPen(QColor(255, 255, 255, 200), 1))
+                    painter.setBrush(QColor(255, 255, 255, 150))
+                    painter.drawEllipse(QPointF(center_x, center_y), inner_radius, inner_radius)
+
+        painter.end()
 
 class FleetDialog(QDialog):
     def __init__(self, parent=None):

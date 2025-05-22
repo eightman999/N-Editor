@@ -16,6 +16,7 @@ tokens = (
     'LBRACE',       # {
     'RBRACE',       # }
     'DOT',          # . (ドット区切りIDのため)
+    'SPACE',        # スペース
 )
 
 # トークンの正規表現ルール
@@ -24,6 +25,7 @@ t_LBRACE = r'{'
 t_RBRACE = r'}'
 t_STRING = r'"[^\n"]*"'
 t_DOT = r'\.' # ドットの正規表現
+t_SPACE = r'\s+'
 
 # PLYのレクサーは、定義順が早いもの、またはより長いパターンを優先します。
 def t_NUMBER(t):
@@ -102,8 +104,15 @@ def p_QUALIFIED_ID(p):
     p[0] = f"{p[1]}.{p[3]}" # 'COR.pfk_state_array_1' のような文字列として結合
 
 def p_statement(p):
-    '''statement : KEY EQUALS value'''
-    p[0] = {p[1]: p[3]}
+    '''statement : KEY EQUALS value
+                 | QUALIFIED_ID EQUALS ID
+                 | KEY EQUALS LBRACE add_to_array_content RBRACE'''
+    if len(p) == 4:
+        p[0] = {p[1]: p[3]}
+    elif len(p) == 5:
+        p[0] = {p[1]: p[4]}
+    else:
+        p[0] = {p[1]: p[3]}
 
 def p_value(p):
     '''value : ID
@@ -118,12 +127,19 @@ def p_value(p):
 # ブロックの中身が 'statements' (key=value) か 'value_list' (value1 value2 ...) か
 def p_block_content_inside(p):
     '''block_content_inside : statements
-                            | value_list'''
-    p[0] = p[1]
+                            | value_list
+                            | empty'''
+    if len(p) == 2:
+        p[0] = p[1]
+
+def p_empty(p):
+    'empty :'
+    p[0] = {}
 
 def p_value_list(p):
     '''value_list : value_item
-                  | value_list value_item'''
+                  | value_list value_item
+                  | value_list SPACE value_item'''
     if len(p) == 2:
         p[0] = [p[1]]
     else:
@@ -135,8 +151,13 @@ def p_value_list(p):
 def p_value_item(p):
     '''value_item : ID
                   | NUMBER
-                  | STRING'''
+                  | STRING
+                  | QUALIFIED_ID'''
     p[0] = p[1]
+
+def p_add_to_array_content(p):
+    '''add_to_array_content : QUALIFIED_ID EQUALS ID'''
+    p[0] = {p[1]: p[3]}
 
 # エラーハンドリング
 def p_error(p):
@@ -161,7 +182,7 @@ class StateParser:
 
             final_data = {}
 
-            for key in ['id', 'name', 'manpower', 'state_category', 'local_supplies']:
+            for key in ['id', 'name', 'manpower', 'state_category', 'local_supplies', 'buildings_max_level_factor']:
                 if key in raw_parsed_data:
                     final_data[key] = raw_parsed_data[key]
 
@@ -180,7 +201,16 @@ class StateParser:
 
                 for key in ['owner', 'add_core_of', 'add_claim_by', 'add_to_array']:
                     if key in history_data:
-                        final_data[key] = history_data[key]
+                        if key == 'add_core_of':
+                            # add_core_ofは複数回出現する可能性があるため、リストとして処理
+                            if key not in final_data:
+                                final_data[key] = []
+                            if isinstance(history_data[key], list):
+                                final_data[key].extend(history_data[key])
+                            else:
+                                final_data[key].append(history_data[key])
+                        else:
+                            final_data[key] = history_data[key]
 
                 final_data['buildings'] = {}
                 final_data['province_buildings'] = {}

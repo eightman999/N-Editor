@@ -1,7 +1,7 @@
 import logging
 import sys
 import os
-os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = ".venv/lib/python3.13/site-packages/PyQt5/Qt5/plugins/platforms"
+os.environ["QT_QPA_PLATFORM_PLATFORM_PATH"] = ".venv/lib/python3.13/site-packages/PyQt5/Qt5/plugins/platforms"
 import sys
 import os
 import csv
@@ -9,7 +9,7 @@ import re
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QGraphicsView, QGraphicsScene,
     QFileDialog, QVBoxLayout, QWidget, QMessageBox, QLabel,
-    QPushButton, QHBoxLayout, QComboBox
+    QPushButton, QHBoxLayout, QComboBox, QLineEdit
 )
 from PyQt5.QtGui import QPixmap, QImage, QColor, QPainter, QFont, QPen
 from PyQt5.QtCore import Qt, QRectF, QPointF
@@ -20,197 +20,10 @@ import time # パフォーマンス計測用
 from parser.StateParser import StateParser
 from parser.StateParser import ParserError
 from parser.StrategicRegionParser import StrategicRegionParser
-
-# 構文解析器のヘルパー関数
-def tokenize(text):
-    """
-    HoI4スクリプトのテキストをトークンに分割します。
-    コメント行はスキップし、ブレース、等号、クォートされた文字列、数字、単語を識別します。
-    """
-    tokens = []
-    lines = text.splitlines()
-    cleaned_lines = []
-    for line in lines:
-        stripped_line = line.strip()
-        if stripped_line.startswith('#'):
-            continue
-        comment_pos = stripped_line.find('#')
-        if comment_pos != -1:
-            stripped_line = stripped_line[:comment_pos].strip()
-        if stripped_line:
-            cleaned_lines.append(stripped_line)
-
-    clean_text = ' '.join(cleaned_lines)
-
-    # この正規表現は、単一のトークンを正しく識別するように改良する必要があります。
-    # 特に、`=` の後に `"` がない文字列が続く場合や、数字と文字が隣接する場合など。
-    # 既存のトークンパターンに加えて、空白文字を区切りとして利用し、より一般的なケースに対応。
-
-    # より正確なトークン化のために、複雑な正規表現を避けて、文字単位でスキャンする方が堅牢な場合もあるが、
-    # ここでは既存のパターンベースを改良
-
-    # 記号、クォート文字列、数字、ワードの順でマッチング
-    token_patterns = re.compile(r'(\{)|(\})|(;)|(=)|("[^"]*")|([+-]?\d+\.\d+(?:[eE][+-]?\d+)?)|(\b\d+\b)|([a-zA-Z_][a-zA-Z0-9_]*|[^"\s=;{}]+)')
-
-    for match in token_patterns.finditer(clean_text):
-        token = match.group(0).strip()
-        if token:
-            tokens.append(token)
-    return tokens
-
-
-def parse_block(tokens, index):
-    """
-    トークンリストを構文解析し、辞書（ブロック）または値のペアを返します。
-    再帰的に呼び出され、ネストされたブロックを処理します。
-    """
-    parsed_data = {}
-
-    print(f"DEBUG: parse_block started from index {index}, current token: {tokens[index] if index < len(tokens) else 'EOF'}")
-
-    current_key = None
-
-    while index < len(tokens):
-        token = tokens[index]
-        print(f"DEBUG: Current token: '{token}' (index: {index}), current_key: '{current_key}'")
-
-        if token == '{':
-            # `key = { ... }` のブロック開始
-            if current_key is None:
-                # `provinces = { 1 2 3 }` のように、`=` の直後に `{` が来て、その中身がリストの場合
-                # または、`{` が予期せず現れた場合。
-                # このケースは、`=` の後の値として処理されるべきなので、ここには来ないはず。
-                # もしここに来るなら、`parse_hoi4_file_content_syntax` か `parse_block` の上位ロジックに問題がある。
-                print(f"WARNING: Unexpected {{ without a preceding key at token index {index}. This might be an anonymous block. Skipping for now.")
-                # 無名のブロックが来た場合、そのブロックを消費して進む
-                temp_block, new_index = parse_block(tokens, index + 1) # 再帰呼び出しでブロックを消費
-                index = new_index
-                continue
-
-            # ネストされたブロックを再帰的にパース
-            print(f"DEBUG: Recursing into sub-block for key '{current_key}' from index {index + 1}")
-            sub_block_content, new_index = parse_block(tokens, index + 1) # 再帰呼び出し
-
-            # `provinces = { 1 2 3 }` のようなリスト形式のブロックを検出するための調整
-            # `sub_block_content` が辞書の場合と、リストの場合でハンドリング
-            if isinstance(sub_block_content, dict) and 'list_items' in sub_block_content:
-                parsed_data[current_key] = sub_block_content['list_items']
-            else:
-                parsed_data[current_key] = sub_block_content
-
-            current_key = None
-            index = new_index
-
-        elif token == '}':
-            # 現在のブロックの終了
-            print(f"DEBUG: Exiting block at index {index}. Returning: {parsed_data}")
-            return parsed_data, index + 1
-
-        elif token == '=':
-            # 等号はキーと値の間なので、次のトークンを値として処理
-            index += 1
-            if index >= len(tokens):
-                print(f"WARNING: Unexpected end of tokens after '=' at index {index-1}. File might be truncated or malformed.")
-                break
-
-            value_token = tokens[index]
-
-            # `provinces = { 123 456 }` のように値がリストの場合の特殊処理
-            if value_token == '{':
-                print(f"DEBUG: Found list-like block for key '{current_key}' at index {index}")
-                list_content = []
-                inner_index = index + 1
-                while inner_index < len(tokens) and tokens[inner_index] != '}':
-                    list_item = tokens[inner_index].strip('"')
-                    try:
-                        list_content.append(int(list_item))
-                    except ValueError:
-                        try:
-                            list_content.append(float(list_item))
-                        except ValueError:
-                            list_content.append(list_item)
-                    inner_index += 1
-
-                parsed_data[current_key] = list_content
-                index = inner_index + 1 # `}` の次から継続
-                current_key = None
-                continue # 次のループへ
-
-            # 通常の値の型変換
-            value = value_token.strip('"')
-            try:
-                if value.isdigit() or (value.startswith('-') and value[1:].isdigit()):
-                    value = int(value)
-                else:
-                    value = float(value)
-            except ValueError:
-                pass # 数字でなければ文字列のまま
-
-            parsed_data[current_key] = value
-            current_key = None
-            index += 1
-
-        elif token == ';':
-            # セミコロンはエントリーの区切り。スキップして次へ
-            index += 1
-
-        else:
-            # キーまたは値の一部
-            if current_key is None:
-                # 新しいキー
-                current_key = token
-                try:
-                    current_key = int(current_key)
-                except ValueError:
-                    pass
-                index += 1
-            else:
-                # キーがあるのに '=' がない、または予期せぬトークン
-                print(f"WARNING: Unexpected token '{token}' at index {index} after key '{current_key}'. Expected '=' or '{{'. Skipping and advancing index.")
-                # 予期せぬトークンをスキップして、次のトークンを待つ
-                index += 1
-
-    print(f"DEBUG: parse_block finished for current level. Reached EOF. Returning parsed_data: {parsed_data}")
-    return parsed_data, index # EOFに達した場合
-
-
-def parse_hoi4_file_content_syntax(content):
-    """
-    HoI4ファイル全体のコンテンツを構文解析します。
-    """
-    tokens = tokenize(content)
-    print(f"DEBUG: Tokens generated: {tokens}")
-
-    if not tokens:
-        return {}
-
-    # `state = { ... }` や `strategic_region = { ... }` のようなトップレベルの構造を検出
-    if len(tokens) >= 3 and tokens[1] == '=' and tokens[2] == '{':
-        top_level_key = tokens[0]
-        try:
-            top_level_key = int(top_level_key)
-        except ValueError:
-            pass
-
-        # 最上位のブロックをパース
-        parsed_block, _ = parse_block(tokens, 3)
-        return {top_level_key: parsed_block}
-    elif len(tokens) >= 1 and tokens[0] == '{':
-        # ファイルが直接 `{ ... }` で始まる場合 (例: provinces.txtのコンテンツなど)
-        print(f"WARNING: File starts directly with '{{'. Attempting to parse as an anonymous top-level block.")
-        parsed_block, _ = parse_block(tokens, 1) # `{` の次からパース開始
-        return parsed_block
-    else:
-        # その他の予期せぬ形式
-        print(f"WARNING: No standard top-level 'key = {{' or direct '{{' pattern found. Attempting to parse entire file content as a single block starting from index 0.")
-        # このケースでは、ファイル全体をそのままトップレベルのブロックとして扱ってみる。
-        # ただし、これがうまくいくかどうかはファイルの内容に依存。
-        # 例: 単純な key=value; の羅列など
-        parsed_block, _ = parse_block(tokens, 0)
-        return parsed_block
-
+from parser.CountryColorParser import CountryColorParser
 
 def get_file_content(file_path):
+    """ファイルの内容を読み込む関数"""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
@@ -219,10 +32,10 @@ def get_file_content(file_path):
             with open(file_path, 'r', encoding='latin-1') as f:
                 return f.read()
         except Exception as e:
-            print(f"Failed to read {file_path} with utf-8 or latin-1: {e}")
+            print(f"ファイルの読み込みに失敗しました: {file_path} - {str(e)}")
             return None
     except Exception as e:
-        print(f"Failed to read {file_path}: {e}")
+        print(f"ファイルの読み込みに失敗しました: {file_path} - {str(e)}")
         return None
 
 # プロビンスデータを保持するクラス
@@ -253,6 +66,7 @@ class MapViewer(QGraphicsView):
 
         self.states_data = {}
         self.strategic_regions_data = {}
+        self.country_colors = {}
 
         self.original_width = 0
         self.original_height = 0
@@ -264,6 +78,7 @@ class MapViewer(QGraphicsView):
 
         self.province_centroids = {}
         self.naval_base_locations = {}
+        self.state_boundaries = {}
         
         # マウスオーバー時のツールチップ用
         self.setMouseTracking(True)
@@ -271,14 +86,106 @@ class MapViewer(QGraphicsView):
         self.tooltip_label = QLabel(self)
         self.tooltip_label.setStyleSheet("""
             QLabel {
-                background-color: rgba(0, 0, 0, 0.8);
-                color: white;
+                background-color: #c0c0c0;
+                color: black;
                 padding: 5px;
-                border-radius: 3px;
-                font-size: 12px;
+                border: 2px solid #808080;
+                font-family: "MS Sans Serif";
+                font-size: 12pt;
             }
         """)
         self.tooltip_label.hide()
+
+        # 検索機能用のウィジェット
+        search_widget = QWidget(self)
+        search_layout = QHBoxLayout(search_widget)
+        search_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.search_label = QLabel("ID検索:", self)
+        self.search_input = QLineEdit(self)
+        self.search_button = QPushButton("検索", self)
+        self.search_result_label = QLabel("", self)
+
+        search_layout.addWidget(self.search_label)
+        search_layout.addWidget(self.search_input)
+        search_layout.addWidget(self.search_button)
+        search_layout.addWidget(self.search_result_label)
+        search_layout.addStretch()
+
+        # Windows 98風のスタイル設定
+        search_style = """
+            QLabel, QLineEdit, QPushButton {
+                background-color: #c0c0c0;
+                border: 1px solid #808080;
+                border-radius: 0px;
+                padding: 2px;
+                font-family: "MS Sans Serif";
+                font-size: 10pt;
+            }
+            QLineEdit {
+                min-width: 100px;
+            }
+            QPushButton {
+                min-width: 60px;
+            }
+            QPushButton:hover {
+                border: 1px solid #000000;
+            }
+        """
+        search_widget.setStyleSheet(search_style)
+        search_widget.setLayout(search_layout)
+        search_widget.move(10, 40)
+
+        # 検索ボタンのクリックイベントを接続
+        self.search_button.clicked.connect(self.search_province)
+        self.search_input.returnPressed.connect(self.search_province)
+
+        # フィルター切り替え用のプルダウンを追加
+        self.filter_combo = QComboBox(self)
+        self.filter_combo.addItem("プロビンス", "provinces")
+        self.filter_combo.addItem("ステート", "states")
+        self.filter_combo.addItem("戦略地域", "strategic_regions")
+        self.filter_combo.addItem("国家", "countries")
+        self.filter_combo.currentIndexChanged.connect(self.on_filter_changed)
+        
+        # Windows 98風のクラシックなスタイル設定
+        self.filter_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #c0c0c0;
+                border: 1px solid #808080;
+                border-radius: 0px;
+                padding: 2px;
+                min-width: 100px;
+                font-family: "MS Sans Serif";
+                font-size: 10pt;
+            }
+            QComboBox:hover {
+                border: 1px solid #000000;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                width: 0px;
+                height: 0px;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 4px solid black;
+                margin-right: 4px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #c0c0c0;
+                border: 1px solid #808080;
+                selection-background-color: #000080;
+                selection-color: white;
+                font-family: "MS Sans Serif";
+                font-size: 10pt;
+            }
+        """)
+        
+        # プルダウンの位置を設定
+        self.filter_combo.move(10, 10)
 
     def load_map_data(self, mod_path):
         start_time = time.time()
@@ -289,13 +196,30 @@ class MapViewer(QGraphicsView):
         self.provinces_data_by_id = {}
         self.states_data = {}
         self.strategic_regions_data = {}
+        self.country_colors = {}
         self.base_qimage_cache = {}
 
         self._rgb_to_id_map_array.fill(-1)
         self.province_centroids = {}
         self.naval_base_locations = {}
+        self.state_boundaries = {}
 
         base_mod_dir = mod_path
+
+        # 国家の色情報を読み込む
+        colors_txt_path = os.path.join(base_mod_dir, 'common', 'countries', 'colors.txt')
+        if os.path.exists(colors_txt_path):
+            print(f"Loading country colors from: {colors_txt_path}")
+            content = get_file_content(colors_txt_path)
+            if content:
+                parser = CountryColorParser(content)
+                self.country_colors = parser.parse()
+                print(f"Loaded {len(self.country_colors)} country colors")
+                # デバッグ: 国家の色情報を出力
+                print("\n=== 国家の色情報 ===")
+                for country, color_data in self.country_colors.items():
+                    print(f"国家: {country}, 色: {color_data['color']}")
+                print("===================\n")
 
         provinces_img_path = os.path.join(base_mod_dir, 'map', 'provinces.bmp')
         print(f"Searching for provinces.bmp at: {provinces_img_path}")
@@ -361,6 +285,12 @@ class MapViewer(QGraphicsView):
                                         'color': (state_color.red(), state_color.green(), state_color.blue()),
                                         'raw_data': state_data
                                     }
+                                    # デバッグ: ステートの所有者情報を出力
+                                    owner = state_data.get('owner')
+                                    if owner:
+                                        print(f"ステート {state_id} ({state_name}) の所有者: {owner}")
+                                    else:
+                                        print(f"ステート {state_id} ({state_name}) の所有者: なし")
                                     for prov_id in state_data['provinces']:
                                         if prov_id in self.provinces_data_by_id:
                                             self.provinces_data_by_id[prov_id].state_id = state_id
@@ -372,7 +302,7 @@ class MapViewer(QGraphicsView):
                                                 self.naval_base_locations[prov_id] = buildings['naval_base']
                                                 print(f"Found naval base in province {prov_id} with level {buildings['naval_base']}")
 
-                                    print(f"Successfully loaded state file: {filename} (ID: {state_id}, Provinces: {len(state_data['provinces'])})")
+                                    # print(f"Successfully loaded state file: {filename} (ID: {state_id}, Provinces: {len(state_data['provinces'])})")
                                 else:
                                     print(f"Skipping state file {filename}: Missing 'id', 'provinces' key, or 'provinces' is empty.")
                             except ParserError as e:
@@ -413,7 +343,7 @@ class MapViewer(QGraphicsView):
                                     for prov_id in region_data['provinces']:
                                         if prov_id in self.provinces_data_by_id:
                                             self.provinces_data_by_id[prov_id].strategic_region_id = region_id
-                                    print(f"Successfully loaded strategic region file: {filename} (ID: {region_id}, Provinces: {len(region_data['provinces'])})")
+                                    # print(f"Successfully loaded strategic region file: {filename} (ID: {region_id}, Provinces: {len(region_data['provinces'])})")
                                 else:
                                     print(f"Skipping strategic region file {filename}: Missing 'id', 'provinces' key, or 'provinces' is empty.")
                             except ParserError as e:
@@ -428,6 +358,9 @@ class MapViewer(QGraphicsView):
 
             # プロビンス重心の計算
             self.calculate_province_centroids()
+
+            # ステートの境界線を計算
+            self.calculate_state_boundaries()
 
             # 高速化用の色マップを構築 (NumPy配列として)
             max_prov_id = max(self.provinces_data_by_id.keys()) if self.provinces_data_by_id else 0
@@ -516,6 +449,46 @@ class MapViewer(QGraphicsView):
         end_time = time.time()
         print(f"Province centroid calculation time (highly optimized): {end_time - start_time:.2f} seconds.")
 
+    def calculate_state_boundaries(self):
+        print("Calculating state boundaries...")
+        start_time = time.time()
+        
+        if self.original_map_image_data is None:
+            return
+
+        height, width, _ = self.original_map_image_data.shape
+        self.state_boundaries = {}
+
+        # 各ステートのプロビンスを取得
+        for state_id, state_data in self.states_data.items():
+            provinces = state_data['provinces']
+            if not provinces:
+                continue
+
+            # ステートの境界線を計算
+            boundaries = set()
+            for prov_id in provinces:
+                if prov_id not in self.province_centroids:
+                    continue
+
+                # プロビンスの中心座標を取得
+                center_x, center_y = self.province_centroids[prov_id]
+                center_x, center_y = int(center_x), int(center_y)
+
+                # 8方向の隣接ピクセルをチェック
+                for dx, dy in [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]:
+                    nx, ny = center_x + dx, center_y + dy
+                    if 0 <= nx < width and 0 <= ny < height:
+                        pixel_rgb = tuple(self.original_map_image_data[ny, nx])
+                        neighbor_prov = self.provinces_data_by_rgb.get(pixel_rgb)
+                        if neighbor_prov and neighbor_prov.id not in provinces:
+                            # 境界線を追加（両端の座標を追加）
+                            boundaries.add((center_x, center_y, nx, ny))
+
+            self.state_boundaries[state_id] = list(boundaries)
+
+        end_time = time.time()
+        print(f"State boundary calculation time: {end_time - start_time:.2f} seconds")
 
     def render_map(self):
         start_time = time.time()
@@ -541,6 +514,23 @@ class MapViewer(QGraphicsView):
                 selected_palette = self._palette_state
             elif self.current_filter == "strategic_regions":
                 selected_palette = self._palette_region
+            elif self.current_filter == "countries":
+                # 国家モードの場合、ステートの所有者の色を使用
+                selected_palette = np.full((max(self.provinces_data_by_id.keys()) + 1 if self.provinces_data_by_id else 1, 3), (50, 50, 50), dtype=np.uint8)
+                print("\n=== 国家モードの着色処理 ===")
+                for state_id, state_data in self.states_data.items():
+                    # StateParserから直接owner情報を取得
+                    owner = state_data['raw_data'].get('owner', None)
+                    print(f"ステート {state_id} の所有者: {owner}")
+                    if owner and owner in self.country_colors:
+                        color = self.country_colors[owner]['color']
+                        print(f"  色を適用: {color}")
+                        for prov_id in state_data['provinces']:
+                            if prov_id <= max(self.provinces_data_by_id.keys()):
+                                selected_palette[prov_id] = color
+                    else:
+                        print(f"  色が見つからないか所有者なし")
+                print("========================\n")
             else:
                 selected_palette = np.full((max(self.provinces_data_by_id.keys()) + 1 if self.provinces_data_by_id else 1, 3), (0,0,0), dtype=np.uint8)
 
@@ -563,6 +553,10 @@ class MapViewer(QGraphicsView):
 
         current_pixmap = QPixmap.fromImage(self.base_qimage_cache[self.current_filter])
 
+        # 国家モードの場合、ステートの境界線を描画
+        if self.current_filter == "countries":
+            self.draw_state_boundaries(current_pixmap)
+
         self.draw_naval_bases(current_pixmap)
 
         self.scene.clear()
@@ -574,6 +568,17 @@ class MapViewer(QGraphicsView):
 
         end_time = time.time()
         print(f"Map rendering time for filter '{self.current_filter}': {end_time - start_time:.2f} seconds.")
+
+    def draw_state_boundaries(self, target_pixmap: QPixmap):
+        painter = QPainter(target_pixmap)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setPen(QPen(QColor(0, 0, 0, 200), 2))  # 線の太さを2に増やし、より見やすく
+
+        for state_id, boundaries in self.state_boundaries.items():
+            for x1, y1, x2, y2 in boundaries:
+                painter.drawLine(x1, y1, x2, y2)
+
+        painter.end()
 
     def draw_naval_bases(self, target_pixmap: QPixmap):
         painter = QPainter(target_pixmap)
@@ -599,6 +604,68 @@ class MapViewer(QGraphicsView):
 
         painter.end()
 
+    def draw_selected_country_naval_bases(self, target_pixmap: QPixmap, country_tag: str):
+        """選択された国家の海軍基地を赤色で描画"""
+        if not country_tag or not self.states_data:
+            return
+
+        painter = QPainter(target_pixmap)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+
+        # 固定の円のサイズを使用
+        circle_radius = 10  # 通常の海軍基地より少し大きく
+
+        # 選択された国家のステートを特定
+        selected_country_states = []
+        for state_id, state_data in self.states_data.items():
+            if state_data['raw_data'].get('owner') == country_tag:
+                selected_country_states.append(state_id)
+
+        # 選択された国家のステートに属する海軍基地を描画
+        for prov_id, level in self.naval_base_locations.items():
+            if prov_id in self.province_centroids and self.province_centroids[prov_id] is not None:
+                # プロビンスが選択された国家のステートに属しているか確認
+                prov_obj = self.provinces_data_by_id.get(prov_id)
+                if prov_obj and prov_obj.state_id in selected_country_states:
+                    center_x, center_y = self.province_centroids[prov_id]
+
+                    # 外側の円（赤い輪郭）
+                    painter.setPen(QPen(QColor(255, 0, 0, 200), 2))
+                    painter.setBrush(QColor(255, 0, 0, 100))
+                    painter.drawEllipse(QPointF(center_x, center_y), circle_radius, circle_radius)
+
+                    # 内側の円（白い輪郭）
+                    inner_radius = circle_radius * 0.7
+                    painter.setPen(QPen(QColor(255, 255, 255, 200), 1))
+                    painter.setBrush(QColor(255, 255, 255, 150))
+                    painter.drawEllipse(QPointF(center_x, center_y), inner_radius, inner_radius)
+
+        painter.end()
+
+    def search_province(self):
+        search_text = self.search_input.text().strip()
+        if not search_text:
+            self.search_result_label.setText("")
+            return
+
+        try:
+            search_id = int(search_text)
+            if search_id in self.provinces_data_by_id:
+                province = self.provinces_data_by_id[search_id]
+                self.search_result_label.setText(f"プロビンス {search_id}: {province.name}")
+                
+                # プロビンスの中心座標を取得
+                if search_id in self.province_centroids and self.province_centroids[search_id] is not None:
+                    center_x, center_y = self.province_centroids[search_id]
+                    # その位置に移動
+                    self.centerOn(center_x, center_y)
+                    # ズームイン
+                    self.scale(2.0, 2.0)
+            else:
+                self.search_result_label.setText(f"プロビンス {search_id} は見つかりませんでした")
+        except ValueError:
+            self.search_result_label.setText("有効なIDを入力してください")
+
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event)
         
@@ -614,16 +681,19 @@ class MapViewer(QGraphicsView):
             pixel_rgb = tuple(self.original_map_image_data[y, x])
             found_province = self.provinces_data_by_rgb.get(pixel_rgb)
 
-            # プロビンスが見つかり、そのプロビンスに海軍基地がある場合
-            if found_province and found_province.id in self.naval_base_locations:
+            # プロビンスが見つかった場合
+            if found_province:
                 self.hovered_province = found_province
-                level = self.naval_base_locations[found_province.id]
+                tooltip_text = f"ID: {found_province.id}\n名前: {found_province.name}"
                 
-                # ツールチップの位置を設定（マウス位置の少し上に表示）
+                if found_province.id in self.naval_base_locations:
+                    tooltip_text += f"\n海軍基地レベル: {self.naval_base_locations[found_province.id]}"
+                
+                # ツールチップの位置を設定（マウス位置の右下に表示）
                 tooltip_pos = self.mapToGlobal(event.pos())
-                self.tooltip_label.setText(f"海軍基地レベル: {level}")
+                self.tooltip_label.setText(tooltip_text)
                 self.tooltip_label.adjustSize()
-                self.tooltip_label.move(tooltip_pos.x() + 10, tooltip_pos.y() - self.tooltip_label.height() - 10)
+                self.tooltip_label.move(tooltip_pos.x() + 2, tooltip_pos.y() + 2)
                 self.tooltip_label.show()
             else:
                 self.hovered_province = None
@@ -637,15 +707,20 @@ class MapViewer(QGraphicsView):
         self.tooltip_label.hide()
         self.hovered_province = None
 
-    def set_filter(self, filter_type):
-        self.current_filter = filter_type
+    def on_filter_changed(self, index):
+        """フィルターが変更された時の処理"""
+        self.current_filter = self.filter_combo.currentData()
         self.render_map()
 
     def zoom_in(self):
-        self.scale(1.15, 1.15)
+        self.scale(1.25, 1.25)
 
     def zoom_out(self):
-        self.scale(1.0 / 1.15, 1.0 / 1.15)
+        self.scale(1.0 / 1.25, 1.0 / 1.25)
+
+    def wheelEvent(self, event):
+        # マウスホイールによるズームを無効化
+        pass
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -765,6 +840,15 @@ class MapViewer(QGraphicsView):
             self.setDragMode(QGraphicsView.NoDrag)
         super().mouseReleaseEvent(event)
 
+    def keyPressEvent(self, event):
+        # キーボードショートカット
+        if event.key() == Qt.Key_Plus or event.key() == Qt.Key_Equal:  # +キーまたは=キー
+            self.zoom_in()
+        elif event.key() == Qt.Key_Minus:  # -キー
+            self.zoom_out()
+        else:
+            super().keyPressEvent(event)
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -782,13 +866,6 @@ class MainWindow(QMainWindow):
         control_panel_layout.addWidget(self.zoom_in_button)
         control_panel_layout.addWidget(self.zoom_out_button)
 
-        self.filter_combobox = QComboBox()
-        self.filter_combobox.addItem("プロビンス")
-        self.filter_combobox.addItem("ステート")
-        self.filter_combobox.addItem("戦略地域")
-        control_panel_layout.addWidget(QLabel("表示フィルター:"))
-        control_panel_layout.addWidget(self.filter_combobox)
-
         control_panel_layout.addStretch(1)
 
         self.layout.addLayout(control_panel_layout)
@@ -801,7 +878,6 @@ class MainWindow(QMainWindow):
     def init_ui(self):
         self.zoom_in_button.clicked.connect(self.map_viewer.zoom_in)
         self.zoom_out_button.clicked.connect(self.map_viewer.zoom_out)
-        self.filter_combobox.currentIndexChanged.connect(self.on_filter_changed)
 
         file_menu = self.menuBar().addMenu("ファイル")
         select_mod_action = file_menu.addAction("Modパスを指定")
@@ -812,15 +888,6 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "開始", "Modディレクトリを選択してください。\n(例: your_mod_name/)\n\nprovinces.bmp と definition.csv が map/ ディレクトリ以下に、\nhistory/states/ と map/strategicregions/ 以下にファイルが存在する必要があります。")
         self.select_mod_path()
 
-    def on_filter_changed(self, index):
-        filter_type = self.filter_combobox.currentText()
-        if filter_type == "プロビンス":
-            self.map_viewer.set_filter("provinces")
-        elif filter_type == "ステート":
-            self.map_viewer.set_filter("states")
-        elif filter_type == "戦略地域":
-            self.map_viewer.set_filter("strategic_regions")
-
     def select_mod_path(self):
         mod_path = QFileDialog.getExistingDirectory(self, "Modディレクトリを選択")
         if mod_path:
@@ -828,7 +895,6 @@ class MainWindow(QMainWindow):
                 pass
         else:
             QMessageBox.information(self, "キャンセル", "Modディレクトリの選択がキャンセルされました。")
-
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
