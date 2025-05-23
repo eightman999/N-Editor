@@ -5,20 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e49128cf-ccc2-46fc-97ad-f395874b0dab" name="変更" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/controllers/app_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/controllers/app_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/equipments_templates.yml" beforeDir="false" afterPath="$PROJECT_DIR$/equipments_templates.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parser/DivisionNameParser.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parser/PersonNameParser.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parser/ShipNameParser.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parser/debug.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parser/parser.out" beforeDir="false" afterPath="$PROJECT_DIR$/parser/parser.out" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parser/parsetab.py" beforeDir="false" afterPath="$PROJECT_DIR$/parser/parsetab.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/ShipNameUtils.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/views/fleet_view.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/fleet_view.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/views/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/main_window.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/views/nation_details_view.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/nation_details_view.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -41,12 +29,12 @@
     &quot;assignee&quot;: &quot;eightman999&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings">{
-  &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/eightman999/N-Editor.git&quot;,
-    &quot;accountId&quot;: &quot;ceb60469-2f0b-4631-ae07-8c1f0523c721&quot;
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/eightman999/N-Editor.git",
+    "accountId": "5a2370f7-c308-4863-9486-ba49747a3209"
   }
-}</component>
+}]]></component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 6
 }</component>
@@ -70,6 +58,7 @@
     "Python.setup.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
+    "dart.analysis.tool.window.visible": "false",
     "git-widget-placeholder": "master",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -214,8 +203,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-PY-243.26053.29" />
-        <option value="bundled-python-sdk-b1dbf8ef85a6-4df51de95216-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.26053.29" />
+        <option value="bundled-js-predefined-d6986cc7102b-76f8388c3a79-JavaScript-PY-243.24978.54" />
+        <option value="bundled-python-sdk-91e3b7efe1d4-466328ff949b-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.24978.54" />
       </set>
     </attachedChunks>
   </component>
@@ -239,6 +228,7 @@
       <workItem from="1747723854949" duration="7828000" />
       <workItem from="1747749997067" duration="10541000" />
       <workItem from="1747829970956" duration="23722000" />
+      <workItem from="1747992488492" duration="363000" />
     </task>
     <servers />
   </component>
