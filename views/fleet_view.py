@@ -36,6 +36,10 @@ class FleetView(QWidget):
         self.load_countries()
         self.logger.info("FleetViewの初期化が完了しました")
 
+        # MODの変更を監視
+        if self.app_controller:
+            self.app_controller.mod_changed.connect(self.on_mod_changed)
+
     def initUI(self):
         # メインレイアウト
         main_layout = QVBoxLayout(self)
@@ -716,6 +720,21 @@ class FleetView(QWidget):
                     painter.drawEllipse(QPointF(center_x, center_y), inner_radius, inner_radius)
 
         painter.end()
+
+    def on_mod_changed(self, mod_path):
+        """MODが変更された時の処理"""
+        self.logger.info(f"MODが変更されました: {mod_path}")
+        # マップデータを再読み込み
+        self.load_map_data()
+        # 国家リストを再読み込み
+        self.load_countries()
+        # 艦隊データをクリア
+        self.fleet_tree.clear()
+        # 設計リストをクリア
+        self.design_list.clear()
+        # 現在の国家をリセット
+        self.current_country = None
+        self.country_combo.setCurrentIndex(-1)
 
 class FleetDialog(QDialog):
     def __init__(self, parent=None):

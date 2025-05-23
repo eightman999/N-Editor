@@ -2,322 +2,789 @@ Created by PLY version 3.11 (http://www.dabeaz.com/ply)
 
 Grammar
 
-Rule 0     S' -> ship_names
-Rule 1     ship_names -> ship_name_block
-Rule 2     ship_names -> ship_names ship_name_block
-Rule 3     ship_names -> empty
-Rule 4     ship_name_block -> IDENTIFIER EQUALS LBRACE block_content RBRACE
-Rule 5     block_content -> block_item
-Rule 6     block_content -> block_content block_item
-Rule 7     block_content -> empty
-Rule 8     block_item -> IDENTIFIER EQUALS value
-Rule 9     block_item -> IDENTIFIER EQUALS LBRACE value_list RBRACE
-Rule 10    value -> STRING
-Rule 11    value -> NUMBER
-Rule 12    value -> IDENTIFIER
-Rule 13    value_list -> value
-Rule 14    value_list -> value_list value
-Rule 15    value_list -> empty
-Rule 16    empty -> <empty>
+Rule 0     S' -> effect_file
+Rule 1     effect_file -> ID EQUALS LBRACE effect_content RBRACE
+Rule 2     effect_file -> ID EQUALS LBRACE country_tag effect_content RBRACE
+Rule 3     effect_file -> effect_file ID EQUALS LBRACE country_tag effect_content RBRACE
+Rule 4     country_tag -> COUNTRY EQUALS STRING
+Rule 5     effect_content -> effect_statement
+Rule 6     effect_content -> effect_content effect_statement
+Rule 7     effect_statement -> ID EQUALS LBRACE variant_content RBRACE
+Rule 8     effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE
+Rule 9     effect_statement -> ID EQUALS value
+Rule 10    effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN
+Rule 11    variant_content -> variant_item
+Rule 12    variant_content -> variant_content variant_item
+Rule 13    variant_content -> OVERRIDE DOT ID LPAREN STRING RPAREN
+Rule 14    variant_content -> variant_content OVERRIDE DOT ID LPAREN STRING RPAREN
+Rule 15    variant_item -> ID EQUALS value
+Rule 16    variant_item -> ID EQUALS LBRACE block_content RBRACE
+Rule 17    variant_item -> ID EQUALS yes_no
+Rule 18    value -> ID
+Rule 19    value -> NUMBER
+Rule 20    value -> STRING
+Rule 21    value -> ID COLON ID
+Rule 22    block_content -> block_item
+Rule 23    block_content -> block_content block_item
+Rule 24    block_item -> ID EQUALS value
+Rule 25    block_item -> ID EQUALS LBRACE block_content RBRACE
+Rule 26    yes_no -> YES
+Rule 27    yes_no -> NO
 
 Terminals, with rules where they appear
 
-EQUALS               : 4 8 9
-IDENTIFIER           : 4 8 9 12
-LBRACE               : 4 9
-NUMBER               : 11
-RBRACE               : 4 9
-STRING               : 10
+COLON                : 21
+COUNTRY              : 4
+DOT                  : 8 10 13 14
+EQUALS               : 1 2 3 4 7 8 9 15 16 17 24 25
+ID                   : 1 2 3 7 8 9 10 13 14 15 16 17 18 21 21 24 25
+LBRACE               : 1 2 3 7 8 16 25
+LPAREN               : 8 10 13 14
+NO                   : 27
+NUMBER               : 19
+OVERRIDE             : 8 10 13 14
+RBRACE               : 1 2 3 7 8 16 25
+RPAREN               : 8 10 13 14
+STRING               : 4 8 10 13 14 20
+YES                  : 26
 error                : 
 
 Nonterminals, with rules where they appear
 
-block_content        : 4 6
-block_item           : 5 6
-empty                : 3 7 15
-ship_name_block      : 1 2
-ship_names           : 2 0
-value                : 8 13 14
-value_list           : 9 14
+block_content        : 16 23 25
+block_item           : 22 23
+country_tag          : 2 3
+effect_content       : 1 2 3 6
+effect_file          : 3 0
+effect_statement     : 5 6
+value                : 9 15 24
+variant_content      : 7 8 12 14
+variant_item         : 11 12
+yes_no               : 17
 
 Parsing method: LALR
 
 state 0
 
-    (0) S' -> . ship_names
-    (1) ship_names -> . ship_name_block
-    (2) ship_names -> . ship_names ship_name_block
-    (3) ship_names -> . empty
-    (4) ship_name_block -> . IDENTIFIER EQUALS LBRACE block_content RBRACE
-    (16) empty -> .
+    (0) S' -> . effect_file
+    (1) effect_file -> . ID EQUALS LBRACE effect_content RBRACE
+    (2) effect_file -> . ID EQUALS LBRACE country_tag effect_content RBRACE
+    (3) effect_file -> . effect_file ID EQUALS LBRACE country_tag effect_content RBRACE
 
-  ! shift/reduce conflict for IDENTIFIER resolved as shift
-    IDENTIFIER      shift and go to state 4
-    $end            reduce using rule 16 (empty -> .)
+    ID              shift and go to state 2
 
-  ! IDENTIFIER      [ reduce using rule 16 (empty -> .) ]
-
-    ship_names                     shift and go to state 1
-    ship_name_block                shift and go to state 2
-    empty                          shift and go to state 3
+    effect_file                    shift and go to state 1
 
 state 1
 
-    (0) S' -> ship_names .
-    (2) ship_names -> ship_names . ship_name_block
-    (4) ship_name_block -> . IDENTIFIER EQUALS LBRACE block_content RBRACE
+    (0) S' -> effect_file .
+    (3) effect_file -> effect_file . ID EQUALS LBRACE country_tag effect_content RBRACE
 
-    IDENTIFIER      shift and go to state 4
+    ID              shift and go to state 3
 
-    ship_name_block                shift and go to state 5
 
 state 2
 
-    (1) ship_names -> ship_name_block .
+    (1) effect_file -> ID . EQUALS LBRACE effect_content RBRACE
+    (2) effect_file -> ID . EQUALS LBRACE country_tag effect_content RBRACE
 
-    IDENTIFIER      reduce using rule 1 (ship_names -> ship_name_block .)
-    $end            reduce using rule 1 (ship_names -> ship_name_block .)
+    EQUALS          shift and go to state 4
 
 
 state 3
 
-    (3) ship_names -> empty .
+    (3) effect_file -> effect_file ID . EQUALS LBRACE country_tag effect_content RBRACE
 
-    IDENTIFIER      reduce using rule 3 (ship_names -> empty .)
-    $end            reduce using rule 3 (ship_names -> empty .)
+    EQUALS          shift and go to state 5
 
 
 state 4
 
-    (4) ship_name_block -> IDENTIFIER . EQUALS LBRACE block_content RBRACE
+    (1) effect_file -> ID EQUALS . LBRACE effect_content RBRACE
+    (2) effect_file -> ID EQUALS . LBRACE country_tag effect_content RBRACE
 
-    EQUALS          shift and go to state 6
+    LBRACE          shift and go to state 6
 
 
 state 5
 
-    (2) ship_names -> ship_names ship_name_block .
-
-    IDENTIFIER      reduce using rule 2 (ship_names -> ship_names ship_name_block .)
-    $end            reduce using rule 2 (ship_names -> ship_names ship_name_block .)
-
-
-state 6
-
-    (4) ship_name_block -> IDENTIFIER EQUALS . LBRACE block_content RBRACE
+    (3) effect_file -> effect_file ID EQUALS . LBRACE country_tag effect_content RBRACE
 
     LBRACE          shift and go to state 7
 
 
+state 6
+
+    (1) effect_file -> ID EQUALS LBRACE . effect_content RBRACE
+    (2) effect_file -> ID EQUALS LBRACE . country_tag effect_content RBRACE
+    (5) effect_content -> . effect_statement
+    (6) effect_content -> . effect_content effect_statement
+    (4) country_tag -> . COUNTRY EQUALS STRING
+    (7) effect_statement -> . ID EQUALS LBRACE variant_content RBRACE
+    (8) effect_statement -> . OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE
+    (9) effect_statement -> . ID EQUALS value
+    (10) effect_statement -> . OVERRIDE DOT ID LPAREN STRING RPAREN
+
+    COUNTRY         shift and go to state 12
+    ID              shift and go to state 8
+    OVERRIDE        shift and go to state 13
+
+    effect_content                 shift and go to state 9
+    country_tag                    shift and go to state 10
+    effect_statement               shift and go to state 11
+
 state 7
 
-    (4) ship_name_block -> IDENTIFIER EQUALS LBRACE . block_content RBRACE
-    (5) block_content -> . block_item
-    (6) block_content -> . block_content block_item
-    (7) block_content -> . empty
-    (8) block_item -> . IDENTIFIER EQUALS value
-    (9) block_item -> . IDENTIFIER EQUALS LBRACE value_list RBRACE
-    (16) empty -> .
+    (3) effect_file -> effect_file ID EQUALS LBRACE . country_tag effect_content RBRACE
+    (4) country_tag -> . COUNTRY EQUALS STRING
 
-  ! shift/reduce conflict for IDENTIFIER resolved as shift
-    IDENTIFIER      shift and go to state 8
-    RBRACE          reduce using rule 16 (empty -> .)
+    COUNTRY         shift and go to state 12
 
-  ! IDENTIFIER      [ reduce using rule 16 (empty -> .) ]
-
-    block_content                  shift and go to state 9
-    block_item                     shift and go to state 10
-    empty                          shift and go to state 11
+    country_tag                    shift and go to state 14
 
 state 8
 
-    (8) block_item -> IDENTIFIER . EQUALS value
-    (9) block_item -> IDENTIFIER . EQUALS LBRACE value_list RBRACE
+    (7) effect_statement -> ID . EQUALS LBRACE variant_content RBRACE
+    (9) effect_statement -> ID . EQUALS value
 
-    EQUALS          shift and go to state 12
+    EQUALS          shift and go to state 15
 
 
 state 9
 
-    (4) ship_name_block -> IDENTIFIER EQUALS LBRACE block_content . RBRACE
-    (6) block_content -> block_content . block_item
-    (8) block_item -> . IDENTIFIER EQUALS value
-    (9) block_item -> . IDENTIFIER EQUALS LBRACE value_list RBRACE
+    (1) effect_file -> ID EQUALS LBRACE effect_content . RBRACE
+    (6) effect_content -> effect_content . effect_statement
+    (7) effect_statement -> . ID EQUALS LBRACE variant_content RBRACE
+    (8) effect_statement -> . OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE
+    (9) effect_statement -> . ID EQUALS value
+    (10) effect_statement -> . OVERRIDE DOT ID LPAREN STRING RPAREN
 
-    RBRACE          shift and go to state 13
-    IDENTIFIER      shift and go to state 8
+    RBRACE          shift and go to state 16
+    ID              shift and go to state 8
+    OVERRIDE        shift and go to state 13
 
-    block_item                     shift and go to state 14
+    effect_statement               shift and go to state 17
 
 state 10
 
-    (5) block_content -> block_item .
+    (2) effect_file -> ID EQUALS LBRACE country_tag . effect_content RBRACE
+    (5) effect_content -> . effect_statement
+    (6) effect_content -> . effect_content effect_statement
+    (7) effect_statement -> . ID EQUALS LBRACE variant_content RBRACE
+    (8) effect_statement -> . OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE
+    (9) effect_statement -> . ID EQUALS value
+    (10) effect_statement -> . OVERRIDE DOT ID LPAREN STRING RPAREN
 
-    RBRACE          reduce using rule 5 (block_content -> block_item .)
-    IDENTIFIER      reduce using rule 5 (block_content -> block_item .)
+    ID              shift and go to state 8
+    OVERRIDE        shift and go to state 13
 
+    effect_content                 shift and go to state 18
+    effect_statement               shift and go to state 11
 
 state 11
 
-    (7) block_content -> empty .
+    (5) effect_content -> effect_statement .
 
-    RBRACE          reduce using rule 7 (block_content -> empty .)
-    IDENTIFIER      reduce using rule 7 (block_content -> empty .)
+    RBRACE          reduce using rule 5 (effect_content -> effect_statement .)
+    ID              reduce using rule 5 (effect_content -> effect_statement .)
+    OVERRIDE        reduce using rule 5 (effect_content -> effect_statement .)
 
 
 state 12
 
-    (8) block_item -> IDENTIFIER EQUALS . value
-    (9) block_item -> IDENTIFIER EQUALS . LBRACE value_list RBRACE
-    (10) value -> . STRING
-    (11) value -> . NUMBER
-    (12) value -> . IDENTIFIER
+    (4) country_tag -> COUNTRY . EQUALS STRING
 
-    LBRACE          shift and go to state 17
-    STRING          shift and go to state 18
-    NUMBER          shift and go to state 19
-    IDENTIFIER      shift and go to state 15
+    EQUALS          shift and go to state 19
 
-    value                          shift and go to state 16
 
 state 13
 
-    (4) ship_name_block -> IDENTIFIER EQUALS LBRACE block_content RBRACE .
+    (8) effect_statement -> OVERRIDE . DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE
+    (10) effect_statement -> OVERRIDE . DOT ID LPAREN STRING RPAREN
 
-    IDENTIFIER      reduce using rule 4 (ship_name_block -> IDENTIFIER EQUALS LBRACE block_content RBRACE .)
-    $end            reduce using rule 4 (ship_name_block -> IDENTIFIER EQUALS LBRACE block_content RBRACE .)
+    DOT             shift and go to state 20
 
 
 state 14
 
-    (6) block_content -> block_content block_item .
+    (3) effect_file -> effect_file ID EQUALS LBRACE country_tag . effect_content RBRACE
+    (5) effect_content -> . effect_statement
+    (6) effect_content -> . effect_content effect_statement
+    (7) effect_statement -> . ID EQUALS LBRACE variant_content RBRACE
+    (8) effect_statement -> . OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE
+    (9) effect_statement -> . ID EQUALS value
+    (10) effect_statement -> . OVERRIDE DOT ID LPAREN STRING RPAREN
 
-    RBRACE          reduce using rule 6 (block_content -> block_content block_item .)
-    IDENTIFIER      reduce using rule 6 (block_content -> block_content block_item .)
+    ID              shift and go to state 8
+    OVERRIDE        shift and go to state 13
 
+    effect_content                 shift and go to state 21
+    effect_statement               shift and go to state 11
 
 state 15
 
-    (12) value -> IDENTIFIER .
+    (7) effect_statement -> ID EQUALS . LBRACE variant_content RBRACE
+    (9) effect_statement -> ID EQUALS . value
+    (18) value -> . ID
+    (19) value -> . NUMBER
+    (20) value -> . STRING
+    (21) value -> . ID COLON ID
 
-    RBRACE          reduce using rule 12 (value -> IDENTIFIER .)
-    IDENTIFIER      reduce using rule 12 (value -> IDENTIFIER .)
-    STRING          reduce using rule 12 (value -> IDENTIFIER .)
-    NUMBER          reduce using rule 12 (value -> IDENTIFIER .)
+    LBRACE          shift and go to state 23
+    ID              shift and go to state 22
+    NUMBER          shift and go to state 25
+    STRING          shift and go to state 26
 
+    value                          shift and go to state 24
 
 state 16
 
-    (8) block_item -> IDENTIFIER EQUALS value .
+    (1) effect_file -> ID EQUALS LBRACE effect_content RBRACE .
 
-    RBRACE          reduce using rule 8 (block_item -> IDENTIFIER EQUALS value .)
-    IDENTIFIER      reduce using rule 8 (block_item -> IDENTIFIER EQUALS value .)
+    ID              reduce using rule 1 (effect_file -> ID EQUALS LBRACE effect_content RBRACE .)
+    $end            reduce using rule 1 (effect_file -> ID EQUALS LBRACE effect_content RBRACE .)
 
 
 state 17
 
-    (9) block_item -> IDENTIFIER EQUALS LBRACE . value_list RBRACE
-    (13) value_list -> . value
-    (14) value_list -> . value_list value
-    (15) value_list -> . empty
-    (10) value -> . STRING
-    (11) value -> . NUMBER
-    (12) value -> . IDENTIFIER
-    (16) empty -> .
+    (6) effect_content -> effect_content effect_statement .
 
-  ! shift/reduce conflict for STRING resolved as shift
-  ! shift/reduce conflict for NUMBER resolved as shift
-  ! shift/reduce conflict for IDENTIFIER resolved as shift
-    STRING          shift and go to state 18
-    NUMBER          shift and go to state 19
-    IDENTIFIER      shift and go to state 15
-    RBRACE          reduce using rule 16 (empty -> .)
+    RBRACE          reduce using rule 6 (effect_content -> effect_content effect_statement .)
+    ID              reduce using rule 6 (effect_content -> effect_content effect_statement .)
+    OVERRIDE        reduce using rule 6 (effect_content -> effect_content effect_statement .)
 
-  ! STRING          [ reduce using rule 16 (empty -> .) ]
-  ! NUMBER          [ reduce using rule 16 (empty -> .) ]
-  ! IDENTIFIER      [ reduce using rule 16 (empty -> .) ]
-
-    value_list                     shift and go to state 20
-    value                          shift and go to state 21
-    empty                          shift and go to state 22
 
 state 18
 
-    (10) value -> STRING .
+    (2) effect_file -> ID EQUALS LBRACE country_tag effect_content . RBRACE
+    (6) effect_content -> effect_content . effect_statement
+    (7) effect_statement -> . ID EQUALS LBRACE variant_content RBRACE
+    (8) effect_statement -> . OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE
+    (9) effect_statement -> . ID EQUALS value
+    (10) effect_statement -> . OVERRIDE DOT ID LPAREN STRING RPAREN
 
-    RBRACE          reduce using rule 10 (value -> STRING .)
-    IDENTIFIER      reduce using rule 10 (value -> STRING .)
-    STRING          reduce using rule 10 (value -> STRING .)
-    NUMBER          reduce using rule 10 (value -> STRING .)
+    RBRACE          shift and go to state 27
+    ID              shift and go to state 8
+    OVERRIDE        shift and go to state 13
 
+    effect_statement               shift and go to state 17
 
 state 19
 
-    (11) value -> NUMBER .
+    (4) country_tag -> COUNTRY EQUALS . STRING
 
-    RBRACE          reduce using rule 11 (value -> NUMBER .)
-    IDENTIFIER      reduce using rule 11 (value -> NUMBER .)
-    STRING          reduce using rule 11 (value -> NUMBER .)
-    NUMBER          reduce using rule 11 (value -> NUMBER .)
+    STRING          shift and go to state 28
 
 
 state 20
 
-    (9) block_item -> IDENTIFIER EQUALS LBRACE value_list . RBRACE
-    (14) value_list -> value_list . value
-    (10) value -> . STRING
-    (11) value -> . NUMBER
-    (12) value -> . IDENTIFIER
+    (8) effect_statement -> OVERRIDE DOT . ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE
+    (10) effect_statement -> OVERRIDE DOT . ID LPAREN STRING RPAREN
 
-    RBRACE          shift and go to state 23
-    STRING          shift and go to state 18
-    NUMBER          shift and go to state 19
-    IDENTIFIER      shift and go to state 15
+    ID              shift and go to state 29
 
-    value                          shift and go to state 24
 
 state 21
 
-    (13) value_list -> value .
+    (3) effect_file -> effect_file ID EQUALS LBRACE country_tag effect_content . RBRACE
+    (6) effect_content -> effect_content . effect_statement
+    (7) effect_statement -> . ID EQUALS LBRACE variant_content RBRACE
+    (8) effect_statement -> . OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE
+    (9) effect_statement -> . ID EQUALS value
+    (10) effect_statement -> . OVERRIDE DOT ID LPAREN STRING RPAREN
 
-    RBRACE          reduce using rule 13 (value_list -> value .)
-    STRING          reduce using rule 13 (value_list -> value .)
-    NUMBER          reduce using rule 13 (value_list -> value .)
-    IDENTIFIER      reduce using rule 13 (value_list -> value .)
+    RBRACE          shift and go to state 30
+    ID              shift and go to state 8
+    OVERRIDE        shift and go to state 13
 
+    effect_statement               shift and go to state 17
 
 state 22
 
-    (15) value_list -> empty .
+    (18) value -> ID .
+    (21) value -> ID . COLON ID
 
-    RBRACE          reduce using rule 15 (value_list -> empty .)
-    STRING          reduce using rule 15 (value_list -> empty .)
-    NUMBER          reduce using rule 15 (value_list -> empty .)
-    IDENTIFIER      reduce using rule 15 (value_list -> empty .)
+    RBRACE          reduce using rule 18 (value -> ID .)
+    ID              reduce using rule 18 (value -> ID .)
+    OVERRIDE        reduce using rule 18 (value -> ID .)
+    COLON           shift and go to state 31
 
 
 state 23
 
-    (9) block_item -> IDENTIFIER EQUALS LBRACE value_list RBRACE .
+    (7) effect_statement -> ID EQUALS LBRACE . variant_content RBRACE
+    (11) variant_content -> . variant_item
+    (12) variant_content -> . variant_content variant_item
+    (13) variant_content -> . OVERRIDE DOT ID LPAREN STRING RPAREN
+    (14) variant_content -> . variant_content OVERRIDE DOT ID LPAREN STRING RPAREN
+    (15) variant_item -> . ID EQUALS value
+    (16) variant_item -> . ID EQUALS LBRACE block_content RBRACE
+    (17) variant_item -> . ID EQUALS yes_no
 
-    RBRACE          reduce using rule 9 (block_item -> IDENTIFIER EQUALS LBRACE value_list RBRACE .)
-    IDENTIFIER      reduce using rule 9 (block_item -> IDENTIFIER EQUALS LBRACE value_list RBRACE .)
+    OVERRIDE        shift and go to state 35
+    ID              shift and go to state 32
 
+    variant_content                shift and go to state 33
+    variant_item                   shift and go to state 34
 
 state 24
 
-    (14) value_list -> value_list value .
+    (9) effect_statement -> ID EQUALS value .
 
-    RBRACE          reduce using rule 14 (value_list -> value_list value .)
-    STRING          reduce using rule 14 (value_list -> value_list value .)
-    NUMBER          reduce using rule 14 (value_list -> value_list value .)
-    IDENTIFIER      reduce using rule 14 (value_list -> value_list value .)
+    RBRACE          reduce using rule 9 (effect_statement -> ID EQUALS value .)
+    ID              reduce using rule 9 (effect_statement -> ID EQUALS value .)
+    OVERRIDE        reduce using rule 9 (effect_statement -> ID EQUALS value .)
 
-WARNING: 
-WARNING: Conflicts:
-WARNING: 
-WARNING: shift/reduce conflict for IDENTIFIER in state 0 resolved as shift
-WARNING: shift/reduce conflict for IDENTIFIER in state 7 resolved as shift
-WARNING: shift/reduce conflict for STRING in state 17 resolved as shift
-WARNING: shift/reduce conflict for NUMBER in state 17 resolved as shift
-WARNING: shift/reduce conflict for IDENTIFIER in state 17 resolved as shift
+
+state 25
+
+    (19) value -> NUMBER .
+
+    RBRACE          reduce using rule 19 (value -> NUMBER .)
+    ID              reduce using rule 19 (value -> NUMBER .)
+    OVERRIDE        reduce using rule 19 (value -> NUMBER .)
+
+
+state 26
+
+    (20) value -> STRING .
+
+    RBRACE          reduce using rule 20 (value -> STRING .)
+    ID              reduce using rule 20 (value -> STRING .)
+    OVERRIDE        reduce using rule 20 (value -> STRING .)
+
+
+state 27
+
+    (2) effect_file -> ID EQUALS LBRACE country_tag effect_content RBRACE .
+
+    ID              reduce using rule 2 (effect_file -> ID EQUALS LBRACE country_tag effect_content RBRACE .)
+    $end            reduce using rule 2 (effect_file -> ID EQUALS LBRACE country_tag effect_content RBRACE .)
+
+
+state 28
+
+    (4) country_tag -> COUNTRY EQUALS STRING .
+
+    ID              reduce using rule 4 (country_tag -> COUNTRY EQUALS STRING .)
+    OVERRIDE        reduce using rule 4 (country_tag -> COUNTRY EQUALS STRING .)
+
+
+state 29
+
+    (8) effect_statement -> OVERRIDE DOT ID . LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE
+    (10) effect_statement -> OVERRIDE DOT ID . LPAREN STRING RPAREN
+
+    LPAREN          shift and go to state 36
+
+
+state 30
+
+    (3) effect_file -> effect_file ID EQUALS LBRACE country_tag effect_content RBRACE .
+
+    ID              reduce using rule 3 (effect_file -> effect_file ID EQUALS LBRACE country_tag effect_content RBRACE .)
+    $end            reduce using rule 3 (effect_file -> effect_file ID EQUALS LBRACE country_tag effect_content RBRACE .)
+
+
+state 31
+
+    (21) value -> ID COLON . ID
+
+    ID              shift and go to state 37
+
+
+state 32
+
+    (15) variant_item -> ID . EQUALS value
+    (16) variant_item -> ID . EQUALS LBRACE block_content RBRACE
+    (17) variant_item -> ID . EQUALS yes_no
+
+    EQUALS          shift and go to state 38
+
+
+state 33
+
+    (7) effect_statement -> ID EQUALS LBRACE variant_content . RBRACE
+    (12) variant_content -> variant_content . variant_item
+    (14) variant_content -> variant_content . OVERRIDE DOT ID LPAREN STRING RPAREN
+    (15) variant_item -> . ID EQUALS value
+    (16) variant_item -> . ID EQUALS LBRACE block_content RBRACE
+    (17) variant_item -> . ID EQUALS yes_no
+
+    RBRACE          shift and go to state 39
+    OVERRIDE        shift and go to state 41
+    ID              shift and go to state 32
+
+    variant_item                   shift and go to state 40
+
+state 34
+
+    (11) variant_content -> variant_item .
+
+    RBRACE          reduce using rule 11 (variant_content -> variant_item .)
+    OVERRIDE        reduce using rule 11 (variant_content -> variant_item .)
+    ID              reduce using rule 11 (variant_content -> variant_item .)
+
+
+state 35
+
+    (13) variant_content -> OVERRIDE . DOT ID LPAREN STRING RPAREN
+
+    DOT             shift and go to state 42
+
+
+state 36
+
+    (8) effect_statement -> OVERRIDE DOT ID LPAREN . STRING RPAREN EQUALS LBRACE variant_content RBRACE
+    (10) effect_statement -> OVERRIDE DOT ID LPAREN . STRING RPAREN
+
+    STRING          shift and go to state 43
+
+
+state 37
+
+    (21) value -> ID COLON ID .
+
+    RBRACE          reduce using rule 21 (value -> ID COLON ID .)
+    ID              reduce using rule 21 (value -> ID COLON ID .)
+    OVERRIDE        reduce using rule 21 (value -> ID COLON ID .)
+
+
+state 38
+
+    (15) variant_item -> ID EQUALS . value
+    (16) variant_item -> ID EQUALS . LBRACE block_content RBRACE
+    (17) variant_item -> ID EQUALS . yes_no
+    (18) value -> . ID
+    (19) value -> . NUMBER
+    (20) value -> . STRING
+    (21) value -> . ID COLON ID
+    (26) yes_no -> . YES
+    (27) yes_no -> . NO
+
+    LBRACE          shift and go to state 45
+    ID              shift and go to state 22
+    NUMBER          shift and go to state 25
+    STRING          shift and go to state 26
+    YES             shift and go to state 47
+    NO              shift and go to state 48
+
+    value                          shift and go to state 44
+    yes_no                         shift and go to state 46
+
+state 39
+
+    (7) effect_statement -> ID EQUALS LBRACE variant_content RBRACE .
+
+    RBRACE          reduce using rule 7 (effect_statement -> ID EQUALS LBRACE variant_content RBRACE .)
+    ID              reduce using rule 7 (effect_statement -> ID EQUALS LBRACE variant_content RBRACE .)
+    OVERRIDE        reduce using rule 7 (effect_statement -> ID EQUALS LBRACE variant_content RBRACE .)
+
+
+state 40
+
+    (12) variant_content -> variant_content variant_item .
+
+    RBRACE          reduce using rule 12 (variant_content -> variant_content variant_item .)
+    OVERRIDE        reduce using rule 12 (variant_content -> variant_content variant_item .)
+    ID              reduce using rule 12 (variant_content -> variant_content variant_item .)
+
+
+state 41
+
+    (14) variant_content -> variant_content OVERRIDE . DOT ID LPAREN STRING RPAREN
+
+    DOT             shift and go to state 49
+
+
+state 42
+
+    (13) variant_content -> OVERRIDE DOT . ID LPAREN STRING RPAREN
+
+    ID              shift and go to state 50
+
+
+state 43
+
+    (8) effect_statement -> OVERRIDE DOT ID LPAREN STRING . RPAREN EQUALS LBRACE variant_content RBRACE
+    (10) effect_statement -> OVERRIDE DOT ID LPAREN STRING . RPAREN
+
+    RPAREN          shift and go to state 51
+
+
+state 44
+
+    (15) variant_item -> ID EQUALS value .
+
+    RBRACE          reduce using rule 15 (variant_item -> ID EQUALS value .)
+    OVERRIDE        reduce using rule 15 (variant_item -> ID EQUALS value .)
+    ID              reduce using rule 15 (variant_item -> ID EQUALS value .)
+
+
+state 45
+
+    (16) variant_item -> ID EQUALS LBRACE . block_content RBRACE
+    (22) block_content -> . block_item
+    (23) block_content -> . block_content block_item
+    (24) block_item -> . ID EQUALS value
+    (25) block_item -> . ID EQUALS LBRACE block_content RBRACE
+
+    ID              shift and go to state 52
+
+    block_content                  shift and go to state 53
+    block_item                     shift and go to state 54
+
+state 46
+
+    (17) variant_item -> ID EQUALS yes_no .
+
+    RBRACE          reduce using rule 17 (variant_item -> ID EQUALS yes_no .)
+    OVERRIDE        reduce using rule 17 (variant_item -> ID EQUALS yes_no .)
+    ID              reduce using rule 17 (variant_item -> ID EQUALS yes_no .)
+
+
+state 47
+
+    (26) yes_no -> YES .
+
+    RBRACE          reduce using rule 26 (yes_no -> YES .)
+    OVERRIDE        reduce using rule 26 (yes_no -> YES .)
+    ID              reduce using rule 26 (yes_no -> YES .)
+
+
+state 48
+
+    (27) yes_no -> NO .
+
+    RBRACE          reduce using rule 27 (yes_no -> NO .)
+    OVERRIDE        reduce using rule 27 (yes_no -> NO .)
+    ID              reduce using rule 27 (yes_no -> NO .)
+
+
+state 49
+
+    (14) variant_content -> variant_content OVERRIDE DOT . ID LPAREN STRING RPAREN
+
+    ID              shift and go to state 55
+
+
+state 50
+
+    (13) variant_content -> OVERRIDE DOT ID . LPAREN STRING RPAREN
+
+    LPAREN          shift and go to state 56
+
+
+state 51
+
+    (8) effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN . EQUALS LBRACE variant_content RBRACE
+    (10) effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN .
+
+    EQUALS          shift and go to state 57
+    RBRACE          reduce using rule 10 (effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN .)
+    ID              reduce using rule 10 (effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN .)
+    OVERRIDE        reduce using rule 10 (effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN .)
+
+
+state 52
+
+    (24) block_item -> ID . EQUALS value
+    (25) block_item -> ID . EQUALS LBRACE block_content RBRACE
+
+    EQUALS          shift and go to state 58
+
+
+state 53
+
+    (16) variant_item -> ID EQUALS LBRACE block_content . RBRACE
+    (23) block_content -> block_content . block_item
+    (24) block_item -> . ID EQUALS value
+    (25) block_item -> . ID EQUALS LBRACE block_content RBRACE
+
+    RBRACE          shift and go to state 59
+    ID              shift and go to state 52
+
+    block_item                     shift and go to state 60
+
+state 54
+
+    (22) block_content -> block_item .
+
+    RBRACE          reduce using rule 22 (block_content -> block_item .)
+    ID              reduce using rule 22 (block_content -> block_item .)
+
+
+state 55
+
+    (14) variant_content -> variant_content OVERRIDE DOT ID . LPAREN STRING RPAREN
+
+    LPAREN          shift and go to state 61
+
+
+state 56
+
+    (13) variant_content -> OVERRIDE DOT ID LPAREN . STRING RPAREN
+
+    STRING          shift and go to state 62
+
+
+state 57
+
+    (8) effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS . LBRACE variant_content RBRACE
+
+    LBRACE          shift and go to state 63
+
+
+state 58
+
+    (24) block_item -> ID EQUALS . value
+    (25) block_item -> ID EQUALS . LBRACE block_content RBRACE
+    (18) value -> . ID
+    (19) value -> . NUMBER
+    (20) value -> . STRING
+    (21) value -> . ID COLON ID
+
+    LBRACE          shift and go to state 65
+    ID              shift and go to state 22
+    NUMBER          shift and go to state 25
+    STRING          shift and go to state 26
+
+    value                          shift and go to state 64
+
+state 59
+
+    (16) variant_item -> ID EQUALS LBRACE block_content RBRACE .
+
+    RBRACE          reduce using rule 16 (variant_item -> ID EQUALS LBRACE block_content RBRACE .)
+    OVERRIDE        reduce using rule 16 (variant_item -> ID EQUALS LBRACE block_content RBRACE .)
+    ID              reduce using rule 16 (variant_item -> ID EQUALS LBRACE block_content RBRACE .)
+
+
+state 60
+
+    (23) block_content -> block_content block_item .
+
+    RBRACE          reduce using rule 23 (block_content -> block_content block_item .)
+    ID              reduce using rule 23 (block_content -> block_content block_item .)
+
+
+state 61
+
+    (14) variant_content -> variant_content OVERRIDE DOT ID LPAREN . STRING RPAREN
+
+    STRING          shift and go to state 66
+
+
+state 62
+
+    (13) variant_content -> OVERRIDE DOT ID LPAREN STRING . RPAREN
+
+    RPAREN          shift and go to state 67
+
+
+state 63
+
+    (8) effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE . variant_content RBRACE
+    (11) variant_content -> . variant_item
+    (12) variant_content -> . variant_content variant_item
+    (13) variant_content -> . OVERRIDE DOT ID LPAREN STRING RPAREN
+    (14) variant_content -> . variant_content OVERRIDE DOT ID LPAREN STRING RPAREN
+    (15) variant_item -> . ID EQUALS value
+    (16) variant_item -> . ID EQUALS LBRACE block_content RBRACE
+    (17) variant_item -> . ID EQUALS yes_no
+
+    OVERRIDE        shift and go to state 35
+    ID              shift and go to state 32
+
+    variant_content                shift and go to state 68
+    variant_item                   shift and go to state 34
+
+state 64
+
+    (24) block_item -> ID EQUALS value .
+
+    RBRACE          reduce using rule 24 (block_item -> ID EQUALS value .)
+    ID              reduce using rule 24 (block_item -> ID EQUALS value .)
+
+
+state 65
+
+    (25) block_item -> ID EQUALS LBRACE . block_content RBRACE
+    (22) block_content -> . block_item
+    (23) block_content -> . block_content block_item
+    (24) block_item -> . ID EQUALS value
+    (25) block_item -> . ID EQUALS LBRACE block_content RBRACE
+
+    ID              shift and go to state 52
+
+    block_content                  shift and go to state 69
+    block_item                     shift and go to state 54
+
+state 66
+
+    (14) variant_content -> variant_content OVERRIDE DOT ID LPAREN STRING . RPAREN
+
+    RPAREN          shift and go to state 70
+
+
+state 67
+
+    (13) variant_content -> OVERRIDE DOT ID LPAREN STRING RPAREN .
+
+    RBRACE          reduce using rule 13 (variant_content -> OVERRIDE DOT ID LPAREN STRING RPAREN .)
+    OVERRIDE        reduce using rule 13 (variant_content -> OVERRIDE DOT ID LPAREN STRING RPAREN .)
+    ID              reduce using rule 13 (variant_content -> OVERRIDE DOT ID LPAREN STRING RPAREN .)
+
+
+state 68
+
+    (8) effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content . RBRACE
+    (12) variant_content -> variant_content . variant_item
+    (14) variant_content -> variant_content . OVERRIDE DOT ID LPAREN STRING RPAREN
+    (15) variant_item -> . ID EQUALS value
+    (16) variant_item -> . ID EQUALS LBRACE block_content RBRACE
+    (17) variant_item -> . ID EQUALS yes_no
+
+    RBRACE          shift and go to state 71
+    OVERRIDE        shift and go to state 41
+    ID              shift and go to state 32
+
+    variant_item                   shift and go to state 40
+
+state 69
+
+    (25) block_item -> ID EQUALS LBRACE block_content . RBRACE
+    (23) block_content -> block_content . block_item
+    (24) block_item -> . ID EQUALS value
+    (25) block_item -> . ID EQUALS LBRACE block_content RBRACE
+
+    RBRACE          shift and go to state 72
+    ID              shift and go to state 52
+
+    block_item                     shift and go to state 60
+
+state 70
+
+    (14) variant_content -> variant_content OVERRIDE DOT ID LPAREN STRING RPAREN .
+
+    RBRACE          reduce using rule 14 (variant_content -> variant_content OVERRIDE DOT ID LPAREN STRING RPAREN .)
+    OVERRIDE        reduce using rule 14 (variant_content -> variant_content OVERRIDE DOT ID LPAREN STRING RPAREN .)
+    ID              reduce using rule 14 (variant_content -> variant_content OVERRIDE DOT ID LPAREN STRING RPAREN .)
+
+
+state 71
+
+    (8) effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE .
+
+    RBRACE          reduce using rule 8 (effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE .)
+    ID              reduce using rule 8 (effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE .)
+    OVERRIDE        reduce using rule 8 (effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE .)
+
+
+state 72
+
+    (25) block_item -> ID EQUALS LBRACE block_content RBRACE .
+
+    RBRACE          reduce using rule 25 (block_item -> ID EQUALS LBRACE block_content RBRACE .)
+    ID              reduce using rule 25 (block_item -> ID EQUALS LBRACE block_content RBRACE .)
+

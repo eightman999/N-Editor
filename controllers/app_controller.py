@@ -3,6 +3,7 @@ import platform
 import re
 import time
 import json
+import logging
 from pathlib import Path
 
 from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QTableWidget, QHeaderView, QTableWidgetItem, QHBoxLayout, \
@@ -19,6 +20,9 @@ from models.equipment_model import EquipmentModel
 from models.hull_model import HullModel
 from views.nation_details_view import NationDetailsView
 from utils.path_utils import get_data_dir
+
+# ロガーの設定
+logger = logging.getLogger(__name__)
 
 class AppController:
     """アプリケーション全体のコントローラークラス"""
@@ -543,6 +547,7 @@ class AppController:
             list: 国家情報のリスト（画像パス、TAG、国家名）
         """
         nations = []
+        logger.info(f"国家情報の取得を開始: MODパス={mod_path}")
 
         # 国家タグファイルのディレクトリ
         country_tags_dir = os.path.join(mod_path, "common", "country_tags")
@@ -551,7 +556,7 @@ class AppController:
 
         # ディレクトリが存在しない場合は空リストを返す
         if not os.path.exists(country_tags_dir):
-            print(f"国家タグディレクトリが見つかりません: {country_tags_dir}")
+            logger.error(f"国家タグディレクトリが見つかりません: {country_tags_dir}")
             return nations
 
         # 国家タグファイルを探索
@@ -560,13 +565,13 @@ class AppController:
                 continue
 
             file_path = os.path.join(country_tags_dir, filename)
+            logger.info(f"国家タグファイルを処理中: {file_path}")
 
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     content = f.read()
 
                 # 国家タグと参照ファイルのパターンを検索
-                # 例: "TAG = "countries/CountryName.txt" #表示名"
                 pattern = r'([A-Z]{3})\s*=\s*"([^"]+)"\s*#?\s*(.*)'
                 matches = re.findall(pattern, content)
 
@@ -584,10 +589,12 @@ class AppController:
                         "name": display_name,
                         "flag_path": flag_path if flag_exists else None
                     })
+                    logger.info(f"国家情報を追加: TAG={tag}, 名前={display_name}")
 
             except Exception as e:
-                print(f"国家タグファイル '{filename}' の解析エラー: {e}")
+                logger.error(f"国家タグファイル '{filename}' の解析エラー: {e}")
 
+        logger.info(f"国家情報の取得完了: {len(nations)}件の国家を処理")
         return nations
 
     def refresh_nation_list(self):
@@ -1088,14 +1095,17 @@ class AppController:
         try:
             design_list = []
             current_mod = self.get_current_mod()
+            logger.info(f"MOD設計データの取得を開始: 国家タグ={nation_tag}, MOD={current_mod.get('name') if current_mod else 'None'}")
             
             if not current_mod or not current_mod.get("path"):
+                logger.warning("MODが選択されていません")
                 return design_list
 
             # MODの設計データディレクトリ
             design_dir = os.path.join(current_mod["path"], "common", "units", "equipment")
             
             if not os.path.exists(design_dir):
+                logger.warning(f"設計データディレクトリが見つかりません: {design_dir}")
                 return design_list
 
             for filename in os.listdir(design_dir):
@@ -1103,6 +1113,8 @@ class AppController:
                     continue
 
                 file_path = os.path.join(design_dir, filename)
+                logger.info(f"設計ファイルを処理中: {file_path}")
+
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
@@ -1119,17 +1131,19 @@ class AppController:
                         if f'country = {nation_tag}' in design_data:
                             design_list.append({
                                 'id': design_id,
-                                'name': design_id,  # 実際の名前は別途取得が必要
+                                'name': design_id,
                                 'data': design_data
                             })
+                            logger.info(f"設計データを追加: ID={design_id}")
 
                 except Exception as e:
-                    print(f"設計ファイル '{filename}' の読み込みエラー: {e}")
+                    logger.error(f"設計ファイル '{filename}' の読み込みエラー: {e}")
 
+            logger.info(f"MOD設計データの取得完了: {len(design_list)}件の設計を処理")
             return design_list
 
         except Exception as e:
-            print(f"MOD設計データ取得中にエラーが発生しました: {e}")
+            logger.error(f"MOD設計データ取得中にエラーが発生しました: {e}")
             return []
 
     def get_nation_formations(self, nation_tag):
@@ -1173,14 +1187,17 @@ class AppController:
         try:
             formation_list = []
             current_mod = self.get_current_mod()
+            logger.info(f"MOD編成データの取得を開始: 国家タグ={nation_tag}, MOD={current_mod.get('name') if current_mod else 'None'}")
             
             if not current_mod or not current_mod.get("path"):
+                logger.warning("MODが選択されていません")
                 return formation_list
 
             # MODの編成データディレクトリ
             formation_dir = os.path.join(current_mod["path"], "common", "units", "formations")
             
             if not os.path.exists(formation_dir):
+                logger.warning(f"編成データディレクトリが見つかりません: {formation_dir}")
                 return formation_list
 
             for filename in os.listdir(formation_dir):
@@ -1188,6 +1205,8 @@ class AppController:
                     continue
 
                 file_path = os.path.join(formation_dir, filename)
+                logger.info(f"編成ファイルを処理中: {file_path}")
+
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
@@ -1204,17 +1223,19 @@ class AppController:
                         if f'country = {nation_tag}' in formation_data:
                             formation_list.append({
                                 'id': formation_id,
-                                'name': formation_id,  # 実際の名前は別途取得が必要
+                                'name': formation_id,
                                 'data': formation_data
                             })
+                            logger.info(f"編成データを追加: ID={formation_id}")
 
                 except Exception as e:
-                    print(f"編成ファイル '{filename}' の読み込みエラー: {e}")
+                    logger.error(f"編成ファイル '{filename}' の読み込みエラー: {e}")
 
+            logger.info(f"MOD編成データの取得完了: {len(formation_list)}件の編成を処理")
             return formation_list
 
         except Exception as e:
-            print(f"MOD編成データ取得中にエラーが発生しました: {e}")
+            logger.error(f"MOD編成データ取得中にエラーが発生しました: {e}")
             return []
 
     def save_fleet_data(self, fleet_data):

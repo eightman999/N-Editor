@@ -497,7 +497,7 @@ class NavalDesignSystem(QMainWindow):
         """ビューをスタックウィジェットに追加"""
         self.views[view_name] = view_widget
         self.stacked_widget.addWidget(view_widget)
-        self.logger.info(f"ビュー '{view_name}' をスタックウィジェットに追加しました")
+        # self.logger.info(f"ビュー '{view_name}' をスタックウィジェットに追加しました")
 
     def on_menu_changed(self, index):
         """メニュー選択時の処理"""
