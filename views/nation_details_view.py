@@ -491,7 +491,7 @@ class NationDetailsView(QWidget):
             QMessageBox.critical(self, "エラー", f"編成データの読み込み中にエラーが発生しました：\n{str(e)}")
 
     def get_display_name_from_design(self, definition, designs_data, nation_tag, ship_data):
-        """設計データから表示名を取得（name_overridden + version_name形式）"""
+        """設計データから表示名を取得"""
         try:
             # 1. 設計データから検索
             design_display_name = None
@@ -519,18 +519,25 @@ class NationDetailsView(QWidget):
                         ship_version_name = version_name.strip('"')
                         break
 
-            # 3. 表示名を組み合わせ
-            if design_display_name and ship_version_name:
-                return f"{design_display_name}({ship_version_name})"
-            elif design_display_name:
-                return design_display_name
-            elif ship_version_name:
-                return ship_version_name
+            # 3. 艦艇名のオーバーライドを確認
+            ship_name = ship_data.get('name', '')
+            if isinstance(ship_name, dict) and 'override' in ship_name:
+                ship_name = ship_name['override']
             else:
-                return definition
+                ship_name = ship_name.strip('"')
+
+            # 4. 表示名を組み合わせ
+            if design_display_name and ship_version_name:
+                return f"{ship_name} - {design_display_name}({ship_version_name})"
+            elif design_display_name:
+                return f"{ship_name} - {design_display_name}"
+            elif ship_version_name:
+                return f"{ship_name} - {ship_version_name}"
+            else:
+                return f"{ship_name} - {definition}"
 
         except Exception as e:
-            print(f"表示名取得エラー: {e}")
+            self.logger.error(f"表示名取得エラー: {e}")
             return definition
 
     def extract_design_override_name(self, design_data):
