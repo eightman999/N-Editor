@@ -1,6 +1,8 @@
 import os
 import json
+import yaml
 from typing import Dict, List, Any, Optional, Union
+
 
 class EquipmentModel:
     """装備データモデル"""
@@ -40,12 +42,27 @@ class EquipmentModel:
             # アプリのルートディレクトリを取得
             root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-            # paste.txtファイルのパス
-            template_file = os.path.join(root_dir, 'paste.txt')
+            # まず equipments_templates.yml を読み込む
+            yaml_template_file = os.path.join(root_dir, 'equipments_templates.yml')
+
+            if os.path.exists(yaml_template_file):
+                print(f"装備テンプレートファイルを読み込み中: {yaml_template_file}")
+                try:
+                    with open(yaml_template_file, 'r', encoding='utf-8') as f:
+                        yaml_data = yaml.safe_load(f)
+
+                    # YAMLデータを解析して装備テンプレートを構築
+                    self._parse_yaml_templates(yaml_data, templates)
+                    print(f"YAMLテンプレートから {len(templates)} 種類の装備テンプレートを読み込みました")
+
+                except Exception as e:
+                    print(f"YAMLテンプレートファイルの読み込みエラー: {e}")
+
+            # 次に paste.txt もチェック（互換性のため）
+            paste_template_file = os.path.join(root_dir, 'paste.txt')
 
             # ユーザーのドキュメントディレクトリ内のpaste.txtも検索
-            if not os.path.exists(template_file):
-                # ドキュメントディレクトリを取得
+            if not os.path.exists(paste_template_file):
                 import platform
                 from pathlib import Path
 
@@ -56,34 +73,85 @@ class EquipmentModel:
                 else:
                     docs_dir = os.path.join(Path.home(), ".local", "share", "navaldesignsystem")
 
-                template_file = os.path.join(docs_dir, 'paste.txt')
+                paste_template_file = os.path.join(docs_dir, 'paste.txt')
 
-            if os.path.exists(template_file):
-                with open(template_file, 'r', encoding='utf-8') as f:
-                    content = f.read()
+            if os.path.exists(paste_template_file):
+                print(f"追加テンプレートファイルを読み込み中: {paste_template_file}")
+                try:
+                    with open(paste_template_file, 'r', encoding='utf-8') as f:
+                        content = f.read()
 
-                # YAMLライクな形式をパースする簡易実装
-                current_type = None
+                    # YAMLライクな形式をパースする簡易実装（既存の互換性のため）
+                    self._parse_paste_templates(content, templates)
+                    print(f"paste.txtから追加テンプレートを読み込みました")
 
-                for line in content.split('\n'):
-                    if line.strip() and not line.startswith('#'):
-                        if ':' in line and not line.startswith(' '):
-                            # トップレベルの定義（装備タイプ）
-                            current_type = line.split(':')[0].strip()
-                            templates[current_type] = {'common_elements': {}, 'specific_elements': {}}
-                        elif 'id_prefix:' in line and current_type:
-                            prefix = line.split('id_prefix:')[1].strip()
-                            templates[current_type]['id_prefix'] = prefix
-                        elif 'common_elements:' in line or 'specific_elements:' in line:
-                            # セクション定義は無視（パース簡易化のため）
-                            pass
-            else:
-                print(f"警告: 装備テンプレートファイル '{template_file}' が見つかりません。")
+                except Exception as e:
+                    print(f"paste.txtテンプレートファイルの読み込みエラー: {e}")
+
+            if not templates:
+                print("警告: 装備テンプレートファイルが見つからないか、読み込みに失敗しました")
 
         except Exception as e:
             print(f"装備テンプレート読み込みエラー: {e}")
 
         return templates
+
+    def _parse_yaml_templates(self, yaml_data: dict, templates: dict):
+        """YAMLデータから装備テンプレートを解析"""
+        try:
+            # 各カテゴリーを処理
+            for category_name, category_data in yaml_data.items():
+                if isinstance(category_data, dict):
+                    # カテゴリー内の各装備タイプを処理
+                    for equipment_name, equipment_data in category_data.items():
+                        if isinstance(equipment_data, dict) and 'id_prefix' in equipment_data:
+                            # 表示名を取得（存在する場合）
+                            display_name = equipment_data.get('display_name', equipment_name)
+
+                            # テンプレートデータを構築
+                            template_entry = {
+                                'category': category_name,
+                                'display_name': display_name,
+                                'id_prefix': equipment_data['id_prefix'],
+                                'common_elements': equipment_data.get('common_elements', {}),
+                                'specific_elements': equipment_data.get('specific_elements', {})
+                            }
+
+                            # 装備名をキーとして保存
+                            templates[equipment_name] = template_entry
+
+                            # 表示名でもアクセス可能にする（異なる場合）
+                            if display_name != equipment_name:
+                                templates[display_name] = template_entry
+
+                            print(
+                                f"装備テンプレートを追加: {equipment_name} ({display_name}) - プレフィックス: {equipment_data['id_prefix']}")
+
+        except Exception as e:
+            print(f"YAMLテンプレート解析エラー: {e}")
+
+    def _parse_paste_templates(self, content: str, templates: dict):
+        """paste.txtの内容を解析（既存の互換性のため）"""
+        try:
+            current_type = None
+
+            for line in content.split('\n'):
+                if line.strip() and not line.startswith('#'):
+                    if ':' in line and not line.startswith(' '):
+                        # トップレベルの定義（装備タイプ）
+                        current_type = line.split(':')[0].strip()
+                        if current_type not in templates:
+                            templates[current_type] = {'common_elements': {}, 'specific_elements': {}}
+                    elif 'id_prefix:' in line and current_type:
+                        prefix = line.split('id_prefix:')[1].strip()
+                        templates[current_type]['id_prefix'] = prefix
+                        print(f"paste.txtから装備テンプレートを追加: {current_type} - プレフィックス: {prefix}")
+                    elif 'common_elements:' in line or 'specific_elements:' in line:
+                        # セクション定義は無視（パース簡易化のため）
+                        pass
+
+        except Exception as e:
+            print(f"paste.txtテンプレート解析エラー: {e}")
 
     def get_equipment_types(self) -> List[str]:
         """
@@ -93,6 +161,35 @@ class EquipmentModel:
             List[str]: 装備タイプのリスト
         """
         return list(self.equipment_templates.keys())
+
+    def get_equipment_categories(self) -> Dict[str, List[str]]:
+        """
+        装備カテゴリー別の装備タイプ一覧を取得
+
+        Returns:
+            Dict[str, List[str]]: カテゴリー名をキーとした装備タイプのリスト
+        """
+        categories = {}
+        for equipment_type, template in self.equipment_templates.items():
+            category = template.get('category', 'その他')
+            if category not in categories:
+                categories[category] = []
+            categories[category].append(equipment_type)
+        return categories
+
+    def get_equipment_display_name(self, equipment_type: str) -> str:
+        """
+        装備タイプの表示名を取得
+
+        Args:
+            equipment_type: 装備タイプ
+
+        Returns:
+            str: 表示名
+        """
+        if equipment_type in self.equipment_templates:
+            return self.equipment_templates[equipment_type].get('display_name', equipment_type)
+        return equipment_type
 
     def get_prefix_for_type(self, equipment_type: str) -> str:
         """
@@ -107,6 +204,24 @@ class EquipmentModel:
         if equipment_type in self.equipment_templates:
             return self.equipment_templates[equipment_type].get('id_prefix', '')
         return ''
+
+    def get_template_elements(self, equipment_type: str) -> Dict[str, Any]:
+        """
+        装備タイプのテンプレート要素を取得
+
+        Args:
+            equipment_type: 装備タイプ
+
+        Returns:
+            Dict[str, Any]: テンプレート要素（common_elements, specific_elements）
+        """
+        if equipment_type in self.equipment_templates:
+            template = self.equipment_templates[equipment_type]
+            return {
+                'common_elements': template.get('common_elements', {}),
+                'specific_elements': template.get('specific_elements', {})
+            }
+        return {'common_elements': {}, 'specific_elements': {}}
 
     def save_equipment(self, equipment_data: Dict[str, Any]) -> bool:
         """
