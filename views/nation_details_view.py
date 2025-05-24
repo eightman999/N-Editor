@@ -1,11 +1,22 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QListWidget, QListWidgetItem,
                              QSizePolicy, QMessageBox, QTabWidget, QComboBox,
-                             QTreeWidget, QTreeWidgetItem)
-from PyQt5.QtCore import Qt
+                             QTreeWidget, QTreeWidgetItem, QLineEdit, QCompleter)
+from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QIcon, QPixmap
 import os
 from parser.EffectParser import EffectParser
 from parser.NavalOOBParser import NavalOOBParser
+
+# PIL のインポートを安全に行う
+try:
+    from PIL import Image
+
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+    print("警告: PILがインストールされていません。国旗表示機能は無効になります。")
+
 
 class NationDetailsView(QWidget):
     """国家詳細画面のビュー"""
@@ -14,6 +25,8 @@ class NationDetailsView(QWidget):
         super(NationDetailsView, self).__init__(parent)
         self.app_controller = app_controller
         self.current_nation_tag = None
+        self.all_nations = []  # 全国家データを保持
+        self.filtered_nations = []  # フィルタリングされた国家データを保持
         self.init_ui()
 
     def init_ui(self):
@@ -23,27 +36,45 @@ class NationDetailsView(QWidget):
         self.setLayout(main_layout)
 
         # ヘッダー部分
-        header_layout = QHBoxLayout()
+        header_layout = QVBoxLayout()
+
+        # タイトル行
+        title_layout = QHBoxLayout()
         self.title_label = QLabel("国家詳細")
         self.title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        header_layout.addWidget(self.title_label)
-
-        # 国家選択プルダウン
-        self.nation_combo = QComboBox()
-        self.nation_combo.setMinimumWidth(200)
-        self.nation_combo.currentIndexChanged.connect(self.on_nation_selected)
-        header_layout.addWidget(self.nation_combo)
+        title_layout.addWidget(self.title_label)
 
         # 戻るボタン
         self.back_button = QPushButton("戻る")
         self.back_button.clicked.connect(self.go_back)
-        header_layout.addWidget(self.back_button)
+        title_layout.addWidget(self.back_button)
+        title_layout.addStretch()
+
+        header_layout.addLayout(title_layout)
+
+        # 国家選択行
+        nation_select_layout = QHBoxLayout()
+
+        # 国家検索欄
+        nation_select_layout.addWidget(QLabel("国家検索:"))
+        self.nation_search = QLineEdit()
+        self.nation_search.setPlaceholderText("国家名またはタグで検索...")
+        nation_select_layout.addWidget(self.nation_search)
+
+        # 国家選択コンボボックス
+        nation_select_layout.addWidget(QLabel("国家選択:"))
+        self.nation_combo = QComboBox()
+        self.nation_combo.setMinimumWidth(250)
+        nation_select_layout.addWidget(self.nation_combo)
+
+        nation_select_layout.addStretch()
+        header_layout.addLayout(nation_select_layout)
 
         main_layout.addLayout(header_layout)
 
         # タブウィジェット
         self.tab_widget = QTabWidget()
-        
+
         # 装備タブ
         self.equipment_list = QListWidget()
         self.equipment_list.setStyleSheet("""
@@ -59,25 +90,21 @@ class NationDetailsView(QWidget):
                 background-color: #e0e0e0;
             }
         """)
-        self.equipment_list.itemDoubleClicked.connect(self.on_equipment_double_clicked)
         self.tab_widget.addTab(self.equipment_list, "装備")
-        
+
         # 船体タブ
         self.hull_list = QListWidget()
         self.hull_list.setStyleSheet(self.equipment_list.styleSheet())
-        self.hull_list.itemDoubleClicked.connect(self.on_hull_double_clicked)
         self.tab_widget.addTab(self.hull_list, "船体")
-        
+
         # 設計タブ
         self.design_list = QListWidget()
         self.design_list.setStyleSheet(self.equipment_list.styleSheet())
-        self.design_list.itemDoubleClicked.connect(self.on_design_double_clicked)
         self.tab_widget.addTab(self.design_list, "設計")
 
         # mod内の設計タブ
         self.mod_design_list = QListWidget()
         self.mod_design_list.setStyleSheet(self.equipment_list.styleSheet())
-        self.mod_design_list.itemDoubleClicked.connect(self.on_mod_design_double_clicked)
         self.tab_widget.addTab(self.mod_design_list, "mod内の設計")
 
         # 編成タブ
@@ -102,13 +129,86 @@ class NationDetailsView(QWidget):
         self.mod_formation_tree = QTreeWidget()
         self.mod_formation_tree.setHeaderLabels(["編成"])
         self.mod_formation_tree.setStyleSheet(self.formation_tree.styleSheet())
-        self.mod_formation_tree.itemDoubleClicked.connect(self.on_mod_formation_double_clicked)
         self.tab_widget.addTab(self.mod_formation_tree, "mod内の編成")
 
         main_layout.addWidget(self.tab_widget)
 
+        # シグナルとスロットの接続（メソッド定義後に実行）
+        self.setup_connections()
+
         # 初期データの読み込み
         self.load_nation_list()
+
+    def setup_connections(self):
+        """シグナルとスロットの接続を設定"""
+        self.nation_search.textChanged.connect(self.on_search_text_changed)
+        self.nation_combo.currentIndexChanged.connect(self.on_nation_selected)
+        self.equipment_list.itemDoubleClicked.connect(self.on_equipment_double_clicked)
+        self.hull_list.itemDoubleClicked.connect(self.on_hull_double_clicked)
+        self.design_list.itemDoubleClicked.connect(self.on_design_double_clicked)
+        self.mod_design_list.itemDoubleClicked.connect(self.on_mod_design_double_clicked)
+        self.mod_formation_tree.itemDoubleClicked.connect(self.on_mod_formation_double_clicked)
+
+    def on_search_text_changed(self, text):
+        """検索テキストが変更された時の処理"""
+        try:
+            # 検索テキストを小文字に変換
+            search_text = text.lower()
+            
+            # 検索テキストが空の場合は全国家を表示
+            if not search_text:
+                self.filtered_nations = self.all_nations
+            else:
+                # 検索テキストに一致する国家をフィルタリング
+                self.filtered_nations = [
+                    nation for nation in self.all_nations
+                    if search_text in nation['tag'].lower() or
+                       search_text in nation['name'].lower()
+                ]
+            
+            # コンボボックスを更新
+            self.update_nation_combo()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"検索処理中にエラーが発生しました：\n{str(e)}")
+
+    def has_nation_data(self, nation_tag):
+        """指定された国家にデータが存在するかチェック（軽量版）"""
+        if not self.app_controller:
+            return False
+
+        try:
+            # 軽量チェック: ファイル存在のみ確認
+
+            # 設計データディレクトリチェック（最も軽い）
+            designs_dir = self.app_controller.app_settings.design_dir
+            if os.path.exists(designs_dir):
+                for filename in os.listdir(designs_dir):
+                    if filename.endswith('.json'):
+                        # ファイル名から国家タグを推測（ファイルを開かずに）
+                        if nation_tag in filename:
+                            return True
+
+            # mod内の編成データをチェック（ファイル名のみ）
+            current_mod = self.app_controller.get_current_mod()
+            if current_mod and "path" in current_mod:
+                units_path = os.path.join(current_mod["path"], "history", "units")
+                if os.path.exists(units_path):
+                    # ファイル名パターンチェックのみ（ファイルを開かない）
+                    import re
+                    pattern = re.compile(f"{nation_tag}_\\d{{4}}_(?:naval|Naval|Navy|navy)(?:_mtg)?\\.txt$")
+                    try:
+                        for filename in os.listdir(units_path):
+                            if pattern.match(filename):
+                                return True
+                    except:
+                        pass
+
+            return False
+
+        except Exception as e:
+            print(f"国家データチェック中にエラー: {e}")
+            return False
 
     def load_nation_list(self):
         """国家リストを読み込む"""
@@ -128,36 +228,87 @@ class NationDetailsView(QWidget):
                 QMessageBox.warning(self, "警告", "国家情報が見つかりません。")
                 return
 
-            # プルダウンをクリアして再設定
-            self.nation_combo.clear()
-            
-            # 優先順位の高い国家タグ
-            priority_tags = ['ENG', 'JAP', 'JPN', 'GER', 'DEU', 'FRA', 'ITA', 'USA']
-            
-            # 優先順位の高い国家を先に追加
-            added_tags = set()
-            for tag in priority_tags:
-                for nation in nations:
-                    if nation['tag'] == tag and tag not in added_tags:
-                        self.nation_combo.addItem(f"{nation['tag']}: {nation['name']}", nation['tag'])
-                        added_tags.add(tag)
-                        break
-            
-            # 残りの国家を追加
+            # データが存在する国家のみをフィルタリング（軽量版チェック）
+            nations_with_data = []
             for nation in nations:
-                if nation['tag'] not in added_tags:
-                    self.nation_combo.addItem(f"{nation['tag']}: {nation['name']}", nation['tag'])
-                    added_tags.add(nation['tag'])
+                if self.has_nation_data(nation['tag']):
+                    nations_with_data.append(nation)
 
-            # 優先順位の高い国家の最初のものを選択
-            for tag in priority_tags:
-                index = self.nation_combo.findData(tag)
-                if index >= 0:
-                    self.nation_combo.setCurrentIndex(index)
-                    break
+            self.all_nations = nations_with_data
+            self.update_nation_combo()
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"国家リストの読み込み中にエラーが発生しました：\n{str(e)}")
+
+    def update_nation_combo(self):
+        """コンボボックスを更新（軽量版）"""
+        try:
+            # プルダウンをクリアして再設定
+            self.nation_combo.clear()
+
+            # 使用する国家リスト（フィルタリング済みまたは全体）
+            nations_to_show = self.filtered_nations if hasattr(self, 'filtered_nations') else self.all_nations
+
+            # 優先順位の高い国家タグ
+            priority_tags = ['ENG', 'JAP', 'JPN', 'GER', 'DEU', 'FRA', 'ITA', 'USA']
+
+            # 優先順位の高い国家を先に追加
+            added_tags = set()
+            for tag in priority_tags:
+                for nation in nations_to_show:
+                    if nation['tag'] == tag and tag not in added_tags:
+                        self.add_nation_to_combo(nation)
+                        added_tags.add(tag)
+                        break
+
+            # 残りの国家を追加（最初の50件のみ表示して軽量化）
+            count = 0
+            max_nations = 100  # 表示する最大国家数を制限
+            for nation in nations_to_show:
+                if nation['tag'] not in added_tags:
+                    self.add_nation_to_combo(nation)
+                    added_tags.add(nation['tag'])
+                    count += 1
+                    if count >= max_nations:
+                        break
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"コンボボックス更新中にエラーが発生しました：\n{str(e)}")
+
+    def add_nation_to_combo(self, nation):
+        """国家をコンボボックスに追加（軽量版）"""
+        try:
+            tag = nation["tag"]
+            name = nation["name"]
+            flag_path = nation.get("flag_path")
+
+            # コンボボックスアイテムの作成
+            self.nation_combo.addItem(f"{tag}: {name}", tag)
+
+            # 国旗画像の設定（PILが利用可能で、ファイルサイズが小さい場合のみ）
+            if PIL_AVAILABLE and flag_path and os.path.exists(flag_path):
+                try:
+                    # ファイルサイズチェック（1MB以下のみ処理）
+                    file_size = os.path.getsize(flag_path)
+                    if file_size < 1024 * 1024:  # 1MB
+                        img = Image.open(flag_path)
+                        # 画像サイズチェック
+                        if img.size[0] <= 256 and img.size[1] <= 256:
+                            import io
+                            img_data = io.BytesIO()
+                            img.save(img_data, format='PNG')
+                            pixmap = QPixmap()
+                            pixmap.loadFromData(img_data.getvalue())
+                            pixmap = pixmap.scaled(24, 16, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+                            # 最後に追加したアイテムにアイコンを設定
+                            self.nation_combo.setItemIcon(self.nation_combo.count() - 1, QIcon(pixmap))
+                except Exception as e:
+                    # 国旗読み込みエラーは無視して続行
+                    pass
+
+        except Exception as e:
+            print(f"国家追加エラー: {e}")
 
     def on_nation_selected(self, index):
         """国家が選択された時の処理"""
@@ -229,7 +380,9 @@ class NationDetailsView(QWidget):
                 design_data = self.app_controller.get_nation_designs(nation_tag)
                 for item in design_data:
                     list_item = QListWidgetItem()
-                    list_item.setText(f"{item['name']} (船体: {item['hull']})")
+                    design_name = item.get('design_name', item.get('name', '不明'))
+                    ship_type = item.get('ship_type', item.get('hull', '不明'))
+                    list_item.setText(f"{design_name} ({ship_type})")
                     list_item.setData(Qt.UserRole, item)
                     self.design_list.addItem(list_item)
         except Exception as e:
@@ -244,34 +397,25 @@ class NationDetailsView(QWidget):
 
             current_mod = self.app_controller.get_current_mod()
             if not current_mod or "path" not in current_mod:
-                QMessageBox.warning(self, "警告", "MODが選択されていません。")
                 return
 
             # 設計ファイルのパス
             designs_path = os.path.join(current_mod["path"], "common", "scripted_effects", "NAVY_Designs.txt")
 
-            # デバッグ情報を表示
-            print(f"MODパス: {current_mod['path']}")
-            print(f"設計ファイルパス: {designs_path}")
-
             # 設計データを読み込む
             designs_data = {}
-            
+
             # 設計ファイルを読み込む
             if os.path.exists(designs_path):
                 with open(designs_path, 'r', encoding='utf-8') as f:
                     parser = EffectParser(f.read(), filename=designs_path)
                     designs_data.update(parser.parse_designs())
-            else:
-                QMessageBox.warning(self, "警告", "設計ファイルが見つかりません。\n以下のパスを確認してください：\n" + 
-                                  f"\n{designs_path}")
-                return
 
             # 指定された国家の設計データを表示
             if nation_tag in designs_data:
                 for design_name, design_data in designs_data[nation_tag].items():
                     list_item = QListWidgetItem()
-                    
+
                     # 設計名の処理
                     display_name = design_name
                     if 'override_name' in design_data:
@@ -279,16 +423,14 @@ class NationDetailsView(QWidget):
                         original_name = design_data.get('name', '').strip('"')
                         if override_name and original_name:
                             display_name = f"{override_name}({original_name})"
-                    
+
                     # 設計タイプの取得
                     design_type = design_data.get('type', '不明')
-                    
+
                     # 表示テキストの設定
                     list_item.setText(f"{display_name} (タイプ: {design_type})")
                     list_item.setData(Qt.UserRole, design_data)
                     self.mod_design_list.addItem(list_item)
-            else:
-                QMessageBox.information(self, "情報", f"国家 {nation_tag} の設計データが見つかりません。")
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"mod内の設計データの読み込み中にエラーが発生しました：\n{str(e)}")
@@ -309,13 +451,15 @@ class NationDetailsView(QWidget):
                         # 任務部隊を追加
                         for task_force in fleet.get("task_forces", []):
                             task_force_item = QTreeWidgetItem(fleet_item)
-                            task_force_item.setText(0, f"任務部隊: {task_force['name']} (Province: {task_force['province_id']})")
+                            task_force_item.setText(0,
+                                                    f"任務部隊: {task_force['name']} (Province: {task_force['province_id']})")
                             task_force_item.setData(0, Qt.UserRole, task_force)
 
                             # 艦艇を追加
                             for ship in task_force.get("ships", []):
                                 ship_item = QTreeWidgetItem(task_force_item)
-                                ship_item.setText(0, f"艦艇: {ship['name']} (Exp: {ship['exp']:.2f}, Pride: {ship['is_pride']})")
+                                ship_item.setText(0,
+                                                  f"艦艇: {ship['name']} (Exp: {ship['exp']:.2f}, Pride: {ship['is_pride']})")
                                 ship_item.setData(0, Qt.UserRole, ship)
 
                         # 艦隊アイテムを展開
@@ -323,6 +467,51 @@ class NationDetailsView(QWidget):
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"編成データの読み込み中にエラーが発生しました：\n{str(e)}")
+
+    def get_version_name_from_design(self, definition, designs_data, nation_tag):
+        """設計データから表示名を取得"""
+        try:
+            if nation_tag in designs_data and definition in designs_data[nation_tag]:
+                design_data = designs_data[nation_tag][definition]
+                if 'override_name' in design_data:
+                    override_name = design_data['override_name'].get('value', '').strip('"')
+                    original_name = design_data.get('name', '').strip('"')
+                    if override_name and original_name:
+                        return f"{override_name}({original_name})"
+                    elif original_name:
+                        return original_name
+            return definition
+        except:
+            return definition
+
+    def check_pride_in_data(self, data_dict):
+        """データ内にpride_of_the_fleetが含まれているかチェック"""
+        try:
+            if isinstance(data_dict, dict):
+                for key, value in data_dict.items():
+                    if key == 'pride_of_the_fleet' or (isinstance(value, str) and 'pride_of_the_fleet' in value):
+                        return True
+                    elif isinstance(value, (dict, list)):
+                        if self.check_pride_in_data(value):
+                            return True
+            elif isinstance(data_dict, list):
+                for item in data_dict:
+                    if self.check_pride_in_data(item):
+                        return True
+            return False
+        except:
+            return False
+
+    def add_star_icon(self, item):
+        """アイテムに黄色い星マークを追加"""
+        try:
+            current_text = item.text(0)
+            if not current_text.startswith("⭐"):
+                item.setText(0, f"⭐ {current_text}")
+                # 黄色のスタイルを設定
+                item.setForeground(0, Qt.darkYellow)
+        except:
+            pass
 
     def load_mod_formations(self, nation_tag):
         """mod内の編成データを読み込む"""
@@ -333,13 +522,11 @@ class NationDetailsView(QWidget):
 
             current_mod = self.app_controller.get_current_mod()
             if not current_mod or "path" not in current_mod:
-                QMessageBox.warning(self, "警告", "MODが選択されていません。")
                 return
 
             # 編成ファイルのパス
             units_path = os.path.join(current_mod["path"], "history", "units")
             if not os.path.exists(units_path):
-                QMessageBox.warning(self, "警告", "編成ファイルのディレクトリが見つかりません。")
                 return
 
             # 設計データを取得（艦艇名の参照用）
@@ -353,7 +540,7 @@ class NationDetailsView(QWidget):
             # ファイルパターンに一致するファイルを検索
             import re
             pattern = re.compile(f"{nation_tag}_\\d{{4}}_(?:naval|Naval|Navy|navy)(?:_mtg)?\\.txt$")
-            
+
             for filename in os.listdir(units_path):
                 if pattern.match(filename):
                     file_path = os.path.join(units_path, filename)
@@ -361,11 +548,11 @@ class NationDetailsView(QWidget):
                         with open(file_path, 'r', encoding='utf-8') as f:
                             parser = NavalOOBParser(f.read())
                             fleets = parser.extract_fleets()
-                            
+
                             # ファイル名から日付を抽出
                             date_match = re.search(r'(\d{4})', filename)
                             date = date_match.group(1) if date_match else "不明"
-                            
+
                             for fleet in fleets:
                                 # 艦隊アイテムを作成
                                 fleet_item = QTreeWidgetItem(self.mod_formation_tree)
@@ -374,10 +561,15 @@ class NationDetailsView(QWidget):
                                 task_forces = fleet.get('task_force', [])
                                 if isinstance(task_forces, dict):
                                     task_forces = [task_forces]
-                                
+
                                 total_ships = sum(len(tf.get('ship', [])) for tf in task_forces)
-                                fleet_item.setText(0, f"{fleet_name} - {naval_base} - {len(task_forces)}個の任務部隊 - {total_ships}隻")
-                                fleet_item.setData(0, Qt.UserRole, {'type': 'fleet', 'data': fleet, 'date': date, 'file': filename})
+                                fleet_item.setText(0,
+                                                   f"{fleet_name} - {naval_base} - {len(task_forces)} - {total_ships}")
+                                fleet_item.setData(0, Qt.UserRole,
+                                                   {'type': 'fleet', 'data': fleet, 'date': date, 'file': filename})
+
+                                # 艦隊レベルでpride_of_the_fleetをチェック
+                                fleet_has_pride = self.check_pride_in_data(fleet)
 
                                 # 任務部隊を追加
                                 for task_force in task_forces:
@@ -387,9 +579,12 @@ class NationDetailsView(QWidget):
                                     ships = task_force.get('ship', [])
                                     if isinstance(ships, dict):
                                         ships = [ships]
-                                    
-                                    task_force_item.setText(0, f"{task_force_name} - {location} - {len(ships)}隻")
+
+                                    task_force_item.setText(0, f"{task_force_name} - {location} - {len(ships)}")
                                     task_force_item.setData(0, Qt.UserRole, {'type': 'task_force', 'data': task_force})
+
+                                    # 任務部隊レベルでpride_of_the_fleetをチェック
+                                    task_force_has_pride = self.check_pride_in_data(task_force)
 
                                     # 艦艇を追加
                                     for ship in ships:
@@ -399,31 +594,34 @@ class NationDetailsView(QWidget):
                                         exp_factor = ship.get('start_experience_factor', '不明')
 
                                         # 設計名の参照
-                                        version_name = definition
-                                        if nation_tag in designs_data and definition in designs_data[nation_tag]:
-                                            design_data = designs_data[nation_tag][definition]
-                                            if 'override_name' in design_data:
-                                                override_name = design_data['override_name'].get('value', '').strip('"')
-                                                original_name = design_data.get('name', '').strip('"')
-                                                if override_name and original_name:
-                                                    version_name = f"{override_name}({original_name})"
-                                                elif original_name:
-                                                    version_name = original_name
+                                        version_name = self.get_version_name_from_design(definition, designs_data,
+                                                                                         nation_tag)
 
                                         ship_item.setText(0, f"{ship_name} - {version_name} - {exp_factor}")
                                         ship_item.setData(0, Qt.UserRole, {'type': 'ship', 'data': ship})
+
+                                        # 艦艇レベルでpride_of_the_fleetをチェック
+                                        ship_has_pride = self.check_pride_in_data(ship)
+                                        if ship_has_pride:
+                                            self.add_star_icon(ship_item)
+                                            task_force_has_pride = True
+                                            fleet_has_pride = True
+
+                                    # 任務部隊にprideがある場合は星マークを追加
+                                    if task_force_has_pride:
+                                        self.add_star_icon(task_force_item)
 
                                 # 建造キューを追加
                                 instant_effects = fleet.get('instant_effect', [])
                                 if isinstance(instant_effects, dict):
                                     instant_effects = [instant_effects]
-                                
+
                                 for effect in instant_effects:
                                     if 'add_equipment_production' in effect:
                                         production = effect['add_equipment_production']
                                         if isinstance(production, dict):
                                             production = [production]
-                                        
+
                                         for prod in production:
                                             if prod.get('type') == 'ship':
                                                 queue_item = QTreeWidgetItem(fleet_item)
@@ -433,19 +631,17 @@ class NationDetailsView(QWidget):
                                                 progress = prod.get('progress', '不明')
 
                                                 # 設計名の参照
-                                                version_name = definition
-                                                if nation_tag in designs_data and definition in designs_data[nation_tag]:
-                                                    design_data = designs_data[nation_tag][definition]
-                                                    if 'override_name' in design_data:
-                                                        override_name = design_data['override_name'].get('value', '').strip('"')
-                                                        original_name = design_data.get('name', '').strip('"')
-                                                        if override_name and original_name:
-                                                            version_name = f"{override_name}({original_name})"
-                                                        elif original_name:
-                                                            version_name = original_name
+                                                version_name = self.get_version_name_from_design(definition,
+                                                                                                 designs_data,
+                                                                                                 nation_tag)
 
-                                                queue_item.setText(0, f"{ship_name} - {version_name} - {factories}工場 - {progress}%")
+                                                queue_item.setText(0,
+                                                                   f"{ship_name} - {version_name} - {factories} - {progress}")
                                                 queue_item.setData(0, Qt.UserRole, {'type': 'queue', 'data': prod})
+
+                                # 艦隊にprideがある場合は星マークを追加
+                                if fleet_has_pride:
+                                    self.add_star_icon(fleet_item)
 
                                 # 艦隊アイテムを展開
                                 fleet_item.setExpanded(True)
@@ -505,7 +701,7 @@ class NationDetailsView(QWidget):
 
             # 設計の詳細情報を収集
             details = []
-            
+
             # 設計名の処理
             if 'override_name' in design_data:
                 override_name = design_data['override_name'].get('value', '').strip('"')
@@ -516,13 +712,13 @@ class NationDetailsView(QWidget):
                     details.append(f"設計名: {original_name}")
             else:
                 details.append(f"設計名: {design_data.get('name', '不明')}")
-            
+
             details.append(f"タイプ: {design_data.get('type', '不明')}")
-            
+
             # 船体情報
             hull = design_data.get('type', '不明')
             details.append(f"船体: {hull}")
-            
+
             # モジュール情報
             modules = design_data.get('modules', {})
             if modules:
@@ -543,7 +739,8 @@ class NationDetailsView(QWidget):
 
             # その他の重要な情報
             for key, value in design_data.items():
-                if key not in ['name', 'type', 'modules', 'upgrades', 'override_name'] and not key.startswith('original_'):
+                if key not in ['name', 'type', 'modules', 'upgrades', 'override_name'] and not key.startswith(
+                        'original_'):
                     if isinstance(value, dict):
                         details.append(f"\n{key}:")
                         for sub_key, sub_value in value.items():
@@ -589,6 +786,11 @@ class NationDetailsView(QWidget):
                 details.append(f"艦艇名: {item_data.get('name', '不明')}")
                 details.append(f"定義: {item_data.get('definition', '不明')}")
                 details.append(f"経験値係数: {item_data.get('start_experience_factor', '不明')}")
+
+                # pride_of_the_fleetの確認
+                if self.check_pride_in_data(item_data):
+                    details.append("特殊: 艦隊の誇り")
+
                 QMessageBox.information(self, "艦艇詳細", "\n".join(details))
 
             elif item_type == 'queue':
@@ -619,4 +821,4 @@ class NationDetailsView(QWidget):
         if self.current_nation_tag:
             index = self.nation_combo.findData(self.current_nation_tag)
             if index >= 0:
-                self.nation_combo.setCurrentIndex(index) 
+                self.nation_combo.setCurrentIndex(index)
