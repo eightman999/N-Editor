@@ -91,20 +91,25 @@ class EquipmentView(QWidget):
         self.type_combo.clear()
 
         # 全タイプ表示用の項目
-        self.type_combo.addItem("全タイプ")
+        self.type_combo.addItem("全タイプ", None)
 
         # コントローラーから装備タイプを取得
         if self.app_controller:
-            equipment_types = self.app_controller.get_equipment_types()
+            # キー名→表示名のマッピングを取得
+            type_mapping = self.app_controller.get_equipment_type_mapping()
+            
+            # 表示名でソートして追加
+            for key, display_name in sorted(type_mapping.items(), key=lambda x: x[1]):
+                self.type_combo.addItem(display_name, key)
         else:
             # 従来の方法（モデル直接使用）
             from models.equipment_model import EquipmentModel
             equipment_model = EquipmentModel()
             equipment_types = equipment_model.get_equipment_types()
 
-        # 装備タイプをコンボボックスに追加
-        for eq_type in sorted(equipment_types):
-            self.type_combo.addItem(eq_type)
+            # 装備タイプをコンボボックスに追加（従来方式では表示名とキー名が同じ）
+            for eq_type in sorted(equipment_types):
+                self.type_combo.addItem(eq_type, eq_type)
 
     def load_equipment_list(self):
         """装備リストの読み込み"""
@@ -174,7 +179,8 @@ class EquipmentView(QWidget):
             # 全タイプ
             self.current_type = None
         else:
-            self.current_type = self.type_combo.currentText()
+            # キー名を取得
+            self.current_type = self.type_combo.currentData()
 
         # 装備リストを再読み込み
         self.load_equipment_list()

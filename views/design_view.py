@@ -1254,15 +1254,24 @@ class DesignView(QWidget):
             category_list = QListWidget()
             category_list.setSelectionMode(QListWidget.MultiSelection)
 
-            # 現在選択されているカテゴリーを取得
+            # 現在選択されているカテゴリー（キー名）を取得
             current_categories = self.slot_category_selections.get(slot_type, [])
 
             # カテゴリーを追加
             if self.app_controller:
-                categories = self.app_controller.get_equipment_types()
+                # キー名→表示名のマッピングを取得
+                type_mapping = self.app_controller.get_equipment_type_mapping()
+
+                for key, display_name in type_mapping.items():
+                    item = QListWidgetItem(display_name)
+                    item.setData(Qt.UserRole, key)  # キー名を内部データとして保存
+                    category_list.addItem(item)
+                    # 現在選択されているカテゴリー（キー名ベース）を選択状態にする
+                    if key in current_categories:
+                        item.setSelected(True)
             else:
                 # デフォルトのカテゴリー
-                categories = [
+                default_categories = [
                     "小口径砲", "中口径砲", "大口径砲", "超大口径砲", "対空砲",
                     "魚雷", "潜水艦魚雷", "対艦ミサイル", "対空ミサイル",
                     "水上機", "艦上偵察機", "回転翼機", "対潜哨戒機", "大型飛行艇",
@@ -1271,13 +1280,14 @@ class DesignView(QWidget):
                     "機関", "増設バルジ(中型艦)", "増設バルジ(大型艦)", "格納庫", "その他"
                 ]
 
-            # カテゴリーをリストに追加
-            for category in categories:
-                item = QListWidgetItem(category)
-                category_list.addItem(item)
-                # 現在選択されているカテゴリーを選択状態にする
-                if category in current_categories:
-                    item.setSelected(True)
+                # デフォルトの場合はキー名も表示名も同じとして扱う
+                for category in default_categories:
+                    item = QListWidgetItem(category)
+                    item.setData(Qt.UserRole, category)  # この場合はキー名も表示名と同じ
+                    category_list.addItem(item)
+                    # 現在選択されているカテゴリーを選択状態にする
+                    if category in current_categories:
+                        item.setSelected(True)
 
             layout.addWidget(category_list)
 
@@ -1291,6 +1301,8 @@ class DesignView(QWidget):
                 selection_info.setText(f"選択中のカテゴリー: {selected_count}")
 
             category_list.itemSelectionChanged.connect(update_selection_info)
+            # 初期選択状態を反映
+            update_selection_info()
 
             # ボタン
             button_layout = QHBoxLayout()
@@ -1298,17 +1310,29 @@ class DesignView(QWidget):
             cancel_button = QPushButton("キャンセル")
 
             def on_ok():
-                # 選択されたカテゴリーを取得
-                selected_categories = [item.text() for item in category_list.selectedItems()]
+                # 選択されたカテゴリーのキー名を取得
+                selected_categories = []
+                for item in category_list.selectedItems():
+                    key = item.data(Qt.UserRole)
+                    if key:
+                        selected_categories.append(key)
+
+                # self.slot_category_selectionsにキー名を保存
                 self.slot_category_selections[slot_type] = selected_categories
 
-                # カテゴリーボタンのテキストを更新
+                # カテゴリーボタンのテキストは表示名を使用して更新
                 if slot_type in self.slot_category_combos:
                     button = self.slot_category_combos[slot_type]
                     if len(selected_categories) == 0:
                         button.setText("カテゴリー選択")
                     elif len(selected_categories) == 1:
-                        button.setText(selected_categories[0])
+                        # 選択されたキー名から表示名を取得
+                        key = selected_categories[0]
+                        if self.app_controller:
+                            display_name = self.app_controller.get_equipment_display_name(key)
+                            button.setText(display_name)
+                        else:
+                            button.setText(key)  # デフォルトの場合
                     else:
                         button.setText(f"{len(selected_categories)}種類選択")
 

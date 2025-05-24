@@ -5,7 +5,7 @@ from utils.path_utils import get_data_dir
 from PyQt5.QtWidgets import (QWidget, QFormLayout, QLineEdit, QComboBox,
                              QSpinBox, QDoubleSpinBox, QTabWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QGroupBox,
-                             QScrollArea, QMessageBox, QFileDialog, QApplication, QDialog, QListWidget)
+                             QScrollArea, QMessageBox, QFileDialog, QApplication, QDialog, QListWidget, QListWidgetItem)
 from PyQt5.QtCore import Qt, pyqtSignal
 
 class EquipmentForm(QWidget):
@@ -196,11 +196,13 @@ class EquipmentForm(QWidget):
         try:
             # AppControllerが利用可能であれば、そこから装備タイプを取得
             if self.app_controller:
-                equipment_types = self.app_controller.get_equipment_types()
+                # キー名→表示名のマッピングを取得
+                type_mapping = self.app_controller.get_equipment_type_mapping()
                 self.equipment_templates = {}
 
-                for eq_type in equipment_types:
-                    self.equipment_type_combo.addItem(eq_type)
+                for key, display_name in type_mapping.items():
+                    # 表示名を表示し、キー名をデータとして保存
+                    self.equipment_type_combo.addItem(display_name, key)
                 return
 
             # 従来の方法（AppControllerがない場合）
@@ -247,12 +249,146 @@ class EquipmentForm(QWidget):
                         prefix = stripped_line.split('id_prefix:')[1].strip()
                         self.equipment_templates[current_type]['id_prefix'] = prefix
 
-            # コンボボックスに追加
+            # コンボボックスに追加（従来方式では表示名とキー名が同じ）
             for eq_type in sorted(self.equipment_templates.keys()):
-                self.equipment_type_combo.addItem(eq_type)
+                self.equipment_type_combo.addItem(eq_type, eq_type)
 
         except Exception as e:
             print(f"装備テンプレート読み込みエラー: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def on_equipment_type_changed(self):
+        """装備タイプ変更時の処理"""
+        print("装備タイプが変更されました")
+        self.clear_form_fields()
+
+        # 現在の装備タイプ（キー名を優先的に取得）
+        current_type = self.equipment_type_combo.currentData()
+        if current_type is None:
+            # データが設定されていない場合は表示名を使用（後方互換性）
+            current_type = self.equipment_type_combo.currentText()
+
+        print(f"選択された装備タイプ: '{current_type}'")
+
+        if not current_type:
+            print("装備タイプが選択されていません")
+            return
+
+        try:
+            # 共通フィールドの生成
+            print(f"共通フィールドを生成します: {current_type}")
+            self.generate_common_fields(current_type)
+
+            # 固有フィールドの生成
+            print(f"固有フィールドを生成します: {current_type}")
+            self.generate_specific_fields(current_type)
+
+            # UIを強制的に更新
+            self.common_group.update()
+            self.specific_group.update()
+            QApplication.processEvents()
+
+            # 装備IDのプレフィックスを自動設定
+            if 'ID' in self.common_fields:
+                if self.app_controller:
+                    next_id = self.app_controller.get_next_equipment_id(current_type)
+                    if next_id:
+                        self.common_fields['ID'].setText(next_id)
+                elif current_type in self.equipment_templates and 'id_prefix' in self.equipment_templates[current_type]:
+                    prefix = self.equipment_templates[current_type]['id_prefix']
+                    self.common_fields['ID'].setText(f"{prefix}")
+
+        except Exception as e:
+            print(f"装備タイプ変更処理でエラーが発生しました: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def show_category_selection_dialog(self):
+        """カテゴリー選択ダイアログを表示"""
+        try:
+            dialog = QDialog(self)
+            dialog.setWindowTitle("装備カテゴリー選択")
+            dialog.setMinimumWidth(400)
+            dialog.setMinimumHeight(500)
+
+            dialog_layout = QVBoxLayout()
+
+            # ヘッダー
+            header_label = QLabel("装備カテゴリーを選択してください")
+            header_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+            dialog_layout.addWidget(header_label)
+
+            # 検索ボックス
+            search_layout = QHBoxLayout()
+            search_layout.addWidget(QLabel("検索:"))
+            search_edit = QLineEdit()
+            search_layout.addWidget(search_edit)
+            dialog_layout.addLayout(search_layout)
+
+            # カテゴリーリスト
+            category_list = QListWidget()
+            dialog_layout.addWidget(category_list)
+
+            # カテゴリー一覧を取得
+            if self.app_controller:
+                # キー名→表示名のマッピングを取得
+                type_mapping = self.app_controller.get_equipment_type_mapping()
+
+                for key, display_name in sorted(type_mapping.items(), key=lambda x: x[1]):
+                    item = QListWidgetItem(display_name)
+                    item.setData(Qt.UserRole, key)  # キー名を内部データとして保存
+                    category_list.addItem(item)
+            else:
+                # テンプレートから取得（従来方式）
+                equipment_types = list(self.equipment_templates.keys())
+                for category in sorted(equipment_types):
+                    item = QListWidgetItem(category)
+                    item.setData(Qt.UserRole, category)  # この場合はキー名も表示名と同じ
+                    category_list.addItem(item)
+
+            # 検索機能
+            def filter_categories():
+                search_text = search_edit.text().lower()
+                for i in range(category_list.count()):
+                    item = category_list.item(i)
+                    item.setHidden(search_text not in item.text().lower())
+
+            search_edit.textChanged.connect(filter_categories)
+
+            # ボタン
+            button_layout = QHBoxLayout()
+
+            ok_button = QPushButton("選択")
+
+            def on_ok_clicked():
+                selected_item = category_list.currentItem()
+                if selected_item:
+                    # キー名を取得
+                    selected_key = selected_item.data(Qt.UserRole)
+                    if selected_key:
+                        # コンボボックスでキー名に対応するインデックスを検索
+                        for i in range(self.equipment_type_combo.count()):
+                            if self.equipment_type_combo.itemData(i) == selected_key:
+                                self.equipment_type_combo.setCurrentIndex(i)
+                                self.on_equipment_type_changed()  # フォームを更新
+                                break
+                dialog.accept()
+
+            ok_button.clicked.connect(on_ok_clicked)
+            button_layout.addWidget(ok_button)
+
+            cancel_button = QPushButton("キャンセル")
+            cancel_button.clicked.connect(dialog.reject)
+            button_layout.addWidget(cancel_button)
+
+            dialog_layout.addLayout(button_layout)
+            dialog.setLayout(dialog_layout)
+
+            dialog.exec_()
+
+        except Exception as e:
+            print(f"カテゴリ選択ダイアログでエラーが発生しました: {e}")
             import traceback
             traceback.print_exc()
 
@@ -610,125 +746,5 @@ class EquipmentForm(QWidget):
 
         except Exception as e:
             print(f"共通フィールド生成エラー: {e}")
-            import traceback
-            traceback.print_exc()
-
-    def on_equipment_type_changed(self):
-        """装備タイプ変更時の処理"""
-        print("装備タイプが変更されました")
-        self.clear_form_fields()
-
-        # 現在の装備タイプ
-        current_type = self.equipment_type_combo.currentText()
-        print(f"選択された装備タイプ: '{current_type}'")
-
-        if not current_type:
-            print("装備タイプが選択されていません")
-            return
-
-        try:
-            # 共通フィールドの生成
-            print(f"共通フィールドを生成します: {current_type}")
-            self.generate_common_fields(current_type)
-
-            # 固有フィールドの生成
-            print(f"固有フィールドを生成します: {current_type}")
-            self.generate_specific_fields(current_type)
-
-            # UIを強制的に更新
-            self.common_group.update()
-            self.specific_group.update()
-            QApplication.processEvents()
-
-            # 装備IDのプレフィックスを自動設定
-            if 'ID' in self.common_fields:
-                if self.app_controller:
-                    next_id = self.app_controller.get_next_equipment_id(current_type)
-                    if next_id:
-                        self.common_fields['ID'].setText(next_id)
-                elif current_type in self.equipment_templates and 'id_prefix' in self.equipment_templates[current_type]:
-                    prefix = self.equipment_templates[current_type]['id_prefix']
-                    self.common_fields['ID'].setText(f"{prefix}")
-
-        except Exception as e:
-            print(f"装備タイプ変更処理でエラーが発生しました: {e}")
-            import traceback
-            traceback.print_exc()
-
-    def show_category_selection_dialog(self):
-        """カテゴリ選択ダイアログを表示"""
-        try:
-            dialog = QDialog(self)
-            dialog.setWindowTitle("装備カテゴリー選択")
-            dialog.setMinimumWidth(400)
-            dialog.setMinimumHeight(500)
-
-            dialog_layout = QVBoxLayout()
-
-            # ヘッダー
-            header_label = QLabel("装備カテゴリーを選択してください")
-            header_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-            dialog_layout.addWidget(header_label)
-
-            # 検索ボックス
-            search_layout = QHBoxLayout()
-            search_layout.addWidget(QLabel("検索:"))
-            search_edit = QLineEdit()
-            search_layout.addWidget(search_edit)
-            dialog_layout.addLayout(search_layout)
-
-            # カテゴリーリスト
-            category_list = QListWidget()
-            dialog_layout.addWidget(category_list)
-
-            # カテゴリー一覧を取得
-            equipment_types = []
-            if self.app_controller:
-                equipment_types = self.app_controller.get_equipment_types()
-            else:
-                # テンプレートから取得
-                equipment_types = list(self.equipment_templates.keys())
-
-            # リストに追加
-            for category in sorted(equipment_types):
-                category_list.addItem(category)
-
-            # 検索機能
-            def filter_categories():
-                search_text = search_edit.text().lower()
-                for i in range(category_list.count()):
-                    item = category_list.item(i)
-                    item.setHidden(search_text not in item.text().lower())
-
-            search_edit.textChanged.connect(filter_categories)
-
-            # ボタン
-            button_layout = QHBoxLayout()
-
-            ok_button = QPushButton("選択")
-            def on_ok_clicked():
-                selected_item = category_list.currentItem()
-                if selected_item:
-                    selected_category = selected_item.text()
-                    index = self.equipment_type_combo.findText(selected_category)
-                    if index >= 0:
-                        self.equipment_type_combo.setCurrentIndex(index)
-                        self.on_equipment_type_changed()  # フォームを更新
-                dialog.accept()
-
-            ok_button.clicked.connect(on_ok_clicked)
-            button_layout.addWidget(ok_button)
-
-            cancel_button = QPushButton("キャンセル")
-            cancel_button.clicked.connect(dialog.reject)
-            button_layout.addWidget(cancel_button)
-
-            dialog_layout.addLayout(button_layout)
-            dialog.setLayout(dialog_layout)
-
-            dialog.exec_()
-
-        except Exception as e:
-            print(f"カテゴリ選択ダイアログでエラーが発生しました: {e}")
             import traceback
             traceback.print_exc()

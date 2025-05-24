@@ -430,3 +430,27 @@ class EquipmentModel:
         # 次の番号を生成
         next_number = max_number + 1
         return f"{id_prefix}{next_number:03d}"
+
+    def get_equipment_type_mapping(self) -> Dict[str, str]:
+        """
+        装備タイプのキー名→表示名マッピングを取得
+
+        Returns:
+            Dict[str, str]: キー名をキー、表示名を値とする辞書
+        """
+        mapping = {}
+        processed = set()
+
+        for key, template in self.equipment_templates.items():
+            if 'display_name' in template:
+                display_name = template['display_name']
+                # 表示名が別のキーとして登録されている場合は、元のキーを優先
+                if key != display_name and key not in processed:
+                    mapping[key] = display_name
+                    processed.add(key)
+                    processed.add(display_name)
+                elif key == display_name and key not in processed:
+                    mapping[key] = display_name
+                    processed.add(key)
+
+        return mapping

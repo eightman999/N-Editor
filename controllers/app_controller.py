@@ -356,6 +356,49 @@ class AppController(QObject):
             print(f"装備タイプ取得中にエラーが発生しました: {e}")
             return []
 
+    def get_equipment_type_mapping(self):
+        """
+        装備タイプのマッピング（キー名→表示名）を取得
+
+        Returns:
+            dict: 装備タイプのマッピング辞書
+        """
+        try:
+            # デフォルトのマッピング
+            default_mapping = {
+                "小口径砲": "小口径砲",
+                "中口径砲": "中口径砲",
+                "大口径砲": "大口径砲",
+                "超大口径砲": "超大口径砲",
+                "対空砲": "対空砲",
+                "魚雷": "魚雷",
+                "潜水艦魚雷": "潜水艦魚雷",
+                "対艦ミサイル": "対艦ミサイル",
+                "対空ミサイル": "対空ミサイル",
+                "水上機": "水上機",
+                "艦上偵察機": "艦上偵察機",
+                "回転翼機": "回転翼機",
+                "対潜哨戒機": "対潜哨戒機",
+                "大型飛行艇": "大型飛行艇",
+                "爆雷投射機": "爆雷投射機",
+                "爆雷": "爆雷",
+                "対潜迫撃砲": "対潜迫撃砲",
+                "ソナー": "ソナー",
+                "大型ソナー": "大型ソナー",
+                "小型電探": "小型電探",
+                "大型電探": "大型電探",
+                "測距儀": "測距儀",
+                "機関": "機関",
+                "増設バルジ(中型艦)": "増設バルジ(中型艦)",
+                "増設バルジ(大型艦)": "増設バルジ(大型艦)",
+                "格納庫": "格納庫",
+                "その他": "その他"
+            }
+            return default_mapping
+        except Exception as e:
+            print(f"装備タイプマッピング取得中にエラーが発生しました: {e}")
+            return {}
+
     def get_next_equipment_id(self, equipment_type):
         """
         次の装備IDを取得
@@ -1087,3 +1130,32 @@ class AppController(QObject):
     def show_design_view(self, design_data):
         """設計ビューを表示（簡易実装）"""
         print(f"設計ビュー表示: {design_data}")
+
+    def get_equipment_type_mapping(self):
+        """
+        装備タイプのキー名→表示名マッピングを取得
+
+        Returns:
+            Dict[str, str]: キー名をキー、表示名を値とする辞書
+        """
+        try:
+            return self.equipment_model.get_equipment_type_mapping()
+        except Exception as e:
+            print(f"装備タイプマッピング取得中にエラーが発生しました: {e}")
+            return {}
+
+    def get_equipment_display_name(self, equipment_type):
+        """
+        装備タイプの表示名を取得
+
+        Args:
+            equipment_type: 装備タイプのキー名
+
+        Returns:
+            str: 表示名
+        """
+        try:
+            return self.equipment_model.get_equipment_display_name(equipment_type)
+        except Exception as e:
+            print(f"装備表示名取得中にエラーが発生しました: {e}")
+            return equipment_type
