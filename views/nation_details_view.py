@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt5.QtCore import Qt
 import os
 from parser.EffectParser import EffectParser
+from parser.NavalOOBParser import NavalOOBParser
 
 class NationDetailsView(QWidget):
     """国家詳細画面のビュー"""
@@ -98,10 +99,11 @@ class NationDetailsView(QWidget):
         self.tab_widget.addTab(self.formation_tree, "編成")
 
         # mod内の編成タブ
-        self.mod_formation_list = QListWidget()
-        self.mod_formation_list.setStyleSheet(self.equipment_list.styleSheet())
-        self.mod_formation_list.itemDoubleClicked.connect(self.on_mod_formation_double_clicked)
-        self.tab_widget.addTab(self.mod_formation_list, "mod内の編成")
+        self.mod_formation_tree = QTreeWidget()
+        self.mod_formation_tree.setHeaderLabels(["編成"])
+        self.mod_formation_tree.setStyleSheet(self.formation_tree.styleSheet())
+        self.mod_formation_tree.itemDoubleClicked.connect(self.on_mod_formation_double_clicked)
+        self.tab_widget.addTab(self.mod_formation_tree, "mod内の編成")
 
         main_layout.addWidget(self.tab_widget)
 
@@ -325,15 +327,133 @@ class NationDetailsView(QWidget):
     def load_mod_formations(self, nation_tag):
         """mod内の編成データを読み込む"""
         try:
-            self.mod_formation_list.clear()
-            if self.app_controller:
-                # TODO: app_controllerに実装が必要
-                mod_formation_data = self.app_controller.get_nation_mod_formations(nation_tag)
-                for item in mod_formation_data:
-                    list_item = QListWidgetItem()
-                    list_item.setText(f"{item['name']}")
-                    list_item.setData(Qt.UserRole, item)
-                    self.mod_formation_list.addItem(list_item)
+            self.mod_formation_tree.clear()
+            if not self.app_controller:
+                return
+
+            current_mod = self.app_controller.get_current_mod()
+            if not current_mod or "path" not in current_mod:
+                QMessageBox.warning(self, "警告", "MODが選択されていません。")
+                return
+
+            # 編成ファイルのパス
+            units_path = os.path.join(current_mod["path"], "history", "units")
+            if not os.path.exists(units_path):
+                QMessageBox.warning(self, "警告", "編成ファイルのディレクトリが見つかりません。")
+                return
+
+            # 設計データを取得（艦艇名の参照用）
+            designs_path = os.path.join(current_mod["path"], "common", "scripted_effects", "NAVY_Designs.txt")
+            designs_data = {}
+            if os.path.exists(designs_path):
+                with open(designs_path, 'r', encoding='utf-8') as f:
+                    parser = EffectParser(f.read(), filename=designs_path)
+                    designs_data.update(parser.parse_designs())
+
+            # ファイルパターンに一致するファイルを検索
+            import re
+            pattern = re.compile(f"{nation_tag}_\\d{{4}}_(?:naval|Naval|Navy|navy)(?:_mtg)?\\.txt$")
+            
+            for filename in os.listdir(units_path):
+                if pattern.match(filename):
+                    file_path = os.path.join(units_path, filename)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            parser = NavalOOBParser(f.read())
+                            fleets = parser.extract_fleets()
+                            
+                            # ファイル名から日付を抽出
+                            date_match = re.search(r'(\d{4})', filename)
+                            date = date_match.group(1) if date_match else "不明"
+                            
+                            for fleet in fleets:
+                                # 艦隊アイテムを作成
+                                fleet_item = QTreeWidgetItem(self.mod_formation_tree)
+                                fleet_name = fleet.get('name', '不明')
+                                naval_base = fleet.get('naval_base', '不明')
+                                task_forces = fleet.get('task_force', [])
+                                if isinstance(task_forces, dict):
+                                    task_forces = [task_forces]
+                                
+                                total_ships = sum(len(tf.get('ship', [])) for tf in task_forces)
+                                fleet_item.setText(0, f"{fleet_name} - {naval_base} - {len(task_forces)}個の任務部隊 - {total_ships}隻")
+                                fleet_item.setData(0, Qt.UserRole, {'type': 'fleet', 'data': fleet, 'date': date, 'file': filename})
+
+                                # 任務部隊を追加
+                                for task_force in task_forces:
+                                    task_force_item = QTreeWidgetItem(fleet_item)
+                                    task_force_name = task_force.get('name', '不明')
+                                    location = task_force.get('location', '不明')
+                                    ships = task_force.get('ship', [])
+                                    if isinstance(ships, dict):
+                                        ships = [ships]
+                                    
+                                    task_force_item.setText(0, f"{task_force_name} - {location} - {len(ships)}隻")
+                                    task_force_item.setData(0, Qt.UserRole, {'type': 'task_force', 'data': task_force})
+
+                                    # 艦艇を追加
+                                    for ship in ships:
+                                        ship_item = QTreeWidgetItem(task_force_item)
+                                        ship_name = ship.get('name', '不明')
+                                        definition = ship.get('definition', '不明')
+                                        exp_factor = ship.get('start_experience_factor', '不明')
+
+                                        # 設計名の参照
+                                        version_name = definition
+                                        if nation_tag in designs_data and definition in designs_data[nation_tag]:
+                                            design_data = designs_data[nation_tag][definition]
+                                            if 'override_name' in design_data:
+                                                override_name = design_data['override_name'].get('value', '').strip('"')
+                                                original_name = design_data.get('name', '').strip('"')
+                                                if override_name and original_name:
+                                                    version_name = f"{override_name}({original_name})"
+                                                elif original_name:
+                                                    version_name = original_name
+
+                                        ship_item.setText(0, f"{ship_name} - {version_name} - {exp_factor}")
+                                        ship_item.setData(0, Qt.UserRole, {'type': 'ship', 'data': ship})
+
+                                # 建造キューを追加
+                                instant_effects = fleet.get('instant_effect', [])
+                                if isinstance(instant_effects, dict):
+                                    instant_effects = [instant_effects]
+                                
+                                for effect in instant_effects:
+                                    if 'add_equipment_production' in effect:
+                                        production = effect['add_equipment_production']
+                                        if isinstance(production, dict):
+                                            production = [production]
+                                        
+                                        for prod in production:
+                                            if prod.get('type') == 'ship':
+                                                queue_item = QTreeWidgetItem(fleet_item)
+                                                ship_name = prod.get('name', '不明')
+                                                definition = prod.get('definition', '不明')
+                                                factories = prod.get('requested_factories', '不明')
+                                                progress = prod.get('progress', '不明')
+
+                                                # 設計名の参照
+                                                version_name = definition
+                                                if nation_tag in designs_data and definition in designs_data[nation_tag]:
+                                                    design_data = designs_data[nation_tag][definition]
+                                                    if 'override_name' in design_data:
+                                                        override_name = design_data['override_name'].get('value', '').strip('"')
+                                                        original_name = design_data.get('name', '').strip('"')
+                                                        if override_name and original_name:
+                                                            version_name = f"{override_name}({original_name})"
+                                                        elif original_name:
+                                                            version_name = original_name
+
+                                                queue_item.setText(0, f"{ship_name} - {version_name} - {factories}工場 - {progress}%")
+                                                queue_item.setData(0, Qt.UserRole, {'type': 'queue', 'data': prod})
+
+                                # 艦隊アイテムを展開
+                                fleet_item.setExpanded(True)
+
+                    except Exception as e:
+                        print(f"ファイル {filename} のパース中にエラーが発生しました: {str(e)}")
+                        continue
+
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"mod内の編成データの読み込み中にエラーが発生しました：\n{str(e)}")
 
@@ -437,8 +557,8 @@ class NationDetailsView(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"設計詳細の表示中にエラーが発生しました：\n{str(e)}")
 
-    def on_formation_double_clicked(self, item):
-        """編成アイテムがダブルクリックされた時の処理"""
+    def on_mod_formation_double_clicked(self, item):
+        """mod内の編成アイテムがダブルクリックされた時の処理"""
         try:
             if not self.app_controller:
                 return
@@ -447,46 +567,40 @@ class NationDetailsView(QWidget):
             if not data:
                 return
 
-            # アイテムの種類に応じて詳細を表示
-            if "task_forces" in data:  # 艦隊
+            item_type = data.get('type')
+            item_data = data.get('data')
+
+            if item_type == 'fleet':
                 details = []
-                details.append(f"艦隊名: {data['name']}")
-                details.append(f"Province ID: {data['province_id']}")
-                details.append(f"\n任務部隊数: {len(data['task_forces'])}")
+                details.append(f"日付: {data['date']}")
+                details.append(f"ファイル: {data['file']}")
+                details.append(f"艦隊名: {item_data.get('name', '不明')}")
+                details.append(f"海軍基地: {item_data.get('naval_base', '不明')}")
                 QMessageBox.information(self, "艦隊詳細", "\n".join(details))
 
-            elif "ships" in data:  # 任務部隊
+            elif item_type == 'task_force':
                 details = []
-                details.append(f"任務部隊名: {data['name']}")
-                details.append(f"Province ID: {data['province_id']}")
-                details.append(f"\n艦艇数: {len(data['ships'])}")
+                details.append(f"任務部隊名: {item_data.get('name', '不明')}")
+                details.append(f"位置: {item_data.get('location', '不明')}")
                 QMessageBox.information(self, "任務部隊詳細", "\n".join(details))
 
-            else:  # 艦艇
+            elif item_type == 'ship':
                 details = []
-                details.append(f"艦艇名: {data['name']}")
-                details.append(f"経験値: {data['exp']:.2f}")
-                details.append(f"艦隊の誇り: {'あり' if data['is_pride'] else 'なし'}")
-                if isinstance(data['design'], dict):
-                    details.append(f"\n設計名: {data['design'].get('design_name', '不明')}")
-                    details.append(f"艦種: {data['design'].get('ship_type', '不明')}")
+                details.append(f"艦艇名: {item_data.get('name', '不明')}")
+                details.append(f"定義: {item_data.get('definition', '不明')}")
+                details.append(f"経験値係数: {item_data.get('start_experience_factor', '不明')}")
                 QMessageBox.information(self, "艦艇詳細", "\n".join(details))
 
-        except Exception as e:
-            QMessageBox.critical(self, "エラー", f"編成データの表示中にエラーが発生しました：\n{str(e)}")
+            elif item_type == 'queue':
+                details = []
+                details.append(f"艦艇名: {item_data.get('name', '不明')}")
+                details.append(f"定義: {item_data.get('definition', '不明')}")
+                details.append(f"要求工場数: {item_data.get('requested_factories', '不明')}")
+                details.append(f"進捗: {item_data.get('progress', '不明')}%")
+                QMessageBox.information(self, "建造キュー詳細", "\n".join(details))
 
-    def on_mod_formation_double_clicked(self, item):
-        """mod内の編成アイテムがダブルクリックされた時の処理"""
-        try:
-            if not self.app_controller:
-                return
-
-            mod_formation_data = item.data(Qt.UserRole)
-            if mod_formation_data:
-                # TODO: app_controllerに実装が必要
-                self.app_controller.show_mod_formation_view(mod_formation_data)
         except Exception as e:
-            QMessageBox.critical(self, "エラー", f"mod内の編成ビューの表示中にエラーが発生しました：\n{str(e)}")
+            QMessageBox.critical(self, "エラー", f"編成詳細の表示中にエラーが発生しました：\n{str(e)}")
 
     def go_back(self):
         """前の画面に戻る"""

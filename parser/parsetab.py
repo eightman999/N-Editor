@@ -6,9 +6,9 @@ _tabversion = '3.10'
 
 _lr_method = 'LALR'
 
-_lr_signature = 'COLON COUNTRY DOT EQUALS ID LBRACE LPAREN NO NUMBER OVERRIDE RBRACE RPAREN STRING YESeffect_file : ID EQUALS LBRACE effect_content RBRACE\n| ID EQUALS LBRACE country_tag effect_content RBRACE\n| effect_file ID EQUALS LBRACE country_tag effect_content RBRACEcountry_tag : COUNTRY EQUALS STRINGeffect_content : effect_statement\n| effect_content effect_statementeffect_statement : ID EQUALS LBRACE variant_content RBRACE\n| OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE\n| ID EQUALS value\n| OVERRIDE DOT ID LPAREN STRING RPARENvariant_content : variant_item\n| variant_content variant_item\n| OVERRIDE DOT ID LPAREN STRING RPAREN\n| variant_content OVERRIDE DOT ID LPAREN STRING RPARENvariant_item : ID EQUALS value\n| ID EQUALS LBRACE block_content RBRACE\n| ID EQUALS yes_novalue : ID\n| NUMBER\n| STRING\n| ID COLON IDblock_content : block_item\n| block_content block_itemblock_item : ID EQUALS value\n| ID EQUALS LBRACE block_content RBRACEyes_no : YES\n| NO'
+_lr_signature = 'COLON EQUALS ID LBRACE NO NUMBER RBRACE STRING YESnaval_file : statementsstatements : statement\n| statements statement\n| emptystatement : ID EQUALS value\n| ID EQUALS blockvalue : ID\n| NUMBER\n| STRING\n| YES\n| NO\n| qualified_idqualified_id : ID COLON IDblock : LBRACE statements RBRACE\n| LBRACE RBRACEempty :'
     
-_lr_action_items = {'ID':([0,1,6,9,10,11,14,15,16,17,18,20,21,22,23,24,25,26,27,28,30,31,33,34,37,38,39,40,42,44,45,46,47,48,49,51,53,54,58,59,60,63,64,65,67,68,69,70,71,72,],[2,3,8,8,8,-5,8,22,-1,-6,8,29,8,-18,32,-9,-19,-20,-2,-4,-3,37,32,-11,-21,22,-7,-12,50,-15,52,-17,-26,-27,55,-10,52,-22,22,-16,-23,32,-24,52,-13,32,52,-14,-8,-25,]),'$end':([1,16,27,30,],[0,-1,-2,-3,]),'EQUALS':([2,3,8,12,32,51,52,],[4,5,15,19,38,57,58,]),'LBRACE':([4,5,15,38,57,58,],[6,7,23,45,63,65,]),'COUNTRY':([6,7,],[12,12,]),'OVERRIDE':([6,9,10,11,14,17,18,21,22,23,24,25,26,28,33,34,37,39,40,44,46,47,48,51,59,63,67,68,70,71,],[13,13,13,-5,13,-6,13,13,-18,35,-9,-19,-20,-4,41,-11,-21,-7,-12,-15,-17,-26,-27,-10,-16,35,-13,41,-14,-8,]),'RBRACE':([9,11,17,18,21,22,24,25,26,33,34,37,39,40,44,46,47,48,51,53,54,59,60,64,67,68,69,70,71,72,],[16,-5,-6,27,30,-18,-9,-19,-20,39,-11,-21,-7,-12,-15,-17,-26,-27,-10,59,-22,-16,-23,-24,-13,71,72,-14,-8,-25,]),'DOT':([13,35,41,],[20,42,49,]),'NUMBER':([15,38,58,],[25,25,25,]),'STRING':([15,19,36,38,56,58,61,],[26,28,43,26,62,26,66,]),'COLON':([22,],[31,]),'LPAREN':([29,50,55,],[36,56,61,]),'YES':([38,],[47,]),'NO':([38,],[48,]),'RPAREN':([43,62,66,],[51,67,70,]),}
+_lr_action_items = {'ID':([0,2,3,4,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,],[5,5,-2,-4,-3,8,-7,-5,-6,-8,-9,-10,-11,-12,5,20,5,-15,-13,-14,]),'$end':([0,1,2,3,4,6,8,9,10,11,12,13,14,15,19,20,21,],[-16,0,-1,-2,-4,-3,-7,-5,-6,-8,-9,-10,-11,-12,-15,-13,-14,]),'RBRACE':([3,4,6,8,9,10,11,12,13,14,15,16,18,19,20,21,],[-2,-4,-3,-7,-5,-6,-8,-9,-10,-11,-12,19,21,-15,-13,-14,]),'EQUALS':([5,],[7,]),'NUMBER':([7,],[11,]),'STRING':([7,],[12,]),'YES':([7,],[13,]),'NO':([7,],[14,]),'LBRACE':([7,],[16,]),'COLON':([8,],[17,]),}
 
 _lr_action = {}
 for _k, _v in _lr_action_items.items():
@@ -17,7 +17,7 @@ for _k, _v in _lr_action_items.items():
       _lr_action[_x][_k] = _y
 del _lr_action_items
 
-_lr_goto_items = {'effect_file':([0,],[1,]),'effect_content':([6,10,14,],[9,18,21,]),'country_tag':([6,7,],[10,14,]),'effect_statement':([6,9,10,14,18,21,],[11,17,11,11,17,17,]),'value':([15,38,58,],[24,44,64,]),'variant_content':([23,63,],[33,68,]),'variant_item':([23,33,63,68,],[34,40,34,40,]),'yes_no':([38,],[46,]),'block_content':([45,65,],[53,69,]),'block_item':([45,53,65,69,],[54,60,54,60,]),}
+_lr_goto_items = {'naval_file':([0,],[1,]),'statements':([0,16,],[2,18,]),'statement':([0,2,16,18,],[3,6,3,6,]),'empty':([0,16,],[4,4,]),'value':([7,],[9,]),'block':([7,],[10,]),'qualified_id':([7,],[15,]),}
 
 _lr_goto = {}
 for _k, _v in _lr_goto_items.items():
@@ -26,32 +26,21 @@ for _k, _v in _lr_goto_items.items():
        _lr_goto[_x][_k] = _y
 del _lr_goto_items
 _lr_productions = [
-  ("S' -> effect_file","S'",1,None,None,None),
-  ('effect_file -> ID EQUALS LBRACE effect_content RBRACE','effect_file',5,'p_effect_file','EffectParser.py',90),
-  ('effect_file -> ID EQUALS LBRACE country_tag effect_content RBRACE','effect_file',6,'p_effect_file','EffectParser.py',91),
-  ('effect_file -> effect_file ID EQUALS LBRACE country_tag effect_content RBRACE','effect_file',7,'p_effect_file','EffectParser.py',92),
-  ('country_tag -> COUNTRY EQUALS STRING','country_tag',3,'p_country_tag','EffectParser.py',103),
-  ('effect_content -> effect_statement','effect_content',1,'p_effect_content','EffectParser.py',107),
-  ('effect_content -> effect_content effect_statement','effect_content',2,'p_effect_content','EffectParser.py',108),
-  ('effect_statement -> ID EQUALS LBRACE variant_content RBRACE','effect_statement',5,'p_effect_statement','EffectParser.py',128),
-  ('effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE','effect_statement',10,'p_effect_statement','EffectParser.py',129),
-  ('effect_statement -> ID EQUALS value','effect_statement',3,'p_effect_statement','EffectParser.py',130),
-  ('effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN','effect_statement',6,'p_effect_statement','EffectParser.py',131),
-  ('variant_content -> variant_item','variant_content',1,'p_variant_content','EffectParser.py',148),
-  ('variant_content -> variant_content variant_item','variant_content',2,'p_variant_content','EffectParser.py',149),
-  ('variant_content -> OVERRIDE DOT ID LPAREN STRING RPAREN','variant_content',6,'p_variant_content','EffectParser.py',150),
-  ('variant_content -> variant_content OVERRIDE DOT ID LPAREN STRING RPAREN','variant_content',7,'p_variant_content','EffectParser.py',151),
-  ('variant_item -> ID EQUALS value','variant_item',3,'p_variant_item','EffectParser.py',176),
-  ('variant_item -> ID EQUALS LBRACE block_content RBRACE','variant_item',5,'p_variant_item','EffectParser.py',177),
-  ('variant_item -> ID EQUALS yes_no','variant_item',3,'p_variant_item','EffectParser.py',178),
-  ('value -> ID','value',1,'p_value','EffectParser.py',185),
-  ('value -> NUMBER','value',1,'p_value','EffectParser.py',186),
-  ('value -> STRING','value',1,'p_value','EffectParser.py',187),
-  ('value -> ID COLON ID','value',3,'p_value','EffectParser.py',188),
-  ('block_content -> block_item','block_content',1,'p_block_content','EffectParser.py',196),
-  ('block_content -> block_content block_item','block_content',2,'p_block_content','EffectParser.py',197),
-  ('block_item -> ID EQUALS value','block_item',3,'p_block_item','EffectParser.py',217),
-  ('block_item -> ID EQUALS LBRACE block_content RBRACE','block_item',5,'p_block_item','EffectParser.py',218),
-  ('yes_no -> YES','yes_no',1,'p_yes_no','EffectParser.py',225),
-  ('yes_no -> NO','yes_no',1,'p_yes_no','EffectParser.py',226),
+  ("S' -> naval_file","S'",1,None,None,None),
+  ('naval_file -> statements','naval_file',1,'p_naval_file','NavalOOBParser.py',85),
+  ('statements -> statement','statements',1,'p_statements','NavalOOBParser.py',90),
+  ('statements -> statements statement','statements',2,'p_statements','NavalOOBParser.py',91),
+  ('statements -> empty','statements',1,'p_statements','NavalOOBParser.py',92),
+  ('statement -> ID EQUALS value','statement',3,'p_statement','NavalOOBParser.py',119),
+  ('statement -> ID EQUALS block','statement',3,'p_statement','NavalOOBParser.py',120),
+  ('value -> ID','value',1,'p_value','NavalOOBParser.py',125),
+  ('value -> NUMBER','value',1,'p_value','NavalOOBParser.py',126),
+  ('value -> STRING','value',1,'p_value','NavalOOBParser.py',127),
+  ('value -> YES','value',1,'p_value','NavalOOBParser.py',128),
+  ('value -> NO','value',1,'p_value','NavalOOBParser.py',129),
+  ('value -> qualified_id','value',1,'p_value','NavalOOBParser.py',130),
+  ('qualified_id -> ID COLON ID','qualified_id',3,'p_qualified_id','NavalOOBParser.py',135),
+  ('block -> LBRACE statements RBRACE','block',3,'p_block','NavalOOBParser.py',141),
+  ('block -> LBRACE RBRACE','block',2,'p_block','NavalOOBParser.py',142),
+  ('empty -> <empty>','empty',0,'p_empty','NavalOOBParser.py',150),
 ]
