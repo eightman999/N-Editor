@@ -1,5 +1,8 @@
 import os
 import os
+# --- plyライブラリのインポート ---
+import ply.lex as lex
+import ply.yacc as yacc
 os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = ".venv/lib/python3.13/site-packages/PyQt5/Qt5/plugins/platforms"
 import os
 import sys
@@ -37,9 +40,7 @@ class ParserError(Exception):
     """カスタムパーサーエラー"""
     pass
 
-# --- plyライブラリのインポート ---
-import ply.lex as lex
-import ply.yacc as yacc
+
 
 # --- レクサー (Lexer) の定義 ---
 tokens = (

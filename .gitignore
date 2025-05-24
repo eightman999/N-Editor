@@ -22,3 +22,6 @@ parser/__pycache__/CountryColorParser.cpython-313.pyc
 parser/__pycache__/__init__.cpython-313.pyc
 models/__pycache__/hull_model.cpython-313.pyc
 models/__pycache__/equipment_model.cpython-313.pyc
+parser/__pycache__/parsetab.cpython-313.pyc
+*.pyc
+*.log
