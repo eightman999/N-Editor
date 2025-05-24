@@ -1,11 +1,17 @@
-import re
+import sys
+import os
+from ply import yacc
 import ply.lex as lex
-import ply.yacc as yacc
+import re
 
 # --- カスタム例外の定義 ---
 class ParserError(Exception):
     """カスタムパーサーエラー"""
     pass
+
+# アプリケーションがフリーズされている（EXE化されている）かどうかを判定
+def is_frozen():
+    return getattr(sys, 'frozen', False)
 
 # --- レクサー (Lexer) の定義 ---
 tokens = (
@@ -130,9 +136,6 @@ def p_error(p):
         pass
     raise SyntaxError("Parsing failed due to syntax error.")
 
-# パーサーの構築
-parser = yacc.yacc()
-
 class StrategicRegionParser:
     def __init__(self, content):
         self.content = content
@@ -180,4 +183,40 @@ class StrategicRegionParser:
         except SyntaxError as e:
             raise ParserError(f"Parsing failed due to syntax error: {e}")
         except Exception as e:
-            raise ParserError(f"An unexpected error occurred during parsing: {e}") 
+            raise ParserError(f"An unexpected error occurred during parsing: {e}")
+
+# パーサーの構築
+# Find the absolute path to the directory containing this script
+current_dir = os.path.dirname(os.path.abspath(__file__))
+output_dir = current_dir
+tab_module = "strategic_region_parsetab"
+
+# デバッグログとエラーログを無効化するためのロガーを取得
+try:
+    class SimpleNullLogger:
+        def write(self, *args, **kwargs):
+            pass
+        def flush(self, *args, **kwargs):
+            pass
+
+    error_logger = yacc.NullLogger() if hasattr(yacc, 'NullLogger') else SimpleNullLogger()
+except AttributeError:
+    class SimpleNullLogger:
+        def write(self, *args, **kwargs): pass
+        def flush(self, *args, **kwargs): pass
+    error_logger = SimpleNullLogger()
+
+try:
+    parser = yacc.yacc(
+        outputdir=output_dir,
+        tabmodule=tab_module,
+        debug=False,
+        write_tables=not is_frozen(),
+        debuglog=None,
+        errorlog=error_logger
+    )
+except Exception as e:
+    print(f"Error creating StrategicRegionParser: {e}")
+    if is_frozen():
+        print(f"PLY YACC Error in frozen app (StrategicRegionParser): {e}")
+    raise 

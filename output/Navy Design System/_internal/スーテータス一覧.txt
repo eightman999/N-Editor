@@ -1,0 +1,21 @@
+それぞれ単純加算(add_stats)、%調整(multiply_stats)、全装備平均(add_average_stats)の３つの実装方法(manpowerのみ単純加算)。
+
+build_cost_ic = 0.4             # Production Cost
+manpower = 300                  # Manpower
+reliability = 0.9               # Reliability
+naval_speed = 28                        # Max Speed
+lg_armor_piercing = 12                  # Light gun armor piercing
+lg_attack = 18                          # Light gun attack
+hg_armor_piercing = 25                  # Heavy gun armor
+hg_attack = 12                          # Heavy gun attack
+torpedo_attack = 1                      # Torpedo attack
+anti_air_attack = 5                     # Anti-air
+surface_detection = 12                  # Surface detection
+sub_attack = 10                         # Anti-submarine attack
+sub_detection = 5                       # Sub detectio
+surface_visibility = 25                 # Surface Visibility (lower is better)
+sub_visibility = 20                     # Sub Visibility(lower is better)
+naval_range = 3000                      # Naval Range
+port_capacity_usage = 1                 # Port capacity usage
+search_and_destroy_coordination = 0.1   # ?
+convoy_raiding_coordination = 0.1       # ?
