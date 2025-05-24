@@ -7,33 +7,7 @@
     <list default="true" id="e49128cf-ccc2-46fc-97ad-f395874b0dab" name="変更" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.log" beforeDir="false" afterPath="$PROJECT_DIR$/app.log" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/controllers/app_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/controllers/app_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250522_230903.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250522_231559.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250522_231939.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250522_232249.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250522_232532.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250523_090053.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250523_090723.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250523_091029.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250523_092114.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250523_093230.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250523_093805.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250523_094317.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250523_094840.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250523_095701.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250523_193110.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250523_201339.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250523_201459.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/logs/fleet_view_20250523_201942.log" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/parser/parser.out" beforeDir="false" afterPath="$PROJECT_DIR$/parser/parser.out" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parser/parsetab.py" beforeDir="false" afterPath="$PROJECT_DIR$/parser/parsetab.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/maptest2.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/maptest2.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/path_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/path_utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/views/design_view.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/design_view.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/views/fleet_view.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/fleet_view.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/views/hull_list_view.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/hull_list_view.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/views/nation_details_view.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/nation_details_view.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -263,7 +237,7 @@
       <workItem from="1748051541997" duration="416000" />
       <workItem from="1748051970175" duration="32000" />
       <workItem from="1748052004840" duration="24000" />
-      <workItem from="1748052050086" duration="21696000" />
+      <workItem from="1748052050086" duration="23749000" />
     </task>
     <servers />
   </component>
@@ -280,7 +254,7 @@
     <SUITE FILE_PATH="coverage/N_Editor$n.coverage" NAME="n のカバレッジ結果" MODIFIED="1747454375775" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/maptest2_py$parse_hoi4_state_file.coverage" NAME="parse_hoi4_state_file のカバレッジ結果" MODIFIED="1747880614143" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/N_Editor$setup.coverage" NAME="setup のカバレッジ結果" MODIFIED="1747288754536" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/setup_py$main.coverage" NAME="main のカバレッジ結果" MODIFIED="1748078602431" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/setup_py$main.coverage" NAME="main のカバレッジ結果" MODIFIED="1748080788892" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/maptest2_py$main.coverage" NAME="main のカバレッジ結果" MODIFIED="1747961318631" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/setup_py$discord_reader.coverage" NAME="discord_reader のカバレッジ結果" MODIFIED="1748048906852" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/utils" />
   </component>

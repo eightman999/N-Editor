@@ -220,12 +220,24 @@ class FleetView(QWidget):
         # 艦隊表示切り替えボタン
         self.show_fleet_btn = QPushButton("艦隊表示")
         self.show_fleet_btn.setCheckable(True)
+        self.show_fleet_btn.setStyleSheet("""
+            QPushButton:checked {
+                background-color: #4CAF50;
+                color: white;
+            }
+        """)
         self.show_fleet_btn.clicked.connect(self.toggle_fleet_display)
         toolbar_layout.addWidget(self.show_fleet_btn)
 
         # MOD内の艦隊表示切り替えボタン
         self.show_mod_fleet_btn = QPushButton("MOD内の艦隊")
         self.show_mod_fleet_btn.setCheckable(True)
+        self.show_mod_fleet_btn.setStyleSheet("""
+            QPushButton:checked {
+                background-color: #2196F3;
+                color: white;
+            }
+        """)
         self.show_mod_fleet_btn.clicked.connect(self.toggle_mod_fleet_display)
         toolbar_layout.addWidget(self.show_mod_fleet_btn)
 
@@ -570,29 +582,61 @@ class FleetView(QWidget):
                     # 港湾を追加
                     for prov_id, level in ports:
                         port_item = QTreeWidgetItem(state_item)
-                        port_name = f"Province {prov_id}"
-                        if prov_id in self.map_widget.provinces_data_by_id:
-                            prov_obj = self.map_widget.provinces_data_by_id[prov_id]
-                            if prov_obj.name:
-                                port_name = prov_obj.name
-                        
-                        # 港湾の色を設定（レベルに応じて）
-                        if level >= 10:
-                            port_color = QColor(0, 0, 255)  # 青
-                        elif level >= 5:
-                            port_color = QColor(0, 128, 255)  # 水色
-                        else:
-                            port_color = QColor(0, 255, 255)  # 薄い水色
-                        
-                        # 艦艇の存在に応じて色を設定
+                        port_name = f"{prov_id}-Lv{level}"
                         if prov_id in ports_with_ships:
-                            port_name += f" [艦艇配備中]"
-                            # 艦艇が存在する場合は色を濃くする
+                            # 艦隊、任務部隊、艦艇の数を計算
+                            fleet_count = 0
+                            task_force_count = 0
+                            ship_count = 0
+                            
+                            # 編集可能な艦隊ツリーからカウント
+                            for i in range(self.fleet_tree.topLevelItemCount()):
+                                fleet_item = self.fleet_tree.topLevelItem(i)
+                                fleet_data = fleet_item.data(0, Qt.UserRole)
+                                if fleet_data and fleet_data.get("province_id") == prov_id:
+                                    fleet_count += 1
+                                    task_force_count += fleet_item.childCount()
+                                    for j in range(fleet_item.childCount()):
+                                        task_force_item = fleet_item.child(j)
+                                        ship_count += task_force_item.childCount()
+                            
+                            # MOD内編成が有効な場合、MOD内の艦隊もカウント
+                            if self.show_mod_fleet_btn.isChecked():
+                                for i in range(self.mod_fleet_tree.topLevelItemCount()):
+                                    fleet_item = self.mod_fleet_tree.topLevelItem(i)
+                                    fleet_data = fleet_item.data(0, Qt.UserRole)
+                                    if fleet_data and fleet_data.get("province_id") == prov_id:
+                                        fleet_count += 1
+                                        task_force_count += fleet_item.childCount()
+                                        for j in range(fleet_item.childCount()):
+                                            task_force_item = fleet_item.child(j)
+                                            ship_count += task_force_item.childCount()
+                            
+                            port_name = f"{prov_id}-Lv{level}-{fleet_count}FLEET-{task_force_count}TF-{ship_count}Ships"
+                            # 港湾規模に応じた色を設定（艦艇が存在する場合は濃く表示）
+                            if level >= 10:
+                                port_color = QColor(255, 0, 0)  # 赤（大規模）
+                            elif level >= 7:
+                                port_color = QColor(255, 255, 0)  # 黄色（中規模）
+                            elif level >= 4:
+                                port_color = QColor(0, 255, 0)  # 緑（小規模）
+                            else:
+                                port_color = QColor(0, 0, 255)  # 青（最小規模）
                             port_color.setAlpha(255)
                         else:
+                            port_name = f"{prov_id}-Lv{level}"
+                            # 港湾規模に応じた色を設定（艦艇が存在しない場合は薄く表示）
+                            if level >= 10:
+                                port_color = QColor(255, 0, 0)  # 赤（大規模）
+                            elif level >= 7:
+                                port_color = QColor(255, 255, 0)  # 黄色（中規模）
+                            elif level >= 4:
+                                port_color = QColor(0, 255, 0)  # 緑（小規模）
+                            else:
+                                port_color = QColor(0, 0, 255)  # 青（最小規模）
                             port_color.setAlpha(100)
                         
-                        port_item.setText(0, f"{port_name}: Lv{level}")
+                        port_item.setText(0, port_name)
                         port_item.setForeground(0, port_color)
                         port_item.setData(0, Qt.UserRole, {
                             "province_id": prov_id,
