@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QSizePolicy, QMessageBox, QTabWidget, QComboBox,
                              QTreeWidget, QTreeWidgetItem, QLineEdit, QCompleter)
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtGui import QIcon, QPixmap, QFont
 import os
 from parser.EffectParser import EffectParser
 from parser.NavalOOBParser import NavalOOBParser
@@ -154,7 +154,7 @@ class NationDetailsView(QWidget):
         try:
             # 検索テキストを小文字に変換
             search_text = text.lower()
-            
+
             # 検索テキストが空の場合は全国家を表示
             if not search_text:
                 self.filtered_nations = self.all_nations
@@ -165,10 +165,10 @@ class NationDetailsView(QWidget):
                     if search_text in nation['tag'].lower() or
                        search_text in nation['name'].lower()
                 ]
-            
+
             # コンボボックスを更新
             self.update_nation_combo()
-            
+
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"検索処理中にエラーが発生しました：\n{str(e)}")
 
@@ -235,6 +235,7 @@ class NationDetailsView(QWidget):
                     nations_with_data.append(nation)
 
             self.all_nations = nations_with_data
+            self.filtered_nations = nations_with_data  # 初期値として設定
             self.update_nation_combo()
 
         except Exception as e:
@@ -243,6 +244,9 @@ class NationDetailsView(QWidget):
     def update_nation_combo(self):
         """コンボボックスを更新（軽量版）"""
         try:
+            # 現在選択されている国家タグを保存
+            current_tag = self.nation_combo.currentData() if self.nation_combo.currentIndex() >= 0 else None
+
             # プルダウンをクリアして再設定
             self.nation_combo.clear()
 
@@ -271,6 +275,15 @@ class NationDetailsView(QWidget):
                     count += 1
                     if count >= max_nations:
                         break
+
+            # 前回選択していた国家があれば再選択
+            if current_tag:
+                index = self.nation_combo.findData(current_tag)
+                if index >= 0:
+                    self.nation_combo.setCurrentIndex(index)
+            elif self.nation_combo.count() > 0:
+                # 初期値として最初の国家を選択
+                self.nation_combo.setCurrentIndex(0)
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"コンボボックス更新中にエラーが発生しました：\n{str(e)}")
@@ -389,7 +402,7 @@ class NationDetailsView(QWidget):
             QMessageBox.critical(self, "エラー", f"設計データの読み込み中にエラーが発生しました：\n{str(e)}")
 
     def load_mod_designs(self, nation_tag):
-        """mod内の設計データを読み込む"""
+        """mod内の設計データを読み込む（重複排除）"""
         try:
             self.mod_design_list.clear()
             if not self.app_controller:
@@ -413,23 +426,32 @@ class NationDetailsView(QWidget):
 
             # 指定された国家の設計データを表示
             if nation_tag in designs_data:
+                # 重複排除のため、表示名をキーとする辞書を使用
+                unique_designs = {}
+
                 for design_name, design_data in designs_data[nation_tag].items():
-                    list_item = QListWidgetItem()
-
-                    # 設計名の処理
-                    display_name = design_name
-                    if 'override_name' in design_data:
-                        override_name = design_data['override_name'].get('value', '').strip('"')
-                        original_name = design_data.get('name', '').strip('"')
-                        if override_name and original_name:
-                            display_name = f"{override_name}({original_name})"
-
-                    # 設計タイプの取得
+                    # 設計名の処理（新しいシンプル形式）
+                    display_name = self.extract_display_name_simple(design_data)
                     design_type = design_data.get('type', '不明')
 
+                    # 一意キーを作成（表示名 + タイプ）
+                    unique_key = f"{display_name}_{design_type}"
+
+                    # 重複していない場合のみ追加
+                    if unique_key not in unique_designs:
+                        unique_designs[unique_key] = {
+                            'display_name': display_name,
+                            'design_type': design_type,
+                            'design_data': design_data
+                        }
+
+                # 一意化された設計データを表示
+                for unique_design in unique_designs.values():
+                    list_item = QListWidgetItem()
+
                     # 表示テキストの設定
-                    list_item.setText(f"{display_name} (タイプ: {design_type})")
-                    list_item.setData(Qt.UserRole, design_data)
+                    list_item.setText(f"{unique_design['display_name']} (タイプ: {unique_design['design_type']})")
+                    list_item.setData(Qt.UserRole, unique_design['design_data'])
                     self.mod_design_list.addItem(list_item)
 
         except Exception as e:
@@ -468,21 +490,250 @@ class NationDetailsView(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"編成データの読み込み中にエラーが発生しました：\n{str(e)}")
 
-    def get_version_name_from_design(self, definition, designs_data, nation_tag):
-        """設計データから表示名を取得"""
+    def get_display_name_from_design(self, definition, designs_data, nation_tag, ship_data):
+        """設計データから表示名を取得（name_overridden + version_name形式）"""
         try:
-            if nation_tag in designs_data and definition in designs_data[nation_tag]:
-                design_data = designs_data[nation_tag][definition]
-                if 'override_name' in design_data:
-                    override_name = design_data['override_name'].get('value', '').strip('"')
-                    original_name = design_data.get('name', '').strip('"')
-                    if override_name and original_name:
-                        return f"{override_name}({original_name})"
-                    elif original_name:
-                        return original_name
+            # 1. 設計データから検索
+            design_display_name = None
+            ship_version_name = None
+
+            if nation_tag in designs_data:
+                # 完全一致で検索
+                if definition in designs_data[nation_tag]:
+                    design_data = designs_data[nation_tag][definition]
+                    design_display_name = self.extract_design_override_name(design_data)
+
+                # typeフィールドで検索（完全一致が見つからない場合）
+                if not design_display_name:
+                    for design_key, design_data in designs_data[nation_tag].items():
+                        if design_data.get('type', '').strip('"') == definition:
+                            design_display_name = self.extract_design_override_name(design_data)
+                            break
+
+            # 2. 船体データからversion_nameを取得
+            equipment = ship_data.get('equipment', {})
+            for equipment_type, equipment_data in equipment.items():
+                if isinstance(equipment_data, dict):
+                    version_name = equipment_data.get('version_name', '')
+                    if version_name:
+                        ship_version_name = version_name.strip('"')
+                        break
+
+            # 3. 表示名を組み合わせ
+            if design_display_name and ship_version_name:
+                return f"{design_display_name}({ship_version_name})"
+            elif design_display_name:
+                return design_display_name
+            elif ship_version_name:
+                return ship_version_name
+            else:
+                return definition
+
+        except Exception as e:
+            print(f"表示名取得エラー: {e}")
             return definition
-        except:
-            return definition
+
+    def extract_design_override_name(self, design_data):
+        """設計データからoverride名のみを抽出"""
+        try:
+            # オーバーライドされている場合はoverride名を返す
+            if design_data.get('name_overridden', False):
+                return design_data.get('name', '').strip('"')
+
+            # オーバーライドされていない場合は通常の名前を返す
+            return design_data.get('name', '').strip('"')
+
+        except Exception as e:
+            print(f"override名抽出エラー: {e}")
+            return ""
+
+    def extract_display_name_simple(self, design_data):
+        """設計データから表示名を抽出（新しいシンプル形式）"""
+        try:
+            # 基本の表示名を取得
+            display_name = design_data.get('name', '').strip('"')
+
+            # オーバーライドされているかチェック（新しい形式）
+            if design_data.get('name_overridden', False):
+                # override値が直接nameに保存されている
+                override_name = design_data.get('name', '').strip('"')
+                original_name = design_data.get('original_name', '').strip('"')
+
+                if override_name and original_name:
+                    display_name = f"{override_name}({original_name})"
+                elif override_name:
+                    display_name = override_name
+
+            return display_name if display_name else design_data.get('type', '不明').strip('"')
+
+        except Exception as e:
+            print(f"表示名抽出エラー: {e}")
+            return '抽出エラー'
+
+    def get_override_name_from_design(self, definition, designs_data, nation_tag):
+        """設計データからoverride名を取得"""
+        try:
+            print(f"\n--- override名検索開始 ---")
+            print(f"検索対象definition: '{definition}'")
+            print(f"検索対象nation_tag: '{nation_tag}'")
+
+            if nation_tag in designs_data:
+                print(f"国家 {nation_tag} の設計データが存在します")
+                available_keys = list(designs_data[nation_tag].keys())
+                print(f"利用可能な設計キー: {available_keys}")
+
+                # まず完全一致を試す
+                if definition in designs_data[nation_tag]:
+                    print(f"完全一致で設計データが見つかりました: '{definition}'")
+                    design_data = designs_data[nation_tag][definition]
+                    result = self.extract_display_name(design_data)
+                    print(f"抽出結果: '{result}'")
+                    return result
+
+                # 完全一致しない場合、部分一致を試す
+                for design_key, design_data in designs_data[nation_tag].items():
+                    print(f"設計キー '{design_key}' をチェック中...")
+
+                    # typeフィールドが一致するかチェック
+                    design_type = design_data.get('type', '').strip('"')
+                    print(f"  design_type: '{design_type}'")
+                    if design_type == definition:
+                        print(f"typeフィールドで一致: '{design_type}' == '{definition}'")
+                        result = self.extract_display_name(design_data)
+                        print(f"抽出結果: '{result}'")
+                        return result
+
+                    # nameフィールドが一致するかチェック
+                    design_name = design_data.get('name', '').strip('"')
+                    print(f"  design_name: '{design_name}'")
+                    if design_name == definition:
+                        print(f"nameフィールドで一致: '{design_name}' == '{definition}'")
+                        result = self.extract_display_name(design_data)
+                        print(f"抽出結果: '{result}'")
+                        return result
+
+                print("部分一致でも見つかりませんでした")
+
+                # 前方一致でも試す
+                for design_key, design_data in designs_data[nation_tag].items():
+                    if definition.startswith(design_key) or design_key.startswith(definition):
+                        print(f"前方一致で見つかりました: '{design_key}' ⇔ '{definition}'")
+                        result = self.extract_display_name(design_data)
+                        print(f"抽出結果: '{result}'")
+                        return result
+
+                print("前方一致でも見つかりませんでした")
+            else:
+                print(f"国家 {nation_tag} の設計データが存在しません")
+                if designs_data:
+                    print(f"利用可能な国家: {list(designs_data.keys())}")
+
+            print("設計データが見つかりませんでした")
+            return "設計なし"
+
+        except Exception as e:
+            print(f"設計override名取得エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return "設計なし"
+
+    def get_version_name_from_ship_data(self, ship_data):
+        """船体データからversion_nameを抽出"""
+        try:
+            print(f"\n--- 船体データからversion_name抽出開始 ---")
+            equipment = ship_data.get('equipment', {})
+            print(f"equipment data: {equipment}")
+
+            if not equipment:
+                print("equipmentデータがありません")
+                return "装備なし"
+
+            # 複数の装備がある場合は最初の装備のversion_nameを取得
+            # または最も重要な船体装備（ship_hullで始まるもの）を優先
+            version_names = []
+
+            for equipment_type, equipment_data in equipment.items():
+                print(f"装備タイプ: '{equipment_type}'")
+                print(f"装備データ: {equipment_data}")
+
+                if isinstance(equipment_data, dict):
+                    version_name = equipment_data.get('version_name', '')
+                    print(f"  version_name: '{version_name}'")
+
+                    if version_name:
+                        cleaned_name = version_name.strip('"')
+                        version_names.append(cleaned_name)
+                        print(f"  クリーンアップ後: '{cleaned_name}'")
+
+                        # 船体関連の装備を優先
+                        if equipment_type.startswith('ship_hull'):
+                            print(f"  船体装備のため優先返却: '{cleaned_name}'")
+                            return cleaned_name
+
+            # 船体装備がない場合は最初に見つかったversion_nameを返す
+            if version_names:
+                result = version_names[0]
+                print(f"最初のversion_nameを返却: '{result}'")
+                return result
+
+            print("有効なversion_nameが見つかりませんでした")
+            return "バージョン名なし"
+
+        except Exception as e:
+            print(f"version_name抽出エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return "抽出エラー"
+
+    def get_version_name_from_design(self, definition, designs_data, nation_tag):
+        """設計データから表示名を取得（旧版・使用停止予定）"""
+        # この関数は使用されなくなりました
+        # 実際のversion_nameは船体データのequipmentブロック内にあります
+        return "設計データ参照"
+
+    def extract_display_name(self, design_data):
+        """設計データから表示名を抽出（改良版・デバッグ付き）"""
+        try:
+            print(f"デバッグ: extract_display_name - 設計データ: {design_data}")
+
+            if 'override_name' in design_data:
+                override_info = design_data['override_name']
+                print(f"デバッグ: override_name情報: {override_info}")
+
+                if isinstance(override_info, dict):
+                    override_name = override_info.get('value', '').strip('"')
+                else:
+                    override_name = str(override_info).strip('"')
+
+                original_name = design_data.get('name', '').strip('"')
+
+                print(f"デバッグ: override_name='{override_name}', original_name='{original_name}'")
+
+                if override_name and original_name:
+                    result = f"{override_name}({original_name})"
+                    print(f"デバッグ: 結合された名前: '{result}'")
+                    return result
+                elif override_name:
+                    print(f"デバッグ: override_nameのみ: '{override_name}'")
+                    return override_name
+                elif original_name:
+                    print(f"デバッグ: original_nameのみ: '{original_name}'")
+                    return original_name
+            else:
+                original_name = design_data.get('name', '').strip('"')
+                if original_name:
+                    print(f"デバッグ: 通常のname: '{original_name}'")
+                    return original_name
+
+            design_type = design_data.get('type', '不明').strip('"')
+            print(f"デバッグ: type情報を使用: '{design_type}'")
+            return design_type
+
+        except Exception as e:
+            print(f"デバッグ: extract_display_name エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return '抽出エラー'
 
     def check_pride_in_data(self, data_dict):
         """データ内にpride_of_the_fleetが含まれているかチェック"""
@@ -514,7 +765,7 @@ class NationDetailsView(QWidget):
             pass
 
     def load_mod_formations(self, nation_tag):
-        """mod内の編成データを読み込む"""
+        """mod内の編成データを読み込む（改良版）"""
         try:
             self.mod_formation_tree.clear()
             if not self.app_controller:
@@ -564,7 +815,7 @@ class NationDetailsView(QWidget):
 
                                 total_ships = sum(len(tf.get('ship', [])) for tf in task_forces)
                                 fleet_item.setText(0,
-                                                   f"{fleet_name} - {naval_base} - {len(task_forces)} - {total_ships}")
+                                                   f"{fleet_name} - {naval_base} - {len(task_forces)}TF - {total_ships}隻")
                                 fleet_item.setData(0, Qt.UserRole,
                                                    {'type': 'fleet', 'data': fleet, 'date': date, 'file': filename})
 
@@ -580,7 +831,7 @@ class NationDetailsView(QWidget):
                                     if isinstance(ships, dict):
                                         ships = [ships]
 
-                                    task_force_item.setText(0, f"{task_force_name} - {location} - {len(ships)}")
+                                    task_force_item.setText(0, f"{task_force_name} - {location} - {len(ships)}隻")
                                     task_force_item.setData(0, Qt.UserRole, {'type': 'task_force', 'data': task_force})
 
                                     # 任務部隊レベルでpride_of_the_fleetをチェック
@@ -593,11 +844,12 @@ class NationDetailsView(QWidget):
                                         definition = ship.get('definition', '不明')
                                         exp_factor = ship.get('start_experience_factor', '不明')
 
-                                        # 設計名の参照
-                                        version_name = self.get_version_name_from_design(definition, designs_data,
-                                                                                         nation_tag)
+                                        # 設計データから表示名を取得（シンプル版）
+                                        version_name = self.get_display_name_from_design(definition, designs_data,
+                                                                                         nation_tag, ship)
 
-                                        ship_item.setText(0, f"{ship_name} - {version_name} - {exp_factor}")
+                                        ship_item.setText(0,
+                                                          f"{ship_name} - {definition} - {version_name} - Exp:{exp_factor}")
                                         ship_item.setData(0, Qt.UserRole, {'type': 'ship', 'data': ship})
 
                                         # 艦艇レベルでpride_of_the_fleetをチェック
@@ -611,7 +863,8 @@ class NationDetailsView(QWidget):
                                     if task_force_has_pride:
                                         self.add_star_icon(task_force_item)
 
-                                # 建造キューを追加
+                                # 建造キューのヘッダーを追加
+                                queue_items = []
                                 instant_effects = fleet.get('instant_effect', [])
                                 if isinstance(instant_effects, dict):
                                     instant_effects = [instant_effects]
@@ -624,20 +877,35 @@ class NationDetailsView(QWidget):
 
                                         for prod in production:
                                             if prod.get('type') == 'ship':
-                                                queue_item = QTreeWidgetItem(fleet_item)
-                                                ship_name = prod.get('name', '不明')
-                                                definition = prod.get('definition', '不明')
-                                                factories = prod.get('requested_factories', '不明')
-                                                progress = prod.get('progress', '不明')
+                                                queue_items.append(prod)
 
-                                                # 設計名の参照
-                                                version_name = self.get_version_name_from_design(definition,
-                                                                                                 designs_data,
-                                                                                                 nation_tag)
+                                # 建造キューが存在する場合のみヘッダーを追加
+                                if queue_items:
+                                    # 建造キューヘッダー
+                                    queue_header = QTreeWidgetItem(fleet_item)
+                                    queue_header.setText(0, f"建造キュー ({len(queue_items)}隻)")
+                                    queue_header.setData(0, Qt.UserRole, {'type': 'queue_header'})
 
-                                                queue_item.setText(0,
-                                                                   f"{ship_name} - {version_name} - {factories} - {progress}")
-                                                queue_item.setData(0, Qt.UserRole, {'type': 'queue', 'data': prod})
+                                    # ヘッダーのフォントを太字にする
+                                    font = QFont()
+                                    font.setBold(True)
+                                    queue_header.setFont(0, font)
+
+                                    # 建造キューの艦艇を追加
+                                    for prod in queue_items:
+                                        queue_item = QTreeWidgetItem(queue_header)
+                                        ship_name = prod.get('name', '不明')
+                                        definition = prod.get('definition', '不明')
+                                        factories = prod.get('requested_factories', '不明')
+                                        progress = prod.get('progress', '不明')
+
+                                        # 建造キューからも表示名を取得
+                                        version_name = self.get_display_name_from_design(definition, designs_data,
+                                                                                         nation_tag, prod)
+
+                                        queue_item.setText(0,
+                                                           f"{ship_name} - {definition} - {version_name} - 工場:{factories} - 進捗:{progress}")
+                                        queue_item.setData(0, Qt.UserRole, {'type': 'queue', 'data': prod})
 
                                 # 艦隊にprideがある場合は星マークを追加
                                 if fleet_has_pride:
@@ -800,6 +1068,9 @@ class NationDetailsView(QWidget):
                 details.append(f"要求工場数: {item_data.get('requested_factories', '不明')}")
                 details.append(f"進捗: {item_data.get('progress', '不明')}%")
                 QMessageBox.information(self, "建造キュー詳細", "\n".join(details))
+
+            elif item_type == 'queue_header':
+                QMessageBox.information(self, "建造キュー", "この艦隊の建造キューです。")
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"編成詳細の表示中にエラーが発生しました：\n{str(e)}")
