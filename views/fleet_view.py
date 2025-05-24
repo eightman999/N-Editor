@@ -105,29 +105,79 @@ class FleetView(QWidget):
         formation_widget = QWidget()
         formation_layout = QHBoxLayout(formation_widget)
 
-        # 左側の艦隊ツリー
+        # 左側の編成ツリー（編集可能）
         self.fleet_tree = QTreeWidget()
-        self.fleet_tree.setHeaderLabels(["艦隊構成"])
+        self.fleet_tree.setHeaderLabels(["編成ツリー"])
         self.fleet_tree.setDragEnabled(True)
         self.fleet_tree.setAcceptDrops(True)
         self.fleet_tree.setDropIndicatorShown(True)
         self.fleet_tree.setDragDropMode(QTreeWidget.InternalMove)
         self.fleet_tree.keyPressEvent = self.fleet_tree_key_press_event
+        self.fleet_tree.setStyleSheet("""
+            QTreeWidget {
+                background-color: #ffffff;
+                border: 1px solid #cccccc;
+            }
+        """)
 
-        # 右側の設計一覧
+        # 右側のMOD内編成ツリー（読み取り専用）
+        self.mod_fleet_tree = QTreeWidget()
+        self.mod_fleet_tree.setHeaderLabels(["MOD内編成"])
+        self.mod_fleet_tree.setDragEnabled(False)
+        self.mod_fleet_tree.setAcceptDrops(False)
+        self.mod_fleet_tree.setEnabled(True)  # 表示は有効
+        self.mod_fleet_tree.setStyleSheet("""
+            QTreeWidget {
+                background-color: #f5f5f5;
+                border: 1px solid #cccccc;
+                color: #666666;
+            }
+            QTreeWidget::item {
+                padding: 2px;
+            }
+            QTreeWidget::item:selected {
+                background-color: #e0e0e0;
+                color: #000000;
+            }
+        """)
+
+        # 中央の設計一覧
         self.design_list = QListWidget()
         self.design_list.setDragEnabled(True)
+        self.design_list.setStyleSheet("""
+            QListWidget {
+                background-color: #ffffff;
+                border: 1px solid #cccccc;
+            }
+        """)
+
+        # 右側の港湾一覧
+        self.port_tree = QTreeWidget()
+        self.port_tree.setHeaderLabels(["港湾一覧"])
+        self.port_tree.setDragEnabled(False)
+        self.port_tree.setStyleSheet("""
+            QTreeWidget {
+                background-color: #ffffff;
+                border: 1px solid #cccccc;
+            }
+        """)
 
         # 編成エリアに追加
-        formation_layout.addWidget(self.fleet_tree, 2)
+        formation_layout.addWidget(self.fleet_tree, 1)
+        formation_layout.addWidget(self.mod_fleet_tree, 1)
         formation_layout.addWidget(self.design_list, 1)
+        formation_layout.addWidget(self.port_tree, 1)
 
         # 下部のマップエリア
         self.map_widget = MapViewer()
 
-        # スプリッターに追加
-        splitter.addWidget(formation_widget)
-        splitter.addWidget(self.map_widget)
+        # スプリッターに追加（マップの比率を下げる）
+        splitter = QSplitter(Qt.Vertical)
+        splitter.addWidget(formation_widget)  # 編成エリア
+        splitter.addWidget(self.map_widget)   # マップエリア
+        
+        # スプリッターの比率を設定
+        splitter.setSizes([600, 300])  # 編成エリア:マップエリア = 2:1
 
         # メインレイアウトに追加
         main_layout.addWidget(splitter)
@@ -166,6 +216,18 @@ class FleetView(QWidget):
         save_btn = QPushButton("保存")
         save_btn.clicked.connect(self.save_fleet_data)
         toolbar_layout.addWidget(save_btn)
+
+        # 艦隊表示切り替えボタン
+        self.show_fleet_btn = QPushButton("艦隊表示")
+        self.show_fleet_btn.setCheckable(True)
+        self.show_fleet_btn.clicked.connect(self.toggle_fleet_display)
+        toolbar_layout.addWidget(self.show_fleet_btn)
+
+        # MOD内の艦隊表示切り替えボタン
+        self.show_mod_fleet_btn = QPushButton("MOD内の艦隊")
+        self.show_mod_fleet_btn.setCheckable(True)
+        self.show_mod_fleet_btn.clicked.connect(self.toggle_mod_fleet_display)
+        toolbar_layout.addWidget(self.show_mod_fleet_btn)
 
         toolbar_layout.addStretch()
 
@@ -260,90 +322,122 @@ class FleetView(QWidget):
             return
 
         try:
-            # designsディレクトリから国家タグを収集
-            designs_dir = os.path.join(self.app_controller.app_settings.data_dir, "designs")
-            if not os.path.exists(designs_dir):
-                self.logger.warning("設計データディレクトリが見つかりません")
-                return
-
-            # 国家タグとその設計データを収集
-            country_designs = {}
-            for filename in os.listdir(designs_dir):
-                if not filename.endswith('.json'):
-                    continue
-
-                file_path = os.path.join(designs_dir, filename)
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        design_data = json.load(f)
-                        country_tag = design_data.get('country')
-                        if country_tag:
-                            if country_tag not in country_designs:
-                                country_designs[country_tag] = []
-                            country_designs[country_tag].append(design_data)
-                except Exception as e:
-                    self.logger.warning(f"設計ファイル '{filename}' の読み込みエラー: {e}")
-
             # 現在のMODを取得
-            try:
-                current_mod = self.app_controller.get_current_mod()
-            except Exception as e:
-                self.logger.error(f"現在のMOD取得エラー: {e}")
-                current_mod = None
-
+            current_mod = self.app_controller.get_current_mod()
             if not current_mod or "path" not in current_mod:
-                self.logger.warning("MODが選択されていません")
-                # 設計データがある国家のみをコンボボックスに追加（国旗なし）
-                for country_tag in sorted(country_designs.keys()):
-                    self.country_combo.addItem(country_tag, country_tag)
+                QMessageBox.warning(self, "警告", "MODが選択されていません。")
                 return
 
-            # 国家情報を取得
-            try:
-                nations = self.app_controller.get_nations(current_mod["path"])
-            except Exception as e:
-                self.logger.error(f"国家情報取得エラー: {e}")
-                nations = []
-
+            # 国家リストを取得
+            nations = self.app_controller.get_nations(current_mod["path"])
             if not nations:
-                self.logger.warning("国家情報が見つかりません")
-                # 設計データがある国家のみをコンボボックスに追加（国旗なし）
-                for country_tag in sorted(country_designs.keys()):
-                    self.country_combo.addItem(country_tag, country_tag)
+                QMessageBox.warning(self, "警告", "国家情報が見つかりません。")
                 return
 
-            # 設計データがある国家のみをコンボボックスに追加
+            # データが存在する国家のみをフィルタリング
+            nations_with_data = []
             for nation in nations:
-                tag = nation["tag"]
-                if tag in country_designs:
-                    name = nation["name"]
-                    flag_path = nation["flag_path"]
+                if self.has_nation_data(nation['tag']):
+                    nations_with_data.append(nation)
 
-                    # コンボボックスアイテムの作成
-                    self.country_combo.addItem(name, tag)
+            # 優先順位の高い国家タグ
+            priority_tags = ['ENG', 'JAP', 'JPN', 'GER', 'DEU', 'FRA', 'ITA', 'USA']
 
-                    # 国旗画像の設定（PILが利用可能な場合のみ）
-                    if PIL_AVAILABLE and flag_path and os.path.exists(flag_path):
-                        try:
-                            img = Image.open(flag_path)
+            # 優先順位の高い国家を先に追加
+            added_tags = set()
+            for tag in priority_tags:
+                for nation in nations_with_data:
+                    if nation['tag'] == tag and tag not in added_tags:
+                        self.add_nation_to_combo(nation)
+                        added_tags.add(tag)
+                        break
+
+            # 残りの国家を追加（最初の100件のみ表示）
+            count = 0
+            max_nations = 100
+            for nation in nations_with_data:
+                if nation['tag'] not in added_tags:
+                    self.add_nation_to_combo(nation)
+                    added_tags.add(nation['tag'])
+                    count += 1
+                    if count >= max_nations:
+                        break
+
+            # 国家データを保持
+            self.countries = {nation["tag"]: nation for nation in nations_with_data}
+
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"国家データの読み込み中にエラーが発生しました：\n{str(e)}")
+            self.logger.error(f"国家データ読み込みエラー: {e}")
+
+    def has_nation_data(self, nation_tag):
+        """指定された国家にデータが存在するかチェック（軽量版）"""
+        if not self.app_controller:
+            return False
+
+        try:
+            # 設計データディレクトリチェック
+            designs_dir = self.app_controller.app_settings.design_dir
+            if os.path.exists(designs_dir):
+                for filename in os.listdir(designs_dir):
+                    if filename.endswith('.json'):
+                        if nation_tag in filename:
+                            return True
+
+            # mod内の編成データをチェック
+            current_mod = self.app_controller.get_current_mod()
+            if current_mod and "path" in current_mod:
+                units_path = os.path.join(current_mod["path"], "history", "units")
+                if os.path.exists(units_path):
+                    import re
+                    pattern = re.compile(f"{nation_tag}_\\d{{4}}_(?:naval|Naval|Navy|navy)(?:_mtg)?\\.txt$")
+                    try:
+                        for filename in os.listdir(units_path):
+                            if pattern.match(filename):
+                                return True
+                    except:
+                        pass
+
+            return False
+
+        except Exception as e:
+            print(f"国家データチェック中にエラー: {e}")
+            return False
+
+    def add_nation_to_combo(self, nation):
+        """国家をコンボボックスに追加（軽量版）"""
+        try:
+            tag = nation["tag"]
+            name = nation["name"]
+            flag_path = nation.get("flag_path")
+
+            # コンボボックスアイテムの作成
+            self.country_combo.addItem(f"{tag}: {name}", tag)
+
+            # 国旗画像の設定（PILが利用可能で、ファイルサイズが小さい場合のみ）
+            if PIL_AVAILABLE and flag_path and os.path.exists(flag_path):
+                try:
+                    # ファイルサイズチェック（1MB以下のみ処理）
+                    file_size = os.path.getsize(flag_path)
+                    if file_size < 1024 * 1024:  # 1MB
+                        img = Image.open(flag_path)
+                        # 画像サイズチェック
+                        if img.size[0] <= 256 and img.size[1] <= 256:
                             import io
                             img_data = io.BytesIO()
                             img.save(img_data, format='PNG')
                             pixmap = QPixmap()
                             pixmap.loadFromData(img_data.getvalue())
-                            pixmap = pixmap.scaled(32, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                            pixmap = pixmap.scaled(24, 16, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
                             # 最後に追加したアイテムにアイコンを設定
                             self.country_combo.setItemIcon(self.country_combo.count() - 1, QIcon(pixmap))
-                        except Exception as e:
-                            self.logger.warning(f"国旗画像の読み込みエラー: {e}")
-
-            # 国家データを保持
-            self.countries = {nation["tag"]: nation for nation in nations if nation["tag"] in country_designs}
+                except Exception as e:
+                    # 国旗読み込みエラーは無視して続行
+                    pass
 
         except Exception as e:
-            QMessageBox.critical(self, "エラー", f"国家データの読み込み中にエラーが発生しました：\n{str(e)}")
-            self.logger.error(f"国家データ読み込みエラー: {e}")
+            print(f"国家追加エラー: {e}")
 
     def on_country_changed(self, index):
         """国家が変更された時の処理"""
@@ -358,6 +452,8 @@ class FleetView(QWidget):
             self.load_designs()
             # 艦隊データを読み込み
             self.load_fleet_data()
+            # 港湾一覧を更新
+            self.update_port_list()
 
             # マップデータを読み込み（MapViewerが利用可能な場合）
             if MAP_VIEWER_AVAILABLE and self.app_controller:
@@ -378,6 +474,136 @@ class FleetView(QWidget):
                         self.logger.warning("MODが選択されていません。マップデータを読み込めません。")
                 except Exception as e:
                     self.logger.error(f"マップデータ読み込みエラー: {e}")
+
+    def update_port_list(self):
+        """港湾一覧を更新"""
+        if not self.current_country or not self.app_controller:
+            return
+
+        try:
+            # 港湾ツリーをクリア
+            self.port_tree.clear()
+
+            # 現在のMODを取得
+            current_mod = self.app_controller.get_current_mod()
+            if not current_mod or "path" not in current_mod:
+                return
+
+            mod_path = current_mod["path"]
+            localisation_dir = os.path.join(mod_path, "localisation", "japanese")
+            
+            # ローカライズファイルからステート名を取得
+            state_names = {}
+            if os.path.exists(localisation_dir):
+                for root, _, files in os.walk(localisation_dir):
+                    for file in files:
+                        if file.endswith('.yml'):
+                            file_path = os.path.join(root, file)
+                            try:
+                                with open(file_path, 'r', encoding='utf-8') as f:
+                                    content = f.read()
+                                    # STATE_で始まる行を探す
+                                    for line in content.split('\n'):
+                                        if line.startswith(' STATE_'):
+                                            parts = line.split(':')
+                                            if len(parts) >= 2:
+                                                key = parts[0].strip()
+                                                value = parts[1].strip().strip('"')
+                                                state_names[key] = value
+                            except Exception as e:
+                                self.logger.warning(f"ローカライズファイルの読み込みエラー: {e}")
+
+            # 艦艇が存在する港湾を収集
+            ports_with_ships = set()
+            for i in range(self.fleet_tree.topLevelItemCount()):
+                fleet_item = self.fleet_tree.topLevelItem(i)
+                fleet_data = fleet_item.data(0, Qt.UserRole)
+                if fleet_data and "province_id" in fleet_data:
+                    ports_with_ships.add(fleet_data["province_id"])
+                    # 任務部隊の港湾も追加
+                    for j in range(fleet_item.childCount()):
+                        task_force_item = fleet_item.child(j)
+                        task_force_data = task_force_item.data(0, Qt.UserRole)
+                        if task_force_data and "province_id" in task_force_data:
+                            ports_with_ships.add(task_force_data["province_id"])
+
+            # MOD内の艦艇が存在する港湾も収集
+            if self.show_mod_fleet_btn.isChecked():
+                for i in range(self.mod_fleet_tree.topLevelItemCount()):
+                    fleet_item = self.mod_fleet_tree.topLevelItem(i)
+                    fleet_data = fleet_item.data(0, Qt.UserRole)
+                    if fleet_data and "province_id" in fleet_data:
+                        ports_with_ships.add(fleet_data["province_id"])
+                        # 任務部隊の港湾も追加
+                        for j in range(fleet_item.childCount()):
+                            task_force_item = fleet_item.child(j)
+                            task_force_data = task_force_item.data(0, Qt.UserRole)
+                            if task_force_data and "province_id" in task_force_data:
+                                ports_with_ships.add(task_force_data["province_id"])
+
+            # ステートごとに港湾をグループ化
+            state_ports = {}
+            for prov_id, level in self.map_widget.naval_base_locations.items():
+                if prov_id in self.map_widget.provinces_data_by_id:
+                    prov_obj = self.map_widget.provinces_data_by_id[prov_id]
+                    if prov_obj.state_id is not None:
+                        # ステートの所有者を確認
+                        state_owner = self.map_widget.get_state_owner(prov_obj.state_id)
+                        if state_owner == self.current_country:
+                            if prov_obj.state_id not in state_ports:
+                                state_ports[prov_obj.state_id] = []
+                            state_ports[prov_obj.state_id].append((prov_id, level))
+
+            # ステートごとにツリーアイテムを作成
+            for state_id, ports in state_ports.items():
+                state_info = self.map_widget.states_data.get(state_id)
+                if state_info:
+                    state_name = state_info['name']
+                    # ローカライズされた名前を探す
+                    loc_key = f"STATE_{state_id}"
+                    if loc_key in state_names:
+                        state_name = state_names[loc_key]
+                    
+                    state_item = QTreeWidgetItem(self.port_tree)
+                    state_item.setText(0, f"{state_name} ({state_id})")
+                    
+                    # 港湾を追加
+                    for prov_id, level in ports:
+                        port_item = QTreeWidgetItem(state_item)
+                        port_name = f"Province {prov_id}"
+                        if prov_id in self.map_widget.provinces_data_by_id:
+                            prov_obj = self.map_widget.provinces_data_by_id[prov_id]
+                            if prov_obj.name:
+                                port_name = prov_obj.name
+                        
+                        # 港湾の色を設定（レベルに応じて）
+                        if level >= 10:
+                            port_color = QColor(0, 0, 255)  # 青
+                        elif level >= 5:
+                            port_color = QColor(0, 128, 255)  # 水色
+                        else:
+                            port_color = QColor(0, 255, 255)  # 薄い水色
+                        
+                        # 艦艇の存在に応じて色を設定
+                        if prov_id in ports_with_ships:
+                            port_name += f" [艦艇配備中]"
+                            # 艦艇が存在する場合は色を濃くする
+                            port_color.setAlpha(255)
+                        else:
+                            port_color.setAlpha(100)
+                        
+                        port_item.setText(0, f"{port_name}: Lv{level}")
+                        port_item.setForeground(0, port_color)
+                        port_item.setData(0, Qt.UserRole, {
+                            "province_id": prov_id,
+                            "level": level,
+                            "has_ships": prov_id in ports_with_ships
+                        })
+
+            self.logger.info(f"港湾一覧を更新: {self.current_country}")
+
+        except Exception as e:
+            self.logger.error(f"港湾一覧の更新中にエラーが発生しました: {e}")
 
     def design_list_mouse_move_event(self, event):
         """設計リストのドラッグ開始イベント"""
@@ -678,6 +904,9 @@ class FleetView(QWidget):
                 if self.app_controller.save_fleet_data(fleet_data):
                     QMessageBox.information(self, "成功", "艦隊データを保存しました。")
                     self.logger.info(f"艦隊データを保存: {self.current_country}")
+                    # 艦隊表示を更新
+                    if self.show_fleet_btn.isChecked():
+                        self.update_fleet_display()
                 else:
                     QMessageBox.warning(self, "警告", "艦隊データの保存に失敗しました。")
             else:
@@ -690,55 +919,231 @@ class FleetView(QWidget):
     def load_fleet_data(self):
         """艦隊データを読み込み"""
         if not self.current_country:
+            self.logger.warning("国家が選択されていません")
             return
 
         try:
             # コントローラーから艦隊データを取得
-            if self.app_controller:
-                fleet_data = self.app_controller.load_fleet_data(self.current_country)
-                if fleet_data:
-                    # 艦隊ツリーをクリア
-                    self.fleet_tree.clear()
+            if not self.app_controller:
+                self.logger.warning("app_controllerが設定されていません")
+                return
 
-                    # 艦隊データをツリーに追加
-                    for fleet in fleet_data.get("fleets", []):
-                        fleet_item = QTreeWidgetItem(self.fleet_tree)
-                        fleet_item.setText(0, f"艦隊: {fleet['name']} (Province: {fleet['province_id']})")
-                        fleet_item.setData(0, Qt.UserRole, {
-                            "type": "fleet",
-                            "name": fleet["name"],
-                            "province_id": fleet["province_id"]
-                        })
+            self.logger.info(f"艦隊データの読み込みを開始: {self.current_country}")
+            
+            # 現在のMODを取得
+            current_mod = self.app_controller.get_current_mod()
+            if not current_mod or "path" not in current_mod:
+                self.logger.warning("MODが選択されていません")
+                return
 
-                        # 任務部隊を追加
-                        for task_force in fleet.get("task_forces", []):
-                            task_force_item = QTreeWidgetItem(fleet_item)
-                            task_force_item.setText(0,
-                                                    f"任務部隊: {task_force['name']} (Province: {task_force['province_id']})")
-                            task_force_item.setData(0, Qt.UserRole, {
-                                "type": "task_force",
-                                "name": task_force["name"],
-                                "province_id": task_force["province_id"]
-                            })
+            # 編成ファイルのパス
+            units_path = os.path.join(current_mod["path"], "history", "units")
+            if not os.path.exists(units_path):
+                self.logger.warning(f"編成ファイルのパスが存在しません: {units_path}")
+                return
 
-                            # 艦艇を追加
-                            for ship in task_force.get("ships", []):
-                                ship_item = QTreeWidgetItem(task_force_item)
-                                ship_item.setText(0,
-                                                  f"艦艇: {ship['name']} (Exp: {ship['exp']:.2f}, Pride: {ship['is_pride']})")
-                                ship_item.setData(0, Qt.UserRole, {
-                                    "type": "ship",
-                                    "name": ship["name"],
-                                    "exp": ship["exp"],
-                                    "is_pride": ship["is_pride"],
-                                    "design": ship["design"]
+            self.logger.info(f"編成ファイルのパス: {units_path}")
+
+            # 設計データを取得（艦艇名の参照用）
+            designs_path = os.path.join(current_mod["path"], "common", "scripted_effects", "NAVY_Designs.txt")
+            designs_data = {}
+            if os.path.exists(designs_path):
+                with open(designs_path, 'r', encoding='utf-8') as f:
+                    from parser.EffectParser import EffectParser
+                    parser = EffectParser(f.read(), filename=designs_path)
+                    designs_data.update(parser.parse_designs())
+                    self.logger.info(f"設計データを読み込み: {len(designs_data)}件")
+
+            # 艦隊ツリーをクリア
+            self.fleet_tree.clear()
+            self.mod_fleet_tree.clear()
+
+            # ファイルパターンに一致するファイルを検索
+            import re
+            pattern = re.compile(f"{self.current_country}_\\d{{4}}_(?:naval|Naval|Navy|navy)(?:_mtg)?\\.txt$")
+            found_files = []
+
+            for filename in os.listdir(units_path):
+                if pattern.match(filename):
+                    found_files.append(filename)
+                    file_path = os.path.join(units_path, filename)
+                    self.logger.info(f"艦隊ファイルを処理: {filename}")
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            from parser.NavalOOBParser import NavalOOBParser
+                            parser = NavalOOBParser(f.read())
+                            fleets = parser.extract_fleets()
+                            self.logger.info(f"艦隊データを抽出: {len(fleets)}件")
+
+                            # ファイル名から日付を抽出
+                            date_match = re.search(r'(\d{4})', filename)
+                            date = date_match.group(1) if date_match else "不明"
+
+                            # 日付でソート
+                            fleets.sort(key=lambda x: x.get('date', '0000'))
+
+                            for fleet in fleets:
+                                # 艦隊アイテムを作成
+                                fleet_item = QTreeWidgetItem(self.mod_fleet_tree)  # MOD内編成ツリーに追加
+                                fleet_name = fleet.get('name', '不明')
+                                # 艦隊名のオーバーライドを確認
+                                if isinstance(fleet_name, dict) and 'override' in fleet_name:
+                                    fleet_name = fleet_name['override']
+                                naval_base = fleet.get('naval_base', '不明')
+                                task_forces = fleet.get('task_force', [])
+                                if isinstance(task_forces, dict):
+                                    task_forces = [task_forces]
+
+                                total_ships = sum(len(tf.get('ship', [])) for tf in task_forces)
+                                fleet_item.setText(0, f"{fleet_name} - {naval_base} - {len(task_forces)}TF - {total_ships}隻")
+                                fleet_item.setData(0, Qt.UserRole, {
+                                    "type": "fleet",
+                                    "name": fleet_name,
+                                    "province_id": naval_base,
+                                    "date": date,
+                                    "file": filename,
+                                    "is_mod": True  # MOD内の編成であることを示すフラグ
                                 })
+                                self.logger.info(f"MOD内艦隊を追加: {fleet_name} (Province: {naval_base})")
 
-                    self.logger.info(f"艦隊データを読み込み: {self.current_country}")
+                                # 任務部隊を追加
+                                for task_force in task_forces:
+                                    task_force_item = QTreeWidgetItem(fleet_item)
+                                    task_force_name = task_force.get('name', '不明')
+                                    # 任務部隊名のオーバーライドを確認
+                                    if isinstance(task_force_name, dict) and 'override' in task_force_name:
+                                        task_force_name = task_force_name['override']
+                                    location = task_force.get('location', '不明')
+                                    ships = task_force.get('ship', [])
+                                    if isinstance(ships, dict):
+                                        ships = [ships]
+
+                                    task_force_item.setText(0, f"{task_force_name} - {location} - {len(ships)}隻")
+                                    task_force_item.setData(0, Qt.UserRole, {
+                                        "type": "task_force",
+                                        "name": task_force_name,
+                                        "province_id": location,
+                                        "is_mod": True
+                                    })
+                                    self.logger.info(f"MOD内任務部隊を追加: {task_force_name} (Province: {location})")
+
+                                    # 艦艇を追加
+                                    for ship in ships:
+                                        ship_item = QTreeWidgetItem(task_force_item)
+                                        ship_name = ship.get('name', '不明')
+                                        # 艦艇名のオーバーライドを確認
+                                        if isinstance(ship_name, dict) and 'override' in ship_name:
+                                            ship_name = ship_name['override']
+                                        definition = ship.get('definition', '不明')
+                                        exp_factor = ship.get('start_experience_factor', 0.0)
+
+                                        # 設計データから表示名を取得
+                                        version_name = self.get_display_name_from_design(definition, designs_data, self.current_country, ship)
+
+                                        ship_item.setText(0, f"{ship_name} - {definition} - {version_name} - Exp:{exp_factor}")
+                                        ship_item.setData(0, Qt.UserRole, {
+                                            "type": "ship",
+                                            "name": ship_name,
+                                            "exp": exp_factor,
+                                            "is_pride": self.check_pride_in_data(ship),
+                                            "design": definition,
+                                            "is_mod": True
+                                        })
+                                        self.logger.info(f"MOD内艦艇を追加: {ship_name} (設計: {definition})")
+
+                                # 艦隊アイテムを展開
+                                fleet_item.setExpanded(True)
+
+                    except Exception as e:
+                        self.logger.error(f"ファイル {filename} のパース中にエラーが発生しました: {str(e)}")
+                        continue
+
+            self.logger.info(f"艦隊ファイルの検索結果: {len(found_files)}件")
+            self.logger.info(f"艦隊データを読み込み完了: {self.current_country}")
+            
+            # 艦隊表示を更新
+            if self.show_fleet_btn.isChecked():
+                self.logger.info("艦隊表示を更新")
+                self.update_fleet_display()
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"艦隊データの読み込み中にエラーが発生しました：\n{str(e)}")
             self.logger.error(f"艦隊データ読み込みエラー: {e}")
+
+    def get_display_name_from_design(self, definition, designs_data, nation_tag, ship_data):
+        """設計データから表示名を取得"""
+        try:
+            # 1. 設計データから検索
+            design_display_name = None
+            ship_version_name = None
+
+            if nation_tag in designs_data:
+                # 完全一致で検索
+                if definition in designs_data[nation_tag]:
+                    design_data = designs_data[nation_tag][definition]
+                    design_display_name = self.extract_design_override_name(design_data)
+
+                # typeフィールドで検索（完全一致が見つからない場合）
+                if not design_display_name:
+                    for design_key, design_data in designs_data[nation_tag].items():
+                        if design_data.get('type', '').strip('"') == definition:
+                            design_display_name = self.extract_design_override_name(design_data)
+                            break
+
+            # 2. 船体データからversion_nameを取得
+            equipment = ship_data.get('equipment', {})
+            for equipment_type, equipment_data in equipment.items():
+                if isinstance(equipment_data, dict):
+                    version_name = equipment_data.get('version_name', '')
+                    if version_name:
+                        ship_version_name = version_name.strip('"')
+                        break
+
+            # 3. 表示名を組み合わせ
+            if design_display_name and ship_version_name:
+                return f"{design_display_name}({ship_version_name})"
+            elif design_display_name:
+                return design_display_name
+            elif ship_version_name:
+                return ship_version_name
+            else:
+                return definition
+
+        except Exception as e:
+            self.logger.error(f"表示名取得エラー: {e}")
+            return definition
+
+    def extract_design_override_name(self, design_data):
+        """設計データからoverride名のみを抽出"""
+        try:
+            # オーバーライドされている場合はoverride名を返す
+            if design_data.get('name_overridden', False):
+                return design_data.get('name', '').strip('"')
+
+            # オーバーライドされていない場合は通常の名前を返す
+            return design_data.get('name', '').strip('"')
+
+        except Exception as e:
+            self.logger.error(f"override名抽出エラー: {e}")
+            return ""
+
+    def check_pride_in_data(self, data_dict):
+        """データ内にpride_of_the_fleetが含まれているかチェック"""
+        try:
+            if isinstance(data_dict, dict):
+                for key, value in data_dict.items():
+                    if key == 'pride_of_the_fleet' or (isinstance(value, str) and 'pride_of_the_fleet' in value):
+                        return True
+                    elif isinstance(value, (dict, list)):
+                        if self.check_pride_in_data(value):
+                            return True
+            elif isinstance(data_dict, list):
+                for item in data_dict:
+                    if self.check_pride_in_data(item):
+                        return True
+            return False
+        except:
+            return False
 
     def refresh_countries(self):
         """設計データから国家タグを再収集"""
@@ -776,6 +1181,8 @@ class FleetView(QWidget):
             self.fleet_tree.clear()
             # 設計リストをクリア
             self.design_list.clear()
+            # 港湾一覧をクリア
+            self.port_tree.clear()
             # 現在の国家をリセット
             self.current_country = None
             self.country_combo.setCurrentIndex(-1)
@@ -789,6 +1196,209 @@ class FleetView(QWidget):
                     self.logger.warning(f"マップデータ再読み込みエラー: {e}")
         except Exception as e:
             self.logger.error(f"MOD変更処理エラー: {e}")
+
+    def toggle_fleet_display(self):
+        """艦隊表示の切り替え"""
+        if self.show_fleet_btn.isChecked():
+            self.update_fleet_display()
+        else:
+            self.map_widget.show_fleet_info = False
+            self.map_widget.render_map()
+
+    def toggle_mod_fleet_display(self):
+        """MOD内の艦隊表示を切り替え"""
+        if self.show_mod_fleet_btn.isChecked():
+            self.logger.info("MOD内編成の表示を有効化")
+            # 艦隊表示ボタンがオンの場合は艦隊表示を更新
+            if self.show_fleet_btn.isChecked():
+                self.update_fleet_display()
+        else:
+            self.logger.info("MOD内編成の表示を無効化")
+            # 艦隊表示ボタンがオンの場合は艦隊表示を更新
+            if self.show_fleet_btn.isChecked():
+                self.update_fleet_display()
+
+    def update_fleet_display(self):
+        """艦隊表示を更新"""
+        if not self.current_country:
+            self.logger.warning("国家が選択されていません")
+            return
+
+        try:
+            # 艦隊データをプロビンスごとに整理
+            fleet_data_by_province = {}
+            self.logger.info("艦隊表示の更新を開始")
+            
+            # 編集可能な艦隊ツリーからデータを収集
+            for i in range(self.fleet_tree.topLevelItemCount()):
+                fleet_item = self.fleet_tree.topLevelItem(i)
+                fleet_data = fleet_item.data(0, Qt.UserRole)
+                
+                if not fleet_data or "province_id" not in fleet_data:
+                    self.logger.warning(f"無効な艦隊データ: {fleet_data}")
+                    continue
+                
+                self.logger.info(f"艦隊データを処理: {fleet_data}")
+                prov_id = fleet_data["province_id"]
+                
+                if prov_id not in fleet_data_by_province:
+                    fleet_data_by_province[prov_id] = []
+                
+                fleet_info = {
+                    "name": fleet_data["name"],
+                    "province_id": prov_id,
+                    "task_forces": []
+                }
+                
+                # 任務部隊を収集
+                for j in range(fleet_item.childCount()):
+                    task_force_item = fleet_item.child(j)
+                    task_force_data = task_force_item.data(0, Qt.UserRole)
+                    
+                    if not task_force_data or "province_id" not in task_force_data:
+                        self.logger.warning(f"無効な任務部隊データ: {task_force_data}")
+                        continue
+                    
+                    self.logger.info(f"任務部隊データを処理: {task_force_data}")
+                    task_force_info = {
+                        "name": task_force_data["name"],
+                        "province_id": task_force_data["province_id"],
+                        "ships": []
+                    }
+                    
+                    # 艦艇を収集
+                    for k in range(task_force_item.childCount()):
+                        ship_item = task_force_item.child(k)
+                        ship_data = ship_item.data(0, Qt.UserRole)
+                        
+                        if not ship_data:
+                            self.logger.warning(f"無効な艦艇データ: {ship_data}")
+                            continue
+                        
+                        self.logger.info(f"艦艇データを処理: {ship_data}")
+                        ship_info = {
+                            "name": ship_data["name"],
+                            "exp": ship_data["exp"],
+                            "is_pride": ship_data["is_pride"],
+                            "design": ship_data["design"]
+                        }
+                        task_force_info["ships"].append(ship_info)
+                    
+                    fleet_info["task_forces"].append(task_force_info)
+                
+                fleet_data_by_province[prov_id].append(fleet_info)
+
+            # MOD内編成が有効な場合、MOD内の艦隊データも収集
+            if self.show_mod_fleet_btn.isChecked():
+                self.logger.info("MOD内編成のデータを収集")
+                for i in range(self.mod_fleet_tree.topLevelItemCount()):
+                    fleet_item = self.mod_fleet_tree.topLevelItem(i)
+                    fleet_data = fleet_item.data(0, Qt.UserRole)
+                    
+                    if not fleet_data or "province_id" not in fleet_data:
+                        self.logger.warning(f"無効なMOD内艦隊データ: {fleet_data}")
+                        continue
+                    
+                    self.logger.info(f"MOD内艦隊データを処理: {fleet_data}")
+                    prov_id = fleet_data["province_id"]
+                    
+                    if prov_id not in fleet_data_by_province:
+                        fleet_data_by_province[prov_id] = []
+                    
+                    fleet_info = {
+                        "name": fleet_data["name"],
+                        "province_id": prov_id,
+                        "task_forces": [],
+                        "is_mod": True  # MOD内の編成であることを示すフラグ
+                    }
+                    
+                    # 任務部隊を収集
+                    for j in range(fleet_item.childCount()):
+                        task_force_item = fleet_item.child(j)
+                        task_force_data = task_force_item.data(0, Qt.UserRole)
+                        
+                        if not task_force_data or "province_id" not in task_force_data:
+                            self.logger.warning(f"無効なMOD内任務部隊データ: {task_force_data}")
+                            continue
+                        
+                        self.logger.info(f"MOD内任務部隊データを処理: {task_force_data}")
+                        task_force_info = {
+                            "name": task_force_data["name"],
+                            "province_id": task_force_data["province_id"],
+                            "ships": [],
+                            "is_mod": True
+                        }
+                        
+                        # 艦艇を収集
+                        for k in range(task_force_item.childCount()):
+                            ship_item = task_force_item.child(k)
+                            ship_data = ship_item.data(0, Qt.UserRole)
+                            
+                            if not ship_data:
+                                self.logger.warning(f"無効なMOD内艦艇データ: {ship_data}")
+                                continue
+                            
+                            self.logger.info(f"MOD内艦艇データを処理: {ship_data}")
+                            ship_info = {
+                                "name": ship_data["name"],
+                                "exp": ship_data["exp"],
+                                "is_pride": ship_data["is_pride"],
+                                "design": ship_data["design"],
+                                "is_mod": True
+                            }
+                            task_force_info["ships"].append(ship_info)
+                        
+                        fleet_info["task_forces"].append(task_force_info)
+                    
+                    fleet_data_by_province[prov_id].append(fleet_info)
+            
+            self.logger.info(f"収集した艦隊データ: {fleet_data_by_province}")
+            
+            # マップに艦隊情報を表示
+            if self.map_widget:
+                self.map_widget.set_fleet_data(
+                    fleet_data_by_province,
+                    self.current_country,
+                    self.show_mod_fleet_btn.isChecked()
+                )
+                self.logger.info("艦隊表示の更新が完了")
+            else:
+                self.logger.warning("map_widgetが設定されていません")
+            
+        except Exception as e:
+            self.logger.error(f"艦隊表示の更新中にエラーが発生しました: {e}")
+            QMessageBox.critical(self, "エラー", f"艦隊表示の更新中にエラーが発生しました：\n{str(e)}")
+
+    def show_fleet_details(self, province_id):
+        """艦隊の詳細情報を表示する"""
+        if province_id in self.map_widget.fleet_data:
+            fleet_info = self.map_widget.fleet_data[province_id]
+            details = "艦隊編成:\n\n"
+            
+            for fleet in fleet_info:
+                # MOD内編成かどうかを表示
+                mod_prefix = "[MOD] " if fleet.get('is_mod', False) else ""
+                details += f"{mod_prefix}艦隊: {fleet['name']}\n"
+                
+                for task_force in fleet.get('task_forces', []):
+                    mod_prefix = "[MOD] " if task_force.get('is_mod', False) else ""
+                    details += f"  {mod_prefix}任務部隊: {task_force['name']}\n"
+                    
+                    # 艦艇タイプごとの集計
+                    ship_counts = {}
+                    for ship in task_force.get('ships', []):
+                        ship_type = ship.get('design', 'unknown')
+                        if isinstance(ship_type, dict):
+                            ship_type = ship_type.get('name', 'unknown')
+                        ship_counts[ship_type] = ship_counts.get(ship_type, 0) + 1
+                    
+                    # 艦艇タイプごとの情報を表示
+                    for ship_type, count in ship_counts.items():
+                        mod_prefix = "[MOD] " if ship.get('is_mod', False) else ""
+                        details += f"    {mod_prefix}{ship_type}: {count}隻\n"
+                details += "\n"
+            
+            QMessageBox.information(self, "艦隊情報", details)
 
 
 # ダイアログクラス群

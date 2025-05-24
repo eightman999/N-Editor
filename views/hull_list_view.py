@@ -4,6 +4,8 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QColor
 import os
+import json
+import csv
 
 from .hull_form import HullForm
 
@@ -79,6 +81,9 @@ class HullListView(QWidget):
         self.hull_table.setSelectionMode(QTableWidget.SingleSelection)
         self.hull_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.hull_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)  # 艦級名列を拡大
+        
+        # ソート機能を有効化
+        self.hull_table.setSortingEnabled(True)
 
         # ダブルクリックでの選択処理
         self.hull_table.doubleClicked.connect(self.on_table_double_clicked)
@@ -87,6 +92,9 @@ class HullListView(QWidget):
 
     def load_hull_list(self):
         """船体リストの読み込み"""
+        # ソート機能を一時的に無効化（データ読み込み中のソートを防止）
+        self.hull_table.setSortingEnabled(False)
+        
         self.hull_table.setRowCount(0)  # テーブルをクリア
 
         # コントローラーから船体データを取得
@@ -116,6 +124,7 @@ class HullListView(QWidget):
 
             # 開発年セル
             year_item = QTableWidgetItem(str(hull.get('year', '')))
+            year_item.setData(Qt.DisplayRole, hull.get('year', 0))  # 数値としてソート可能に
             self.hull_table.setItem(row, 3, year_item)
 
             # 開発国セル
@@ -124,10 +133,12 @@ class HullListView(QWidget):
 
             # 排水量セル
             weight_item = QTableWidgetItem(str(hull.get('weight', '')))
+            weight_item.setData(Qt.DisplayRole, hull.get('weight', 0.0))  # 数値としてソート可能に
             self.hull_table.setItem(row, 5, weight_item)
 
             # 速力セル
             speed_item = QTableWidgetItem(str(hull.get('speed', '')))
+            speed_item.setData(Qt.DisplayRole, hull.get('speed', 0.0))  # 数値としてソート可能に
             self.hull_table.setItem(row, 6, speed_item)
 
             # 船体タイプによって背景色を変える（軽い視認性向上）
@@ -150,6 +161,9 @@ class HullListView(QWidget):
             # 背景色を設定
             for col in range(self.hull_table.columnCount()):
                 self.hull_table.item(row, col).setBackground(bg_color)
+        
+        # ソート機能を再度有効化
+        self.hull_table.setSortingEnabled(True)
 
     def on_add_clicked(self):
         """新規追加ボタンの処理"""
@@ -379,76 +393,115 @@ class HullListView(QWidget):
 
     def on_import_clicked(self):
         """CSVインポートボタンの処理"""
-        # ファイル選択
-        options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getOpenFileName(
-            self, "CSVファイルを開く", "", "CSV Files (*.csv)", options=options
-        )
+        try:
+            # ファイル選択
+            options = QFileDialog.Options()
+            file_name, _ = QFileDialog.getOpenFileName(
+                self, "CSVファイルを開く", "", "CSV Files (*.csv)", options=options
+            )
 
-        if not file_name:
-            return
+            if not file_name:
+                return
 
-        # JSONエクスポートのオプション（保存先は固定）
-        json_export = False
-        json_dir = ""
+            # JSONエクスポートのオプション（保存先は固定）
+            json_export = False
+            json_dir = ""
 
-        reply = QMessageBox.question(
-            self, "JSONエクスポート",
-            "インポートした船体データをJSONファイルとしても保存しますか？",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-        )
+            reply = QMessageBox.question(
+                self, "JSONエクスポート",
+                "インポートした船体データをJSONファイルとしても保存しますか？",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            )
 
-        if reply == QMessageBox.Yes:
-            json_export = True
-            # 保存先をhull_dirに固定
-            if self.app_controller:
-                json_dir = os.path.join(self.app_controller.app_settings.data_dir, "hulls")
-            else:
+            if reply == QMessageBox.Yes:
+                json_export = True
+                # 保存先をhull_dirに固定
+                if self.app_controller:
+                    json_dir = os.path.join(self.app_controller.app_settings.data_dir, "hulls")
+                else:
+                    # 従来の方法（モデル直接使用）
+                    from models.hull_model import HullModel
+                    hull_model = HullModel()
+                    json_dir = hull_model.data_dir
+
+            # インポート実行
+            try:
+                # AppControllerを使用してCSVをインポート
+                if self.app_controller:
+                    imported_hulls = self.app_controller.import_from_csv(file_name, json_export=json_export, json_dir=json_dir)
+                    if imported_hulls:
+                        QMessageBox.information(self, "インポート完了", f"{len(imported_hulls)}件の船体データをインポートしました。")
+                        self.load_hull_list()  # リストを更新
+                    else:
+                        QMessageBox.warning(self, "インポート警告", "CSVファイルからデータをインポートできませんでした。")
+                    return
+
                 # 従来の方法（モデル直接使用）
                 from models.hull_model import HullModel
                 hull_model = HullModel()
-                json_dir = hull_model.data_dir
 
-        # インポート実行
-        try:
-            # AppControllerを使用してCSVをインポート
-            if self.app_controller:
-                imported_hulls = self.app_controller.import_from_csv(file_name, json_export=json_export, json_dir=json_dir)
+                # CSVファイルの読み込み
+                imported_hulls = []
+                with open(file_name, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        try:
+                            # データの検証
+                            if not row.get('id') or not row.get('name'):
+                                continue
+                            
+                            # 数値データの変換
+                            if 'year' in row:
+                                try:
+                                    row['year'] = int(row['year'])
+                                except ValueError:
+                                    row['year'] = 0
+                            
+                            if 'weight' in row:
+                                try:
+                                    row['weight'] = float(row['weight'])
+                                except ValueError:
+                                    row['weight'] = 0.0
+                            
+                            if 'speed' in row:
+                                try:
+                                    row['speed'] = float(row['speed'])
+                                except ValueError:
+                                    row['speed'] = 0.0
+
+                            imported_hulls.append(row)
+                        except Exception as e:
+                            print(f"行の処理中にエラーが発生: {e}")
+                            continue
+
+                # JSON出力（必要な場合）
+                if json_export and imported_hulls and json_dir:
+                    os.makedirs(json_dir, exist_ok=True)
+                    for hull_data in imported_hulls:
+                        try:
+                            hull_id = hull_data.get('id', '')
+                            if hull_id:
+                                json_path = os.path.join(json_dir, f"{hull_id}.json")
+                                with open(json_path, 'w', encoding='utf-8') as f:
+                                    json.dump(hull_data, f, ensure_ascii=False, indent=2)
+                        except Exception as e:
+                            print(f"JSON保存中にエラーが発生: {e}")
+                            continue
+
                 if imported_hulls:
-                    QMessageBox.information(self, "インポート完了", f"{len(imported_hulls)}件の船体データをインポートしました。")
+                    msg = f"{len(imported_hulls)}件の船体データをインポートしました。"
+                    if json_export and json_dir:
+                        msg += f"\nJSONファイルを '{json_dir}' に保存しました。"
+
+                    QMessageBox.information(self, "インポート完了", msg)
                     self.load_hull_list()  # リストを更新
                 else:
                     QMessageBox.warning(self, "インポート警告", "CSVファイルからデータをインポートできませんでした。")
-                return
 
-            # 従来の方法（モデル直接使用）
-            from models.hull_model import HullModel
-            import os
-            import json
-
-            hull_model = HullModel()
-
-            # CSVインポート実行
-            imported_hulls = hull_model.import_from_csv(file_name)
-
-            # JSON出力（必要な場合）
-            if json_export and imported_hulls and json_dir:
-                for hull_data in imported_hulls:
-                    hull_id = hull_data.get('id', '')
-                    if hull_id:
-                        json_path = os.path.join(json_dir, f"{hull_id}.json")
-                        with open(json_path, 'w', encoding='utf-8') as f:
-                            json.dump(hull_data, f, ensure_ascii=False, indent=2)
-
-            if imported_hulls:
-                msg = f"{len(imported_hulls)}件の船体データをインポートしました。"
-                if json_export and json_dir:
-                    msg += f"\nJSONファイルを '{json_dir}' に保存しました。"
-
-                QMessageBox.information(self, "インポート完了", msg)
-                self.load_hull_list()  # リストを更新
-            else:
-                QMessageBox.warning(self, "インポート警告", "CSVファイルからデータをインポートできませんでした。")
+            except Exception as e:
+                QMessageBox.critical(self, "インポートエラー", f"CSVのインポートに失敗しました。\nエラー詳細: {str(e)}")
+                print(f"インポートエラーの詳細: {e}")
 
         except Exception as e:
-            QMessageBox.critical(self, "インポートエラー", f"CSVのインポートに失敗しました。\n{e}")
+            QMessageBox.critical(self, "エラー", f"予期せぬエラーが発生しました。\nエラー詳細: {str(e)}")
+            print(f"予期せぬエラーの詳細: {e}")

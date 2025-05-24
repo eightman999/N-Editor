@@ -1,9 +1,16 @@
 import os
+import platform
 
 def get_app_support_dir():
     """アプリケーションサポートディレクトリのパスを取得"""
     home_dir = os.path.expanduser("~")
-    app_support_dir = os.path.join(home_dir, 'Library', 'Application Support', 'NavalDesignSystem')
+    
+    # OSに応じてパスを変更
+    if platform.system() == "Windows":
+        app_support_dir = os.path.join(home_dir, 'Documents', 'NavalDesignSystem')
+    else:  # macOS
+        app_support_dir = os.path.join(home_dir, 'Library', 'Application Support', 'NavalDesignSystem')
+    
     os.makedirs(app_support_dir, exist_ok=True)
     return app_support_dir
 

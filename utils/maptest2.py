@@ -1,7 +1,6 @@
 import logging
 import sys
 import os
-os.environ["QT_QPA_PLATFORM_PLATFORM_PATH"] = ".venv/lib/python3.13/site-packages/PyQt5/Qt5/plugins/platforms"
 import sys
 import os
 import csv
@@ -11,8 +10,8 @@ from PyQt5.QtWidgets import (
     QFileDialog, QVBoxLayout, QWidget, QMessageBox, QLabel,
     QPushButton, QHBoxLayout, QComboBox, QLineEdit
 )
-from PyQt5.QtGui import QPixmap, QImage, QColor, QPainter, QFont, QPen
-from PyQt5.QtCore import Qt, QRectF, QPointF
+from PyQt5.QtGui import QPixmap, QImage, QColor, QPainter, QFont, QPen, QBrush
+from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint
 from PIL import Image
 import numpy as np
 import random # 色をランダムに割り当てるため
@@ -21,6 +20,7 @@ from parser.StateParser import StateParser
 from parser.StateParser import ParserError
 from parser.StrategicRegionParser import StrategicRegionParser
 from parser.CountryColorParser import CountryColorParser
+from parser.NavalOOBParser import NavalOOBParser
 
 def get_file_content(file_path):
     """ファイルの内容を読み込む関数"""
@@ -52,6 +52,16 @@ class Province:
 class MapViewer(QGraphicsView):
     def __init__(self, parent=None):
         super().__init__(parent)
+        
+        # ロガーの設定
+        self.logger = logging.getLogger('MapViewer')
+        if not self.logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+            self.logger.setLevel(logging.INFO)
+        
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
         self.setRenderHint(QPainter.Antialiasing, False)
@@ -79,6 +89,15 @@ class MapViewer(QGraphicsView):
         self.province_centroids = {}
         self.naval_base_locations = {}
         self.state_boundaries = {}
+        
+        # 艦隊情報を保持する変数を追加
+        self.fleet_data = {}  # プロビンスIDをキーとして艦隊情報を保持
+        self.show_fleet_info = False  # 艦隊情報の表示フラグ
+        self.current_country = None  # 現在選択されている国家
+        self.show_mod_fleets = False  # MOD内の艦隊を表示するフラグ
+        
+        # app_controllerを追加
+        self.app_controller = parent.app_controller if parent else None
         
         # マウスオーバー時のツールチップ用
         self.setMouseTracking(True)
@@ -198,6 +217,7 @@ class MapViewer(QGraphicsView):
         self.strategic_regions_data = {}
         self.country_colors = {}
         self.base_qimage_cache = {}
+        self.state_owners = {}  # ステートの所有者情報を保持
 
         self._rgb_to_id_map_array.fill(-1)
         self.province_centroids = {}
@@ -289,6 +309,7 @@ class MapViewer(QGraphicsView):
                                     # デバッグ: ステートの所有者情報を出力
                                     owner = state_data.get('owner')
                                     if owner:
+                                        self.state_owners[state_id] = owner  # 所有者情報を保存
                                         # print(f"ステート {state_id} ({state_name}) の所有者: {owner}")
                                         pass
                                     else:
@@ -504,11 +525,14 @@ class MapViewer(QGraphicsView):
     def render_map(self):
         start_time = time.time()
         if self.original_map_image_data is None:
+            print("マップデータが読み込まれていません")
             return
 
+        print(f"render_map called: current_filter={self.current_filter}, show_fleet_info={self.show_fleet_info}")
+        print(f"艦隊データの状態: {self.fleet_data}")
+        
         if self.current_filter not in self.base_qimage_cache:
-            # print(f"Rendering map for filter: {self.current_filter} (and caching)")
-
+            print("キャッシュからマップを生成")
             original_pixels_flat = self.original_map_image_data.reshape(-1, 3)
 
             pixel_hashes = (original_pixels_flat[:, 0].astype(np.int32) * 65536 +
@@ -528,21 +552,13 @@ class MapViewer(QGraphicsView):
             elif self.current_filter == "countries":
                 # 国家モードの場合、ステートの所有者の色を使用
                 selected_palette = np.full((max(self.provinces_data_by_id.keys()) + 1 if self.provinces_data_by_id else 1, 3), (50, 50, 50), dtype=np.uint8)
-                # print("\n=== 国家モードの着色処理 ===")
                 for state_id, state_data in self.states_data.items():
-                    # StateParserから直接owner情報を取得
                     owner = state_data['raw_data'].get('owner', None)
-                    # print(f"ステート {state_id} の所有者: {owner}")
                     if owner and owner in self.country_colors:
                         color = self.country_colors[owner]['color']
-                        # print(f"  色を適用: {color}")
                         for prov_id in state_data['provinces']:
                             if prov_id <= max(self.provinces_data_by_id.keys()):
                                 selected_palette[prov_id] = color
-                    else:
-                        # print(f"  色が見つからないか所有者なし")
-                        pass
-                # print("========================\n")
             else:
                 selected_palette = np.full((max(self.provinces_data_by_id.keys()) + 1 if self.provinces_data_by_id else 1, 3), (0,0,0), dtype=np.uint8)
 
@@ -561,16 +577,25 @@ class MapViewer(QGraphicsView):
             q_image = QImage(display_array.data, width, height, bytes_per_line, QImage.Format_RGB888)
             self.base_qimage_cache[self.current_filter] = q_image.copy()
         else:
-            # print(f"Loading map from cache for filter: {self.current_filter}")
+            print("キャッシュからマップを読み込み")
             pass
 
         current_pixmap = QPixmap.fromImage(self.base_qimage_cache[self.current_filter])
 
         # 国家モードの場合、ステートの境界線を描画
         if self.current_filter == "countries":
+            print("ステートの境界線を描画")
             self.draw_state_boundaries(current_pixmap)
 
         self.draw_naval_bases(current_pixmap)
+        
+        # 艦隊情報を描画
+        print(f"艦隊情報の描画条件チェック: show_fleet_info={self.show_fleet_info}, fleet_data={bool(self.fleet_data)}")
+        if self.show_fleet_info and self.fleet_data:
+            print("艦隊情報を描画")
+            self.draw_fleet_info(current_pixmap)
+        else:
+            print(f"艦隊情報の描画をスキップ: show_fleet_info={self.show_fleet_info}, fleet_data={bool(self.fleet_data)}")
 
         self.scene.clear()
         self.map_image_item = self.scene.addPixmap(current_pixmap)
@@ -580,7 +605,7 @@ class MapViewer(QGraphicsView):
         self.scale(4.0, 4.0)
 
         end_time = time.time()
-        # print(f"Map rendering time for filter '{self.current_filter}': {end_time - start_time:.2f} seconds.")
+        print(f"マップの描画が完了: 所要時間 {end_time - start_time:.2f}秒")
 
     def draw_state_boundaries(self, target_pixmap: QPixmap):
         painter = QPainter(target_pixmap)
@@ -604,9 +629,17 @@ class MapViewer(QGraphicsView):
             if prov_id in self.province_centroids and self.province_centroids[prov_id] is not None:
                 center_x, center_y = self.province_centroids[prov_id]
 
-                # 外側の円（青い輪郭）
-                painter.setPen(QPen(QColor(0, 0, 255, 200), 2))
-                painter.setBrush(QColor(0, 0, 255, 100))
+                # 港湾の色を設定（レベルに応じて）
+                if level >= 10:
+                    base_color = QColor(0, 0, 255)  # 青
+                elif level >= 5:
+                    base_color = QColor(0, 128, 255)  # 水色
+                else:
+                    base_color = QColor(0, 255, 255)  # 薄い水色
+
+                # 外側の円（港湾の色の輪郭）
+                painter.setPen(QPen(base_color, 2))
+                painter.setBrush(QColor(base_color.red(), base_color.green(), base_color.blue(), 100))
                 painter.drawEllipse(QPointF(center_x, center_y), circle_radius, circle_radius)
 
                 # 内側の円（白い輪郭）
@@ -617,43 +650,189 @@ class MapViewer(QGraphicsView):
 
         painter.end()
 
-    def draw_selected_country_naval_bases(self, target_pixmap: QPixmap, country_tag: str):
-        """選択された国家の海軍基地を赤色で描画"""
-        if not country_tag or not self.states_data:
+    def draw_selected_country_naval_bases(self, target_pixmap: QPixmap, country_tag):
+        """選択された国家の港湾のみを表示する"""
+        if not country_tag:
             return
 
         painter = QPainter(target_pixmap)
         painter.setRenderHint(QPainter.Antialiasing, True)
 
         # 固定の円のサイズを使用
-        circle_radius = 10  # 通常の海軍基地より少し大きく
+        circle_radius = 8
 
-        # 選択された国家のステートを特定
-        selected_country_states = []
-        for state_id, state_data in self.states_data.items():
-            if state_data['raw_data'].get('owner') == country_tag:
-                selected_country_states.append(state_id)
+        # 港湾名を表示するためのフォント設定
+        font = QFont()
+        font.setPointSize(8)
+        painter.setFont(font)
 
-        # 選択された国家のステートに属する海軍基地を描画
+        # 選択された国家の港湾のみを表示
         for prov_id, level in self.naval_base_locations.items():
             if prov_id in self.province_centroids and self.province_centroids[prov_id] is not None:
-                # プロビンスが選択された国家のステートに属しているか確認
-                prov_obj = self.provinces_data_by_id.get(prov_id)
-                if prov_obj and prov_obj.state_id in selected_country_states:
-                    center_x, center_y = self.province_centroids[prov_id]
+                # プロビンスが属するステートを取得
+                province = self.provinces_data_by_id.get(prov_id)
+                if province and province.state_id:
+                    state_data = self.states_data.get(province.state_id)
+                    if state_data and state_data['raw_data'].get('owner') == country_tag:
+                        center_x, center_y = self.province_centroids[prov_id]
 
-                    # 外側の円（赤い輪郭）
-                    painter.setPen(QPen(QColor(255, 0, 0, 200), 2))
-                    painter.setBrush(QColor(255, 0, 0, 100))
-                    painter.drawEllipse(QPointF(center_x, center_y), circle_radius, circle_radius)
+                        # 港湾の色を設定（レベルに応じて）
+                        if level >= 10:
+                            base_color = QColor(255, 0, 0)  # 赤
+                        elif level >= 5:
+                            base_color = QColor(255, 128, 0)  # オレンジ
+                        else:
+                            base_color = QColor(255, 255, 0)  # 黄
 
-                    # 内側の円（白い輪郭）
-                    inner_radius = circle_radius * 0.7
-                    painter.setPen(QPen(QColor(255, 255, 255, 200), 1))
-                    painter.setBrush(QColor(255, 255, 255, 150))
-                    painter.drawEllipse(QPointF(center_x, center_y), inner_radius, inner_radius)
+                        # 外側の円（港湾の色の輪郭）
+                        painter.setPen(QPen(base_color, 2))
+                        painter.setBrush(QColor(base_color.red(), base_color.green(), base_color.blue(), 100))
+                        painter.drawEllipse(QPointF(center_x, center_y), circle_radius, circle_radius)
+
+                        # 内側の円（白い輪郭）
+                        inner_radius = circle_radius * 0.7
+                        painter.setPen(QPen(QColor(255, 255, 255, 200), 1))
+                        painter.setBrush(QColor(255, 255, 255, 150))
+                        painter.drawEllipse(QPointF(center_x, center_y), inner_radius, inner_radius)
+
+                        # 港湾名を表示
+                        if prov_id in self.provinces_data_by_id:
+                            prov_obj = self.provinces_data_by_id[prov_id]
+                            if prov_obj.name:
+                                # 港湾名の背景を描画
+                                text = f"{prov_obj.name} (Lv{level})"
+                                text_rect = painter.fontMetrics().boundingRect(text)
+                                text_rect.moveCenter(QPoint(int(center_x), int(center_y + circle_radius + 5)))
+                                text_rect.adjust(-2, -2, 2, 2)  # パディングを追加
+                                
+                                # 背景を描画
+                                painter.setPen(Qt.NoPen)
+                                painter.setBrush(QColor(0, 0, 0, 180))
+                                painter.drawRect(text_rect)
+                                
+                                # テキストを描画
+                                painter.setPen(QColor(255, 255, 255))
+                                painter.drawText(text_rect, Qt.AlignCenter, text)
 
         painter.end()
+
+    def draw_fleet_info(self, pixmap):
+        """艦隊情報を描画"""
+        if not self.show_fleet_info:
+            self.logger.debug("艦隊情報の表示が無効です")
+            return
+
+        if not self.fleet_data:
+            self.logger.debug("艦隊データが空です")
+            return
+
+        self.logger.info(f"draw_fleet_info called: show_fleet_info={self.show_fleet_info}, fleet_data={bool(self.fleet_data)}")
+        self.logger.info(f"艦隊データのプロビンス数: {len(self.fleet_data)}")
+
+        try:
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.Antialiasing)
+
+            # プロビンスごとに艦隊情報を描画
+            for province_id, fleets in self.fleet_data.items():
+                try:
+                    self.logger.info(f"プロビンス {province_id} の処理開始")
+                    
+                    # プロビンスの中心座標を取得
+                    if province_id not in self.province_centroids:
+                        self.logger.warning(f"プロビンス {province_id} の中心座標が見つかりません")
+                        continue
+
+                    center_x, center_y = self.province_centroids[province_id]
+                    # NumPyの浮動小数点数を整数に変換
+                    center_x = int(center_x)
+                    center_y = int(center_y)
+                    self.logger.info(f"プロビンス {province_id} の中心座標: ({center_x}, {center_y})")
+
+                    # 艦隊情報を描画
+                    total_ships = 0
+                    for fleet in fleets:
+                        if not isinstance(fleet, dict):
+                            self.logger.warning(f"無効な艦隊データ: {fleet}")
+                            continue
+                            
+                        # 艦隊名のオーバーライドを確認
+                        fleet_name = fleet.get('name', '')
+                        if isinstance(fleet_name, dict) and 'override' in fleet_name:
+                            fleet_name = fleet_name['override']
+                            
+                        for task_force in fleet.get('task_forces', []):
+                            if not isinstance(task_force, dict):
+                                self.logger.warning(f"無効な任務部隊データ: {task_force}")
+                                continue
+                                
+                            # 任務部隊名のオーバーライドを確認
+                            task_force_name = task_force.get('name', '')
+                            if isinstance(task_force_name, dict) and 'override' in task_force_name:
+                                task_force_name = task_force_name['override']
+                                
+                            ships = task_force.get('ships', [])
+                            if not isinstance(ships, list):
+                                self.logger.warning(f"無効な艦艇リスト: {ships}")
+                                continue
+                                
+                            total_ships += len(ships)
+
+                    self.logger.info(f"プロビンス {province_id} の総隻数: {total_ships}")
+
+                    # 四角形のサイズを計算（艦艇数に応じて調整）
+                    size = min(40, max(20, total_ships * 2))
+                    rect_size = int(size)  # 整数に変換
+                    rect_x = int(center_x - rect_size / 2)  # 整数に変換
+                    rect_y = int(center_y - rect_size / 2)  # 整数に変換
+
+                    self.logger.info(f"四角形の描画位置: ({rect_x}, {rect_y}), サイズ: {rect_size}")
+
+                    # 四角形を描画
+                    painter.setPen(QPen(Qt.black, 2))
+                    painter.setBrush(QBrush(Qt.white))
+                    painter.drawRect(rect_x, rect_y, rect_size, rect_size)
+
+                    # 艦艇数を描画
+                    painter.setPen(QPen(Qt.black))
+                    font = QFont()
+                    font.setPointSize(8)
+                    painter.setFont(font)
+                    painter.drawText(rect_x, rect_y, rect_size, rect_size, Qt.AlignCenter, str(total_ships))
+
+                except Exception as e:
+                    self.logger.error(f"プロビンス {province_id} の処理中にエラーが発生: {str(e)}")
+                    continue
+
+            painter.end()
+            
+        except Exception as e:
+            self.logger.error(f"艦隊情報の描画中にエラーが発生: {str(e)}")
+            if painter:
+                painter.end()
+
+    def show_fleet_details(self, province_id):
+        """艦隊の詳細情報を表示する"""
+        if province_id in self.fleet_data:
+            fleet_info = self.fleet_data[province_id]
+            details = "艦隊編成:\n\n"
+            
+            for fleet in fleet_info:
+                details += f"艦隊: {fleet['name']}\n"
+                for task_force in fleet.get('task_forces', []):
+                    details += f"  任務部隊: {task_force['name']}\n"
+                    # 艦艇タイプごとの集計
+                    ship_counts = {}
+                    for ship in task_force.get('ships', []):
+                        ship_type = ship.get('design', 'unknown')
+                        ship_counts[ship_type] = ship_counts.get(ship_type, 0) + 1
+                    
+                    # 艦艇タイプごとの情報を表示
+                    for ship_type, count in ship_counts.items():
+                        details += f"    {ship_type}: {count}隻\n"
+                details += "\n"
+            
+            QMessageBox.information(self, "艦隊情報", details)
 
     def search_province(self):
         search_text = self.search_input.text().strip()
@@ -702,11 +881,17 @@ class MapViewer(QGraphicsView):
                 if found_province.id in self.naval_base_locations:
                     tooltip_text += f"\n海軍基地レベル: {self.naval_base_locations[found_province.id]}"
                 
-                # ツールチップの位置を設定（マウス位置の右下に表示）
+                # ツールチップの位置を右上に固定
                 tooltip_pos = self.mapToGlobal(event.pos())
                 self.tooltip_label.setText(tooltip_text)
                 self.tooltip_label.adjustSize()
-                self.tooltip_label.move(tooltip_pos.x() + 2, tooltip_pos.y() + 2)
+                
+                # ウィンドウの右上に表示
+                window_rect = self.window().geometry()
+                tooltip_x = window_rect.right() - self.tooltip_label.width() - 10
+                tooltip_y = window_rect.top() + 10
+                
+                self.tooltip_label.move(tooltip_x, tooltip_y)
                 self.tooltip_label.show()
             else:
                 self.hovered_province = None
@@ -737,111 +922,31 @@ class MapViewer(QGraphicsView):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            scene_pos = self.mapToScene(event.pos())
-            x, y = int(scene_pos.x()), int(scene_pos.y())
-
-            if self.original_map_image_data is not None and \
-                    0 <= y < self.original_height and 0 <= x < self.original_width:
-
-                pixel_rgb = tuple(self.original_map_image_data[y, x])
-                found_province = self.provinces_data_by_rgb.get(pixel_rgb)
-
-                if found_province:
-                    info_text = ""
-                    if self.current_filter == "provinces":
-                        info_text = f"--- プロビンス情報 ---\n"
-                        info_text += f"ID: {found_province.id}\n"
-                        info_text += f"名前: {found_province.name}\n"
-                        info_text += f"タイプ: {found_province.type}\n"
-                        if found_province.state_id is not None:
-                            state_info = self.states_data.get(found_province.state_id)
-                            state_name = state_info['name'] if state_info else f"Unknown State ({found_province.state_id})"
-                            info_text += f"所属ステートID: {found_province.state_id} (名前: {state_name})\n"
-                        if found_province.strategic_region_id is not None:
-                            region_info = self.strategic_regions_data.get(found_province.strategic_region_id)
-                            region_name = region_info['name'] if region_info else f"Unknown Strategic Region ({found_province.strategic_region_id})"
-                            info_text += f"所属戦略地域ID: {found_province.strategic_region_id} (名前: {region_name})\n"
-                        if found_province.id in self.naval_base_locations:
-                            info_text += f"海軍基地レベル: {self.naval_base_locations[found_province.id]}\n"
-                    elif self.current_filter == "states":
-                        if found_province.state_id is not None:
-                            state_info = self.states_data.get(found_province.state_id)
-                            if state_info:
-                                info_text = f"--- ステート情報 (プロビンスID: {found_province.id}) ---\n"
-                                raw_data = state_info['raw_data']
-                                info_text += f"ID: {raw_data.get('id', 'N/A')}\n"
-                                info_text += f"名前: {raw_data.get('name', 'N/A')}\n"
-                                info_text += f"Manpower: {raw_data.get('manpower', 'N/A')}\n"
-                                info_text += f"カテゴリ: {raw_data.get('state_category', 'N/A')}\n"
-
-                                history_data = raw_data.get('history', {})
-                                if history_data:
-                                    info_text += "履歴:\n"
-                                    for h_key, h_val in history_data.items():
-                                        h_key_str = str(h_key) if isinstance(h_key, int) else h_key
-                                        if isinstance(h_val, dict):
-                                            if h_key_str == 'buildings':
-                                                info_text += "  建物:\n"
-                                                for b_key, b_val in h_val.items():
-                                                    b_key_str = str(b_key) if isinstance(b_key, int) else b_key
-                                                    if isinstance(b_val, dict):
-                                                        info_text += f"    {b_key_str}: {', '.join([f'{k}={v}' for k, v in b_val.items()])}\n"
-                                                    else:
-                                                        info_text += f"    {b_key_str}: {b_val}\n"
-                                            else:
-                                                info_text += f"  {h_key_str}: {', '.join([f'{k}={v}' for k, v in h_val.items()])}\n"
-                                        elif isinstance(h_val, list):
-                                            info_text += f"  {h_key_str}: {', '.join(map(str, h_val))}\n"
-                                        else:
-                                            info_text += f"  {h_key_str}: {h_val}\n"
-
-                                info_text += f"含むプロビンス数: {len(state_info['provinces'])}"
-                            else:
-                                info_text = f"このプロビンス({found_province.id})はステートに属していません。"
-                        else:
-                            info_text = f"このプロビンス({found_province.id})はステートに属していません。"
-                    elif self.current_filter == "strategic_regions":
-                        if found_province.strategic_region_id is not None:
-                            region_info = self.strategic_regions_data.get(found_province.strategic_region_id)
-                            if region_info:
-                                try:
-                                    info_text = f"--- 戦略地域情報 (プロビンスID: {found_province.id}) ---\n"
-                                    raw_data = region_info['raw_data']
-                                    info_text += f"ID: {raw_data.get('id', 'N/A')}\n"
-                                    info_text += f"名前: {raw_data.get('name', 'N/A')}\n"
-                                    weather_data = raw_data.get('weather', {})
-                                    if weather_data:
-                                        info_text += "天気情報:\n"
-                                        try:
-                                            for w_key, w_val in weather_data.items():
-                                                w_key_str = str(w_key) if isinstance(w_key, int) else w_key
-                                                if isinstance(w_val, list):
-                                                    info_text += f"  {w_key_str} ({len(w_val)} periods):\n"
-                                                    for i, period in enumerate(w_val):
-                                                        if isinstance(period, dict):
-                                                            info_text += f"    Period {i+1}: {', '.join([f'{k}={v}' for k, v in period.items()])}\n"
-                                                        else:
-                                                            info_text += f"    Period {i+1}: {period}\n"
-                                                elif isinstance(w_val, dict):
-                                                    info_text += f"  {w_key_str}: {', '.join([f'{k}={v}' for k, v in w_val.items()])}\n"
-                                                else:
-                                                    info_text += f"  {w_key_str}: {w_val}\n"
-                                        except Exception as e:
-                                            info_text += f"  天気情報の表示中にエラーが発生しました: {str(e)}\n"
-                                    info_text += f"含むプロビンス数: {len(region_info['provinces'])}"
-                                except Exception as e:
-                                    info_text = f"戦略地域情報の表示中にエラーが発生しました: {str(e)}"
-                            else:
-                                info_text = f"このプロビンス({found_province.id})は戦略地域に属していません。"
-                        else:
-                            info_text = f"このプロビンス({found_province.id})は戦略地域に属していません。"
-
-                    if info_text:
-                        QMessageBox.information(self, "情報", info_text)
+            # マウス位置からプロビンスIDを取得
+            pos = self.mapToScene(event.pos())
+            x, y = int(pos.x()), int(pos.y())
+            
+            if 0 <= x < self.original_width and 0 <= y < self.original_height:
+                r, g, b = self.original_map_image_data[y, x]
+                rgb_key = (r, g, b)
+                
+                if rgb_key in self.provinces_data_by_rgb:
+                    province = self.provinces_data_by_rgb[rgb_key]
+                    if self.show_fleet_info:
+                        self.show_fleet_details(province.id)
                     else:
-                        QMessageBox.information(self, "情報", "情報が見つかりませんでした。")
-                else:
-                    QMessageBox.information(self, "プロビンス情報", f"ID: なし (RGB: {pixel_rgb})\n恐らく海域など")
+                        # 既存のプロビンス情報表示処理
+                        info = f"プロビンスID: {province.id}\n"
+                        if province.name:
+                            info += f"名前: {province.name}\n"
+                        if province.type:
+                            info += f"タイプ: {province.type}\n"
+                        if province.state_id:
+                            info += f"ステートID: {province.state_id}\n"
+                        if province.strategic_region_id:
+                            info += f"戦略地域ID: {province.strategic_region_id}\n"
+                        
+                        QMessageBox.information(self, "プロビンス情報", info)
         elif event.button() == Qt.MiddleButton:
             self.setDragMode(QGraphicsView.ScrollHandDrag)
             super().mousePressEvent(event)
@@ -861,6 +966,199 @@ class MapViewer(QGraphicsView):
             self.zoom_out()
         else:
             super().keyPressEvent(event)
+
+    def load_mod_fleet_data(self, mod_path, country_tag):
+        """MOD内の艦隊データを読み込む"""
+        print(f"load_mod_fleet_data called: mod_path={mod_path}, country_tag={country_tag}")
+        if not mod_path or not country_tag:
+            return None
+
+        try:
+            # 艦隊データを格納するディクショナリ
+            fleet_data = {}
+            
+            # 艦隊データファイルのパス
+            units_path = os.path.join(mod_path, "history", "units")
+            if not os.path.exists(units_path):
+                print(f"艦隊データディレクトリが見つかりません: {units_path}")
+                return None
+
+            # 艦隊データファイルを検索
+            import re
+            pattern = re.compile(f"{country_tag}_\\d{{4}}_(?:naval|Naval|Navy|navy)(?:_mtg)?\\.txt$")
+            
+            for filename in os.listdir(units_path):
+                if pattern.match(filename):
+                    file_path = os.path.join(units_path, filename)
+                    print(f"艦隊データファイルを読み込み: {filename}")
+                    
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                            
+                            # NavalOOBParserを使用して艦隊データを解析
+                            parser = NavalOOBParser(content)
+                            parsed_data = parser.parse()
+                            
+                            # 艦隊データを抽出
+                            units = parsed_data.get('units', {})
+                            fleets = units.get('fleet', [])
+                            
+                            # 単一の艦隊の場合はリストに変換
+                            if isinstance(fleets, dict):
+                                fleets = [fleets]
+                            
+                            # 艦隊データを処理
+                            for fleet in fleets:
+                                fleet_data_entry = {
+                                    'name': fleet.get('name', f"MOD艦隊_{len(fleet_data)}"),
+                                    'province_id': fleet.get('naval_base', 0),
+                                    'task_forces': []
+                                }
+                                
+                                # 任務部隊を処理
+                                task_forces = fleet.get('task_force', [])
+                                if isinstance(task_forces, dict):
+                                    task_forces = [task_forces]
+                                
+                                for task_force in task_forces:
+                                    task_force_entry = {
+                                        'name': task_force.get('name', f"MOD任務部隊_{len(fleet_data_entry['task_forces'])}"),
+                                        'province_id': task_force.get('location', fleet_data_entry['province_id']),
+                                        'ships': []
+                                    }
+                                    
+                                    # 艦艇を処理
+                                    ships = task_force.get('ship', [])
+                                    if isinstance(ships, dict):
+                                        ships = [ships]
+                                    
+                                    for ship in ships:
+                                        ship_entry = {
+                                            'name': ship.get('name', f"MOD艦艇_{len(task_force_entry['ships'])}"),
+                                            'exp': float(ship.get('experience', 0)),
+                                            'is_pride': ship.get('pride_of_the_fleet') == 'yes',
+                                            'design': ship.get('definition', {})
+                                        }
+                                        task_force_entry['ships'].append(ship_entry)
+                                    
+                                    fleet_data_entry['task_forces'].append(task_force_entry)
+                                
+                                # 艦隊データを保存
+                                prov_id = fleet_data_entry['province_id']
+                                if prov_id not in fleet_data:
+                                    fleet_data[prov_id] = []
+                                fleet_data[prov_id].append(fleet_data_entry)
+                    
+                    except Exception as e:
+                        print(f"艦隊データファイルの読み込みエラー: {e}")
+                        continue
+
+            print(f"MOD内の艦隊データ読み込み完了: {len(fleet_data)}個のプロビンスに艦隊が存在")
+            return fleet_data
+
+        except Exception as e:
+            print(f"MOD内の艦隊データ読み込み中にエラーが発生: {e}")
+            return None
+
+    def set_fleet_data(self, fleet_data, country_tag, show_mod_fleets=False):
+        """艦隊情報を設定する"""
+        self.logger.info(f"set_fleet_data called: country_tag={country_tag}, show_mod_fleets={show_mod_fleets}")
+        self.logger.info(f"艦隊データのプロビンス数: {len(fleet_data) if fleet_data else 0}")
+        
+        try:
+            # 艦隊データを初期化
+            self.fleet_data = {}
+            
+            # 基本の艦隊データを設定
+            if fleet_data:
+                if not isinstance(fleet_data, dict):
+                    self.logger.error(f"無効な艦隊データの型: {type(fleet_data)}")
+                    return
+                    
+                # 艦隊データの検証
+                for prov_id, fleets in fleet_data.items():
+                    if not isinstance(fleets, list):
+                        self.logger.error(f"プロビンス {prov_id} の艦隊データが無効な型です: {type(fleets)}")
+                        continue
+                        
+                    valid_fleets = []
+                    for fleet in fleets:
+                        if not isinstance(fleet, dict):
+                            self.logger.warning(f"無効な艦隊データ: {fleet}")
+                            continue
+                            
+                        if 'task_forces' not in fleet:
+                            self.logger.warning(f"任務部隊情報が欠落している艦隊データ: {fleet}")
+                            continue
+                            
+                        valid_fleets.append(fleet)
+                    
+                    if valid_fleets:
+                        self.fleet_data[prov_id] = valid_fleets
+                
+                self.logger.info(f"基本の艦隊データを設定: {len(self.fleet_data)}個のプロビンス")
+            
+            self.current_country = country_tag
+            self.show_fleet_info = True
+            self.show_mod_fleets = show_mod_fleets
+            
+            # MOD内の艦隊データを読み込む
+            if show_mod_fleets and self.app_controller:
+                try:
+                    current_mod = self.app_controller.get_current_mod()
+                    if current_mod and "path" in current_mod:
+                        mod_fleet_data = self.load_mod_fleet_data(current_mod["path"], country_tag)
+                        if mod_fleet_data and isinstance(mod_fleet_data, dict):
+                            # 既存の艦隊データと統合
+                            for prov_id, fleets in mod_fleet_data.items():
+                                if not isinstance(fleets, list):
+                                    self.logger.error(f"MOD内のプロビンス {prov_id} の艦隊データが無効な型です: {type(fleets)}")
+                                    continue
+                                    
+                                if prov_id in self.fleet_data:
+                                    self.fleet_data[prov_id].extend(fleets)
+                                else:
+                                    self.fleet_data[prov_id] = fleets
+                            self.logger.info(f"MOD内の艦隊データを統合しました: {len(self.fleet_data)}個のプロビンスに艦隊が存在")
+                except Exception as e:
+                    self.logger.error(f"MOD内の艦隊データ読み込みエラー: {str(e)}")
+            
+            # 艦隊データの状態を確認
+            self.logger.info(f"艦隊データの最終状態: {len(self.fleet_data)}個のプロビンスに艦隊が存在")
+            for prov_id, fleets in self.fleet_data.items():
+                self.logger.info(f"プロビンス {prov_id}: {len(fleets)}個の艦隊")
+            
+            # 国家カラーモードに変更
+            self.current_filter = "countries"
+            self.filter_combo.setCurrentText("国家")
+            
+            # キャッシュをクリアして再描画
+            self.base_qimage_cache.clear()
+            self.logger.info("マップの再描画を開始")
+            self.render_map()  # マップを再描画して艦隊情報を表示
+            self.logger.info("マップの再描画が完了")
+            
+        except Exception as e:
+            self.logger.error(f"艦隊データの設定中にエラーが発生: {str(e)}")
+            self.fleet_data = {}
+            self.show_fleet_info = False
+
+    def clear_fleet_data(self):
+        """艦隊情報をクリアする"""
+        self.fleet_data = {}
+        self.current_country = None
+        self.show_fleet_info = False  # クリア時のみFalseに設定
+        self.render_map()  # マップを再描画して艦隊情報を非表示
+
+    def get_state_owner(self, state_id):
+        """ステートの所有者を取得"""
+        return self.state_owners.get(state_id)
+
+    def toggle_mod_fleets(self):
+        """MOD内の艦隊表示を切り替え"""
+        self.show_mod_fleets = not self.show_mod_fleets
+        self.render_map()  # マップを再描画
 
 class MainWindow(QMainWindow):
     def __init__(self):

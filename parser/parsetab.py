@@ -6,9 +6,9 @@ _tabversion = '3.10'
 
 _lr_method = 'LALR'
 
-_lr_signature = 'COLON EQUALS ID LBRACE NO NUMBER RBRACE STRING YESnaval_file : statementsstatements : statement\n| statements statement\n| emptystatement : ID EQUALS value\n| ID EQUALS blockvalue : ID\n| NUMBER\n| STRING\n| YES\n| NO\n| qualified_idqualified_id : ID COLON IDblock : LBRACE statements RBRACE\n| LBRACE RBRACEempty :'
+_lr_signature = 'COLON COMMA COUNTRIES COUNTRY DOT EQUALS ID LBRACE LBRACKET LPAREN NO NUMBER OVERRIDE RBRACE RBRACKET RPAREN STRING YESeffect_file : ID EQUALS LBRACE effect_content RBRACE\n| ID EQUALS LBRACE country_tag effect_content RBRACE\n| ID EQUALS LBRACE countries_tag effect_content RBRACE\n| effect_file ID EQUALS LBRACE country_tag effect_content RBRACE\n| effect_file ID EQUALS LBRACE countries_tag effect_content RBRACEcountry_tag : COUNTRY EQUALS STRINGcountries_tag : COUNTRIES EQUALS LBRACKET country_list RBRACKETcountry_list : ID\n| country_list COMMA IDeffect_content : effect_statement\n| effect_content effect_statementeffect_statement : ID EQUALS LBRACE variant_content RBRACE\n| OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE\n| ID EQUALS value\n| OVERRIDE DOT ID LPAREN STRING RPARENvariant_content : variant_item\n| variant_content variant_item\n| OVERRIDE DOT ID LPAREN STRING RPAREN\n| variant_content OVERRIDE DOT ID LPAREN STRING RPARENvariant_item : ID EQUALS value\n| ID EQUALS LBRACE block_content RBRACE\n| ID EQUALS yes_novalue : ID\n| NUMBER\n| STRING\n| ID COLON IDblock_content : block_item\n| block_content block_itemblock_item : ID EQUALS value\n| ID EQUALS LBRACE block_content RBRACEyes_no : YES\n| NO'
     
-_lr_action_items = {'ID':([0,2,3,4,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,],[5,5,-2,-4,-3,8,-7,-5,-6,-8,-9,-10,-11,-12,5,20,5,-15,-13,-14,]),'$end':([0,1,2,3,4,6,8,9,10,11,12,13,14,15,19,20,21,],[-16,0,-1,-2,-4,-3,-7,-5,-6,-8,-9,-10,-11,-12,-15,-13,-14,]),'RBRACE':([3,4,6,8,9,10,11,12,13,14,15,16,18,19,20,21,],[-2,-4,-3,-7,-5,-6,-8,-9,-10,-11,-12,19,21,-15,-13,-14,]),'EQUALS':([5,],[7,]),'NUMBER':([7,],[11,]),'STRING':([7,],[12,]),'YES':([7,],[13,]),'NO':([7,],[14,]),'LBRACE':([7,],[16,]),'COLON':([8,],[17,]),}
+_lr_action_items = {'ID':([0,1,6,9,10,11,12,16,17,18,19,20,21,22,25,26,27,28,29,30,31,32,33,34,35,36,38,39,40,42,43,48,49,50,51,53,54,55,57,58,59,60,61,62,65,67,68,72,73,74,77,78,79,81,82,83,84,85,86,],[2,3,8,8,8,8,-10,8,8,28,-1,-11,8,8,37,8,8,-23,41,-14,-24,-25,-2,-3,-6,46,-4,-5,48,41,-16,-26,28,-12,-17,63,-7,64,-20,66,-22,-31,-32,69,-15,66,-27,28,-21,-28,41,-29,66,-18,41,66,-19,-13,-30,]),'$end':([1,19,33,34,38,39,],[0,-1,-2,-3,-4,-5,]),'EQUALS':([2,3,8,13,14,41,65,66,],[4,5,18,23,24,49,71,72,]),'LBRACE':([4,5,18,49,71,72,],[6,7,29,58,77,79,]),'COUNTRY':([6,7,],[13,13,]),'COUNTRIES':([6,7,],[14,14,]),'OVERRIDE':([6,9,10,11,12,16,17,20,21,22,26,27,28,29,30,31,32,35,42,43,48,50,51,54,57,59,60,61,65,73,77,81,82,84,85,],[15,15,15,15,-10,15,15,-11,15,15,15,15,-23,44,-14,-24,-25,-6,52,-16,-26,-12,-17,-7,-20,-22,-31,-32,-15,-21,44,-18,52,-19,-13,]),'RBRACE':([9,12,20,21,22,26,27,28,30,31,32,42,43,48,50,51,57,59,60,61,65,67,68,73,74,78,81,82,83,84,85,86,],[19,-10,-11,33,34,38,39,-23,-14,-24,-25,50,-16,-26,-12,-17,-20,-22,-31,-32,-15,73,-27,-21,-28,-29,-18,85,86,-19,-13,-30,]),'DOT':([15,44,52,],[25,53,62,]),'NUMBER':([18,49,72,],[31,31,31,]),'STRING':([18,23,47,49,70,72,75,],[32,35,56,32,76,32,80,]),'LBRACKET':([24,],[36,]),'COLON':([28,],[40,]),'LPAREN':([37,63,69,],[47,70,75,]),'RBRACKET':([45,46,64,],[54,-8,-9,]),'COMMA':([45,46,64,],[55,-8,-9,]),'YES':([49,],[60,]),'NO':([49,],[61,]),'RPAREN':([56,76,80,],[65,81,84,]),}
 
 _lr_action = {}
 for _k, _v in _lr_action_items.items():
@@ -17,7 +17,7 @@ for _k, _v in _lr_action_items.items():
       _lr_action[_x][_k] = _y
 del _lr_action_items
 
-_lr_goto_items = {'naval_file':([0,],[1,]),'statements':([0,16,],[2,18,]),'statement':([0,2,16,18,],[3,6,3,6,]),'empty':([0,16,],[4,4,]),'value':([7,],[9,]),'block':([7,],[10,]),'qualified_id':([7,],[15,]),}
+_lr_goto_items = {'effect_file':([0,],[1,]),'effect_content':([6,10,11,16,17,],[9,21,22,26,27,]),'country_tag':([6,7,],[10,16,]),'countries_tag':([6,7,],[11,17,]),'effect_statement':([6,9,10,11,16,17,21,22,26,27,],[12,20,12,12,12,12,20,20,20,20,]),'value':([18,49,72,],[30,57,78,]),'variant_content':([29,77,],[42,82,]),'variant_item':([29,42,77,82,],[43,51,43,51,]),'country_list':([36,],[45,]),'yes_no':([49,],[59,]),'block_content':([58,79,],[67,83,]),'block_item':([58,67,79,83,],[68,74,68,74,]),}
 
 _lr_goto = {}
 for _k, _v in _lr_goto_items.items():
@@ -26,21 +26,37 @@ for _k, _v in _lr_goto_items.items():
        _lr_goto[_x][_k] = _y
 del _lr_goto_items
 _lr_productions = [
-  ("S' -> naval_file","S'",1,None,None,None),
-  ('naval_file -> statements','naval_file',1,'p_naval_file','NavalOOBParser.py',85),
-  ('statements -> statement','statements',1,'p_statements','NavalOOBParser.py',90),
-  ('statements -> statements statement','statements',2,'p_statements','NavalOOBParser.py',91),
-  ('statements -> empty','statements',1,'p_statements','NavalOOBParser.py',92),
-  ('statement -> ID EQUALS value','statement',3,'p_statement','NavalOOBParser.py',119),
-  ('statement -> ID EQUALS block','statement',3,'p_statement','NavalOOBParser.py',120),
-  ('value -> ID','value',1,'p_value','NavalOOBParser.py',125),
-  ('value -> NUMBER','value',1,'p_value','NavalOOBParser.py',126),
-  ('value -> STRING','value',1,'p_value','NavalOOBParser.py',127),
-  ('value -> YES','value',1,'p_value','NavalOOBParser.py',128),
-  ('value -> NO','value',1,'p_value','NavalOOBParser.py',129),
-  ('value -> qualified_id','value',1,'p_value','NavalOOBParser.py',130),
-  ('qualified_id -> ID COLON ID','qualified_id',3,'p_qualified_id','NavalOOBParser.py',135),
-  ('block -> LBRACE statements RBRACE','block',3,'p_block','NavalOOBParser.py',141),
-  ('block -> LBRACE RBRACE','block',2,'p_block','NavalOOBParser.py',142),
-  ('empty -> <empty>','empty',0,'p_empty','NavalOOBParser.py',150),
+  ("S' -> effect_file","S'",1,None,None,None),
+  ('effect_file -> ID EQUALS LBRACE effect_content RBRACE','effect_file',5,'p_effect_file','EffectParser.py',116),
+  ('effect_file -> ID EQUALS LBRACE country_tag effect_content RBRACE','effect_file',6,'p_effect_file','EffectParser.py',117),
+  ('effect_file -> ID EQUALS LBRACE countries_tag effect_content RBRACE','effect_file',6,'p_effect_file','EffectParser.py',118),
+  ('effect_file -> effect_file ID EQUALS LBRACE country_tag effect_content RBRACE','effect_file',7,'p_effect_file','EffectParser.py',119),
+  ('effect_file -> effect_file ID EQUALS LBRACE countries_tag effect_content RBRACE','effect_file',7,'p_effect_file','EffectParser.py',120),
+  ('country_tag -> COUNTRY EQUALS STRING','country_tag',3,'p_country_tag','EffectParser.py',138),
+  ('countries_tag -> COUNTRIES EQUALS LBRACKET country_list RBRACKET','countries_tag',5,'p_countries_tag','EffectParser.py',143),
+  ('country_list -> ID','country_list',1,'p_country_list','EffectParser.py',148),
+  ('country_list -> country_list COMMA ID','country_list',3,'p_country_list','EffectParser.py',149),
+  ('effect_content -> effect_statement','effect_content',1,'p_effect_content','EffectParser.py',157),
+  ('effect_content -> effect_content effect_statement','effect_content',2,'p_effect_content','EffectParser.py',158),
+  ('effect_statement -> ID EQUALS LBRACE variant_content RBRACE','effect_statement',5,'p_effect_statement','EffectParser.py',179),
+  ('effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN EQUALS LBRACE variant_content RBRACE','effect_statement',10,'p_effect_statement','EffectParser.py',180),
+  ('effect_statement -> ID EQUALS value','effect_statement',3,'p_effect_statement','EffectParser.py',181),
+  ('effect_statement -> OVERRIDE DOT ID LPAREN STRING RPAREN','effect_statement',6,'p_effect_statement','EffectParser.py',182),
+  ('variant_content -> variant_item','variant_content',1,'p_variant_content','EffectParser.py',200),
+  ('variant_content -> variant_content variant_item','variant_content',2,'p_variant_content','EffectParser.py',201),
+  ('variant_content -> OVERRIDE DOT ID LPAREN STRING RPAREN','variant_content',6,'p_variant_content','EffectParser.py',202),
+  ('variant_content -> variant_content OVERRIDE DOT ID LPAREN STRING RPAREN','variant_content',7,'p_variant_content','EffectParser.py',203),
+  ('variant_item -> ID EQUALS value','variant_item',3,'p_variant_item','EffectParser.py',229),
+  ('variant_item -> ID EQUALS LBRACE block_content RBRACE','variant_item',5,'p_variant_item','EffectParser.py',230),
+  ('variant_item -> ID EQUALS yes_no','variant_item',3,'p_variant_item','EffectParser.py',231),
+  ('value -> ID','value',1,'p_value','EffectParser.py',239),
+  ('value -> NUMBER','value',1,'p_value','EffectParser.py',240),
+  ('value -> STRING','value',1,'p_value','EffectParser.py',241),
+  ('value -> ID COLON ID','value',3,'p_value','EffectParser.py',242),
+  ('block_content -> block_item','block_content',1,'p_block_content','EffectParser.py',251),
+  ('block_content -> block_content block_item','block_content',2,'p_block_content','EffectParser.py',252),
+  ('block_item -> ID EQUALS value','block_item',3,'p_block_item','EffectParser.py',273),
+  ('block_item -> ID EQUALS LBRACE block_content RBRACE','block_item',5,'p_block_item','EffectParser.py',274),
+  ('yes_no -> YES','yes_no',1,'p_yes_no','EffectParser.py',282),
+  ('yes_no -> NO','yes_no',1,'p_yes_no','EffectParser.py',283),
 ]

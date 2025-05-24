@@ -593,7 +593,7 @@ class AppController(QObject):
                 continue
 
             file_path = os.path.join(country_tags_dir, filename)
-            logger.info(f"国家タグファイルを処理中: {file_path}")
+            # logger.info(f"国家タグファイルを処理中: {file_path}")
 
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
@@ -617,7 +617,7 @@ class AppController(QObject):
                         "name": display_name,
                         "flag_path": flag_path if flag_exists else None
                     })
-                    logger.info(f"国家情報を追加: TAG={tag}, 名前={display_name}")
+                    # logger.info(f"国家情報を追加: TAG={tag}, 名前={display_name}")
 
             except Exception as e:
                 logger.error(f"国家タグファイル '{filename}' の解析エラー: {e}")
@@ -650,7 +650,7 @@ class AppController(QObject):
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(design_data, f, ensure_ascii=False, indent=2)
 
-            print(f"設計データ '{design_id}' を保存しました。")
+            # print(f"設計データ '{design_id}' を保存しました。")
             return True
 
         except Exception as e:
@@ -682,7 +682,7 @@ class AppController(QObject):
             with open(file_path, 'r', encoding='utf-8') as f:
                 design_data = json.load(f)
 
-            print(f"設計ID '{design_id}' のデータを読み込みました。")
+            # print(f"設計ID '{design_id}' のデータを読み込みました。")
             return design_data
 
         except Exception as e:

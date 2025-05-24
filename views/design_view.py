@@ -493,9 +493,8 @@ class DesignView(QWidget):
             import os
             import json
 
-            # macOSのアプリケーションサポートディレクトリのパスを取得
-            home_dir = os.path.expanduser("~")
-            hulls_dir = os.path.join(home_dir, 'Library', 'Application Support', 'NavalDesignSystem', 'hulls')
+            # データディレクトリのパスを取得
+            hulls_dir = get_data_dir('hulls')
 
             # 船体データを格納するリスト
             hulls = []
