@@ -1,4 +1,6 @@
 import re
+import sys
+import os
 import ply.lex as lex
 import ply.yacc as yacc
 
@@ -7,6 +9,11 @@ import ply.yacc as yacc
 class ParserError(Exception):
     """カスタムパーサーエラー"""
     pass
+
+
+# アプリケーションがフリーズされている（EXE化されている）かどうかを判定
+def is_frozen():
+    return getattr(sys, 'frozen', False)
 
 
 # --- レクサー (Lexer) の定義 ---
@@ -296,7 +303,40 @@ def p_error(p):
 
 
 # パーサーの構築
-parser = yacc.yacc()
+# Find the absolute path to the directory containing this script
+current_dir = os.path.dirname(os.path.abspath(__file__))
+output_dir = current_dir
+tab_module = "effect_parsetab"
+
+# デバッグログとエラーログを無効化するためのロガーを取得
+try:
+    class SimpleNullLogger:
+        def write(self, *args, **kwargs):
+            pass
+        def flush(self, *args, **kwargs):
+            pass
+
+    error_logger = yacc.NullLogger() if hasattr(yacc, 'NullLogger') else SimpleNullLogger()
+except AttributeError:
+    class SimpleNullLogger:
+        def write(self, *args, **kwargs): pass
+        def flush(self, *args, **kwargs): pass
+    error_logger = SimpleNullLogger()
+
+try:
+    parser = yacc.yacc(
+        outputdir=output_dir,
+        tabmodule=tab_module,
+        debug=False,
+        write_tables=not is_frozen(),
+        debuglog=None,
+        errorlog=error_logger
+    )
+except Exception as e:
+    print(f"Error creating EffectParser: {e}")
+    if is_frozen():
+        print(f"PLY YACC Error in frozen app (EffectParser): {e}")
+    raise
 
 
 # --- EffectParser クラス ---

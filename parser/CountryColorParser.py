@@ -1,10 +1,16 @@
+import sys
+import os
+from ply import yacc
 import ply.lex as lex
-import ply.yacc as yacc
 
 # --- カスタム例外の定義 ---
 class ParserError(Exception):
     """カスタムパーサーエラー"""
     pass
+
+# アプリケーションがフリーズされている（EXE化されている）かどうかを判定
+def is_frozen():
+    return getattr(sys, 'frozen', False)
 
 # --- レクサー (Lexer) の定義 ---
 tokens = (
@@ -112,9 +118,6 @@ def p_error(p):
         print("Syntax error at EOF (Unexpected end of file).")
     raise SyntaxError("Parsing failed due to syntax error.")
 
-# パーサーの構築
-parser = yacc.yacc()
-
 def _hsv_to_rgb(h, s, v):
     if s == 0.0:
         return (int(v * 255), int(v * 255), int(v * 255))
@@ -153,4 +156,40 @@ class CountryColorParser:
         except SyntaxError as e:
             raise ParserError(f"Parsing failed due to syntax error: {e}")
         except Exception as e:
-            raise ParserError(f"An unexpected error occurred during parsing: {e}") 
+            raise ParserError(f"An unexpected error occurred during parsing: {e}")
+
+# パーサーの構築
+# Find the absolute path to the directory containing this script
+current_dir = os.path.dirname(os.path.abspath(__file__))
+output_dir = current_dir
+tab_module = "country_color_parsetab"
+
+# デバッグログとエラーログを無効化するためのロガーを取得
+try:
+    class SimpleNullLogger:
+        def write(self, *args, **kwargs):
+            pass
+        def flush(self, *args, **kwargs):
+            pass
+
+    error_logger = yacc.NullLogger() if hasattr(yacc, 'NullLogger') else SimpleNullLogger()
+except AttributeError:
+    class SimpleNullLogger:
+        def write(self, *args, **kwargs): pass
+        def flush(self, *args, **kwargs): pass
+    error_logger = SimpleNullLogger()
+
+try:
+    parser = yacc.yacc(
+        outputdir=output_dir,
+        tabmodule=tab_module,
+        debug=False,
+        write_tables=not is_frozen(),
+        debuglog=None,
+        errorlog=error_logger
+    )
+except Exception as e:
+    print(f"Error creating CountryColorParser: {e}")
+    if is_frozen():
+        print(f"PLY YACC Error in frozen app (CountryColorParser): {e}")
+    raise 

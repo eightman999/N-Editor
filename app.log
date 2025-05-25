@@ -139701,3 +139701,743 @@ pip install PyYAML
 2025-05-24 21:32:58,702 - NavalDesignSystem - INFO - スタックウィジェットのページ数: 9
 2025-05-24 21:32:58,853 - NavalDesignSystem - ERROR - プログレス更新中にエラーが発生: 'NoneType' object has no attribute 'setLabelText'
 2025-05-24 21:34:01,200 - NavalDesignSystem - INFO - リソースの解放を実行しました
+2025-05-25 16:01:22,190 - __main__ - INFO - Qt plugin path set to: D:\HOBBY\N-Editor\.venv\Lib\site-packages\PyQt5\Qt5\plugins
+2025-05-25 16:01:22,227 - __main__ - INFO - PyQt5 successfully imported. Qt version: 5.15.2, PyQt version: 5.15.11
+2025-05-25 16:01:22,639 - __main__ - INFO - Application modules imported successfully
+2025-05-25 16:01:22,639 - __main__ - INFO - Starting Naval Design System on Windows 10
+2025-05-25 16:01:22,639 - __main__ - INFO - PIL/Pillow is available
+2025-05-25 16:01:22,640 - __main__ - INFO - OpenCV is available
+2025-05-25 16:01:22,640 - __main__ - INFO - PyYAML is available
+2025-05-25 16:01:22,640 - __main__ - INFO - PLY is available
+2025-05-25 16:01:22,717 - __main__ - INFO - QApplication created successfully
+2025-05-25 16:01:22,718 - __main__ - INFO - Application style set to Fusion
+2025-05-25 16:01:22,720 - __main__ - INFO - AppSettings initialized
+2025-05-25 16:01:22,772 - __main__ - INFO - AppController initialized
+2025-05-25 16:01:23,223 - NavalDesignSystem - INFO - ビューの非同期初期化を開始
+2025-05-25 16:01:23,620 - FleetView - WARNING - 国家が選択されていません
+2025-05-25 16:01:23,620 - controllers.app_controller - INFO - 国家情報の取得を開始: MODパス=D:/hoi4_mods/SSW_mod
+2025-05-25 16:01:24,153 - controllers.app_controller - INFO - 国家情報の取得完了: 515件の国家を処理
+2025-05-25 16:01:24,453 - FleetView - INFO - 国家が変更されました: ENG
+2025-05-25 16:01:24,462 - FleetView - INFO - ローカル設計データが見つかりませんでした
+2025-05-25 16:01:24,462 - controllers.app_controller - INFO - MOD設計データの取得を開始: 国家タグ=ENG, MOD=The Sun Shining on the World
+2025-05-25 16:01:24,463 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\amphibious_mechanized.txt
+2025-05-25 16:01:24,506 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\anti_air.txt
+2025-05-25 16:01:24,535 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\anti_ship_missile.txt
+2025-05-25 16:01:24,558 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\anti_tank.txt
+2025-05-25 16:01:24,567 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\armored_car.txt
+2025-05-25 16:01:24,580 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\artillery.txt
+2025-05-25 16:01:24,589 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ballistic_missiles-vanilla.txt
+2025-05-25 16:01:24,598 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ballistic_missiles.txt
+2025-05-25 16:01:24,606 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\convoys.txt
+2025-05-25 16:01:24,628 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\emplacement_gun_ammo.txt
+2025-05-25 16:01:24,636 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\guided_missiles.txt
+2025-05-25 16:01:24,644 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\helicopter.txt
+2025-05-25 16:01:24,669 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\infantry.txt
+2025-05-25 16:01:24,680 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\infantry_anti_tank.txt
+2025-05-25 16:01:24,699 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\intercontinental_bomber.txt
+2025-05-25 16:01:24,710 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\mechanized.txt
+2025-05-25 16:01:24,726 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\mothership.txt
+2025-05-25 16:01:24,744 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\motorized.txt
+2025-05-25 16:01:24,758 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\nuclear_missiles.txt
+2025-05-25 16:01:24,769 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\plane_airframes.txt
+2025-05-25 16:01:24,780 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\quad_engine_airframe.txt
+2025-05-25 16:01:24,807 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\railway_gun.txt
+2025-05-25 16:01:24,825 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\sam_missile.txt
+2025-05-25 16:01:24,834 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_battle_carrier.txt
+2025-05-25 16:01:24,856 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_carrier.txt
+2025-05-25 16:01:24,884 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_cruiser.txt
+2025-05-25 16:01:24,898 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_cruiser_carrier.txt
+2025-05-25 16:01:24,912 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_frigate.txt
+2025-05-25 16:01:24,931 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_heavy.txt
+2025-05-25 16:01:24,946 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_light.txt
+2025-05-25 16:01:24,965 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_light_carrier.txt
+2025-05-25 16:01:24,984 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_missile_cruiser.txt
+2025-05-25 16:01:24,995 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_submarine.txt
+2025-05-25 16:01:25,021 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_submarine_carrier.txt
+2025-05-25 16:01:25,052 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\single_engine_airframe.txt
+2025-05-25 16:01:25,073 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\specialist_armored_vehicles.txt
+2025-05-25 16:01:25,097 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\super_heavy_railway_gun.txt
+2025-05-25 16:01:25,109 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\support.txt
+2025-05-25 16:01:25,118 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\tank_chassis.txt
+2025-05-25 16:01:25,130 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\trains.txt
+2025-05-25 16:01:25,140 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\twin_engine_airframe.txt
+2025-05-25 16:01:25,159 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\x_plane_airframes.txt
+2025-05-25 16:01:25,174 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\x_tank_chassis.txt
+2025-05-25 16:01:25,187 - controllers.app_controller - INFO - MOD設計データの取得完了: 0件の設計を処理
+2025-05-25 16:01:25,187 - FleetView - INFO - 艦隊データの読み込みを開始: ENG
+2025-05-25 16:01:25,188 - FleetView - INFO - 編成ファイルのパス: D:/hoi4_mods/SSW_mod\history\units
+2025-05-25 16:01:25,433 - FleetView - INFO - 設計データを読み込み: 45件
+2025-05-25 16:01:25,433 - FleetView - INFO - 艦隊ファイルを処理: ENG_1950_Naval.txt
+2025-05-25 16:01:25,493 - FleetView - INFO - 艦隊データを抽出: 9件
+2025-05-25 16:01:25,494 - FleetView - INFO - MOD内艦隊を追加: The Home Fleet (Province: 9458)
+2025-05-25 16:01:25,494 - FleetView - INFO - MOD内任務部隊を追加: Task Force1 (Province: 9458)
+2025-05-25 16:01:25,494 - FleetView - INFO - MOD内艦艇を追加: HMS Incomparable (設計: battleship)
+2025-05-25 16:01:25,494 - FleetView - INFO - MOD内艦艇を追加: HMS Lion (設計: battleship)
+2025-05-25 16:01:25,495 - FleetView - INFO - MOD内艦艇を追加: HMS Temeraire (設計: battleship)
+2025-05-25 16:01:25,495 - FleetView - INFO - MOD内任務部隊を追加: Task Force2 (Province: 9458)
+2025-05-25 16:01:25,495 - FleetView - INFO - MOD内艦艇を追加: HMS Revenge (設計: battleship)
+2025-05-25 16:01:25,495 - FleetView - INFO - MOD内艦艇を追加: HMS Resolution (設計: battleship)
+2025-05-25 16:01:25,495 - FleetView - INFO - MOD内艦艇を追加: HMS Ramillies (設計: battleship)
+2025-05-25 16:01:25,496 - FleetView - INFO - MOD内艦艇を追加: HMS Royal Sovereign (設計: battleship)
+2025-05-25 16:01:25,496 - FleetView - INFO - MOD内任務部隊を追加: Task Force3 (Province: 9458)
+2025-05-25 16:01:25,496 - FleetView - INFO - MOD内艦艇を追加: HMS London (設計: heavy_cruiser)
+2025-05-25 16:01:25,496 - FleetView - INFO - MOD内艦艇を追加: HMS Devonshire (設計: heavy_cruiser)
+2025-05-25 16:01:25,496 - FleetView - INFO - MOD内艦艇を追加: HMS Shropshire (設計: heavy_cruiser)
+2025-05-25 16:01:25,497 - FleetView - INFO - MOD内任務部隊を追加: Task Force4 (Province: 9458)
+2025-05-25 16:01:25,497 - FleetView - INFO - MOD内艦艇を追加: HMS Audacious (設計: carrier)
+2025-05-25 16:01:25,497 - FleetView - INFO - MOD内艦艇を追加: HMS Ark Royal (設計: carrier)
+2025-05-25 16:01:25,497 - FleetView - INFO - MOD内艦艇を追加: HMS Swiftsure (設計: light_cruiser)
+2025-05-25 16:01:25,497 - FleetView - INFO - MOD内艦艇を追加: HMS Comus (設計: destroyer)
+2025-05-25 16:01:25,498 - FleetView - INFO - MOD内艦艇を追加: HMS Concord (設計: destroyer)
+2025-05-25 16:01:25,498 - FleetView - INFO - MOD内艦艇を追加: HMS Contest (設計: destroyer)
+2025-05-25 16:01:25,498 - FleetView - INFO - MOD内艦艇を追加: HMS Consort (設計: destroyer)
+2025-05-25 16:01:25,498 - FleetView - INFO - MOD内任務部隊を追加: Task Force5 (Province: 9458)
+2025-05-25 16:01:25,498 - FleetView - INFO - MOD内艦艇を追加: HMS Ceylon (設計: destroyer)
+2025-05-25 16:01:25,498 - FleetView - INFO - MOD内艦艇を追加: HMS Crispin (設計: destroyer)
+2025-05-25 16:01:25,498 - FleetView - INFO - MOD内艦艇を追加: HMS Creole (設計: destroyer)
+2025-05-25 16:01:25,499 - FleetView - INFO - MOD内艦艇を追加: HMS Cheviot (設計: destroyer)
+2025-05-25 16:01:25,499 - FleetView - INFO - MOD内艦艇を追加: HMS Childers (設計: destroyer)
+2025-05-25 16:01:25,499 - FleetView - INFO - MOD内任務部隊を追加: Task Force6 (Province: 9458)
+2025-05-25 16:01:25,499 - FleetView - INFO - MOD内艦艇を追加: HMS Affray (設計: submarine)
+2025-05-25 16:01:25,500 - FleetView - INFO - MOD内艦艇を追加: HMS Andrew (設計: submarine)
+2025-05-25 16:01:25,500 - FleetView - INFO - MOD内艦艇を追加: HMS Aurochs (設計: submarine)
+2025-05-25 16:01:25,500 - FleetView - INFO - MOD内艦艇を追加: HMS Aeneas (設計: submarine)
+2025-05-25 16:01:25,501 - FleetView - INFO - MOD内艦艇を追加: HMS Alaric (設計: submarine)
+2025-05-25 16:01:25,501 - FleetView - INFO - MOD内艦艇を追加: HMS Astute (設計: submarine)
+2025-05-25 16:01:25,501 - FleetView - INFO - MOD内艦艇を追加: HMS Artemis (設計: submarine)
+2025-05-25 16:01:25,501 - FleetView - INFO - MOD内艦艇を追加: HMS Artful (設計: submarine)
+2025-05-25 16:01:25,501 - FleetView - INFO - MOD内艦艇を追加: HMS Anchorite (設計: submarine)
+2025-05-25 16:01:25,502 - FleetView - INFO - MOD内艦艇を追加: HMS Amphion (設計: submarine)
+2025-05-25 16:01:25,502 - FleetView - INFO - MOD内任務部隊を追加: Task Force7 (Province: 9458)
+2025-05-25 16:01:25,502 - FleetView - INFO - MOD内艦艇を追加: HMS Centaur (設計: light_carrier)
+2025-05-25 16:01:25,502 - FleetView - INFO - MOD内艦艇を追加: HMS Superb (設計: light_cruiser)
+2025-05-25 16:01:25,503 - FleetView - INFO - MOD内艦艇を追加: HMS Chaplet (設計: destroyer)
+2025-05-25 16:01:25,503 - FleetView - INFO - MOD内艦艇を追加: HMS Chequers (設計: destroyer)
+2025-05-25 16:01:25,503 - FleetView - INFO - MOD内艦艇を追加: HMS Chieftain (設計: destroyer)
+2025-05-25 16:01:25,503 - FleetView - INFO - MOD内艦艇を追加: HMS Chevron (設計: destroyer)
+2025-05-25 16:01:25,504 - FleetView - INFO - MOD内任務部隊を追加: Task Force8 (Province: 9458)
+2025-05-25 16:01:25,504 - FleetView - INFO - MOD内艦艇を追加: HMS Latona (設計: light_cruiser)
+2025-05-25 16:01:25,504 - FleetView - INFO - MOD内艦艇を追加: HMS Manxman (設計: light_cruiser)
+2025-05-25 16:01:25,504 - FleetView - INFO - MOD内艦艇を追加: HMS Myngs (設計: destroyer)
+2025-05-25 16:01:25,505 - FleetView - INFO - MOD内艦艇を追加: HMS Zephyr (設計: destroyer)
+2025-05-25 16:01:25,505 - FleetView - INFO - MOD内艦艇を追加: HMS Zambesi (設計: destroyer)
+2025-05-25 16:01:25,505 - FleetView - INFO - MOD内艦艇を追加: HMS Zealous (設計: destroyer)
+2025-05-25 16:01:25,506 - FleetView - INFO - MOD内艦艇を追加: HMS Zebra (設計: destroyer)
+2025-05-25 16:01:25,506 - FleetView - INFO - MOD内艦艇を追加: HMS Zenith (設計: destroyer)
+2025-05-25 16:01:25,506 - FleetView - INFO - MOD内艦艇を追加: HMS Zest (設計: destroyer)
+2025-05-25 16:01:25,506 - FleetView - INFO - MOD内艦艇を追加: HMS Zodiac (設計: destroyer)
+2025-05-25 16:01:25,507 - FleetView - INFO - MOD内艦隊を追加: North America Station (Province: 7361)
+2025-05-25 16:01:25,507 - FleetView - INFO - MOD内任務部隊を追加: Task Force9 (Province: 7361)
+2025-05-25 16:01:25,507 - FleetView - INFO - MOD内艦艇を追加: HMS Renown (設計: battle_cruiser)
+2025-05-25 16:01:25,507 - FleetView - INFO - MOD内艦艇を追加: HMS York (設計: heavy_cruiser)
+2025-05-25 16:01:25,507 - FleetView - INFO - MOD内艦艇を追加: HMS Exeter (設計: heavy_cruiser)
+2025-05-25 16:01:25,507 - FleetView - INFO - MOD内任務部隊を追加: Task Force10 (Province: 7361)
+2025-05-25 16:01:25,507 - FleetView - INFO - MOD内艦艇を追加: HMS Iron Duke (設計: carrier)
+2025-05-25 16:01:25,508 - FleetView - INFO - MOD内艦艇を追加: HMS Tiger (設計: light_cruiser)
+2025-05-25 16:01:25,508 - FleetView - INFO - MOD内艦艇を追加: HMS Cockade (設計: destroyer)
+2025-05-25 16:01:25,508 - FleetView - INFO - MOD内艦艇を追加: HMS Comet (設計: destroyer)
+2025-05-25 16:01:25,508 - FleetView - INFO - MOD内艦艇を追加: HMS  Constance (設計: destroyer)
+2025-05-25 16:01:25,508 - FleetView - INFO - MOD内艦艇を追加: HMS Cossack (設計: destroyer)
+2025-05-25 16:01:25,508 - FleetView - INFO - MOD内任務部隊を追加: Task Force11 (Province: 7361)
+2025-05-25 16:01:25,508 - FleetView - INFO - MOD内艦艇を追加: HMS Hercules (設計: light_carrier)
+2025-05-25 16:01:25,509 - FleetView - INFO - MOD内艦艇を追加: HMS Leviathan (設計: light_carrier)
+2025-05-25 16:01:25,509 - FleetView - INFO - MOD内艦艇を追加: HMS Dido (設計: light_cruiser)
+2025-05-25 16:01:25,509 - FleetView - INFO - MOD内艦艇を追加: HMS Phoebe (設計: light_cruiser)
+2025-05-25 16:01:25,509 - FleetView - INFO - MOD内艦艇を追加: HMS Teazer (設計: destroyer)
+2025-05-25 16:01:25,509 - FleetView - INFO - MOD内艦艇を追加: HMS Tenacious (設計: destroyer)
+2025-05-25 16:01:25,509 - FleetView - INFO - MOD内艦艇を追加: HMS Termagant (設計: destroyer)
+2025-05-25 16:01:25,509 - FleetView - INFO - MOD内艦艇を追加: HMS Terpsichore (設計: destroyer)
+2025-05-25 16:01:25,510 - FleetView - INFO - MOD内任務部隊を追加: Task Force12 (Province: 7361)
+2025-05-25 16:01:25,510 - FleetView - INFO - MOD内艦艇を追加: HMS Acheron (設計: submarine)
+2025-05-25 16:01:25,510 - FleetView - INFO - MOD内艦艇を追加: HMS Ace (設計: submarine)
+2025-05-25 16:01:25,510 - FleetView - INFO - MOD内艦艇を追加: HMS Alcide (設計: submarine)
+2025-05-25 16:01:25,510 - FleetView - INFO - MOD内艦艇を追加: HMS Alderney (設計: submarine)
+2025-05-25 16:01:25,510 - FleetView - INFO - MOD内艦艇を追加: HMS Alliance (設計: submarine)
+2025-05-25 16:01:25,511 - FleetView - INFO - MOD内艦艇を追加: HMS Ambush (設計: submarine)
+2025-05-25 16:01:25,511 - FleetView - INFO - MOD内任務部隊を追加: Task Force13 (Province: 7361)
+2025-05-25 16:01:25,511 - FleetView - INFO - MOD内艦艇を追加: HMS Welshman (設計: light_cruiser)
+2025-05-25 16:01:25,511 - FleetView - INFO - MOD内艦艇を追加: HMS Racehorse (設計: destroyer)
+2025-05-25 16:01:25,511 - FleetView - INFO - MOD内艦艇を追加: HMS Rapid (設計: destroyer)
+2025-05-25 16:01:25,511 - FleetView - INFO - MOD内艦艇を追加: HMS Relentless (設計: destroyer)
+2025-05-25 16:01:25,511 - FleetView - INFO - MOD内艦艇を追加: HMS Rocket (設計: destroyer)
+2025-05-25 16:01:25,511 - FleetView - INFO - MOD内艦艇を追加: HMS Roebuck (設計: destroyer)
+2025-05-25 16:01:25,512 - FleetView - INFO - MOD内艦隊を追加: China Squadron (Province: 10062)
+2025-05-25 16:01:25,512 - FleetView - INFO - MOD内任務部隊を追加: Task Force14 (Province: 10062)
+2025-05-25 16:01:25,512 - FleetView - INFO - MOD内艦艇を追加: HMS Colossus (設計: light_carrier)
+2025-05-25 16:01:25,512 - FleetView - INFO - MOD内艦艇を追加: HMS Glory (設計: light_carrier)
+2025-05-25 16:01:25,512 - FleetView - INFO - MOD内艦艇を追加: HMS Defencce (設計: light_cruiser)
+2025-05-25 16:01:25,512 - FleetView - INFO - MOD内艦艇を追加: HMS Agincourt (設計: destroyer)
+2025-05-25 16:01:25,512 - FleetView - INFO - MOD内艦艇を追加: HMS Alamein (設計: destroyer)
+2025-05-25 16:01:25,512 - FleetView - INFO - MOD内任務部隊を追加: Task Force15 (Province: 10062)
+2025-05-25 16:01:25,513 - FleetView - INFO - MOD内艦艇を追加: HMS Maidstone (設計: light_cruiser)
+2025-05-25 16:01:25,513 - FleetView - INFO - MOD内艦艇を追加: HMS Minotaur (設計: light_cruiser)
+2025-05-25 16:01:25,513 - FleetView - INFO - MOD内艦艇を追加: HMS Milne (設計: destroyer)
+2025-05-25 16:01:25,513 - FleetView - INFO - MOD内艦艇を追加: HMS Mahratta (設計: destroyer)
+2025-05-25 16:01:25,513 - FleetView - INFO - MOD内艦艇を追加: HMS Martin (設計: destroyer)
+2025-05-25 16:01:25,513 - FleetView - INFO - MOD内艦艇を追加: HMS Auriga (設計: submarine)
+2025-05-25 16:01:25,513 - FleetView - INFO - MOD内艦隊を追加: Far East Fleet (Province: 10201)
+2025-05-25 16:01:25,514 - FleetView - INFO - MOD内任務部隊を追加: Task Force16 (Province: 10201)
+2025-05-25 16:01:25,514 - FleetView - INFO - MOD内艦艇を追加: HMS Duke of York (設計: battleship)
+2025-05-25 16:01:25,514 - FleetView - INFO - MOD内艦艇を追加: HMS Anson (設計: battleship)
+2025-05-25 16:01:25,514 - FleetView - INFO - MOD内任務部隊を追加: Task Force17 (Province: 10201)
+2025-05-25 16:01:25,514 - FleetView - INFO - MOD内艦艇を追加: HMS Centurion (設計: carrier)
+2025-05-25 16:01:25,514 - FleetView - INFO - MOD内艦艇を追加: HMS Newfoundland (設計: light_cruiser)
+2025-05-25 16:01:25,515 - FleetView - INFO - MOD内艦艇を追加: HMS Caprice (設計: destroyer)
+2025-05-25 16:01:25,515 - FleetView - INFO - MOD内艦艇を追加: HMS Cassandra (設計: destroyer)
+2025-05-25 16:01:25,515 - FleetView - INFO - MOD内艦艇を追加: HMS Caesar (設計: destroyer)
+2025-05-25 16:01:25,515 - FleetView - INFO - MOD内艦艇を追加: HMS Cavendish (設計: destroyer)
+2025-05-25 16:01:25,515 - FleetView - INFO - MOD内任務部隊を追加: Task Force18 (Province: 10201)
+2025-05-25 16:01:25,515 - FleetView - INFO - MOD内艦艇を追加: HMS Abdiel (設計: light_cruiser)
+2025-05-25 16:01:25,515 - FleetView - INFO - MOD内艦艇を追加: HMS Sayurala (設計: destroyer)
+2025-05-25 16:01:25,516 - FleetView - INFO - MOD内艦艇を追加: HMS Sindurala (設計: destroyer)
+2025-05-25 16:01:25,516 - FleetView - INFO - MOD内艦艇を追加: HMS Sumedha (設計: destroyer)
+2025-05-25 16:01:25,516 - FleetView - INFO - MOD内艦艇を追加: HMS Sumitra (設計: destroyer)
+2025-05-25 16:01:25,516 - FleetView - INFO - MOD内艦隊を追加: Atlantic Squadron (Province: 540)
+2025-05-25 16:01:25,516 - FleetView - INFO - MOD内任務部隊を追加: Task Force19 (Province: 540)
+2025-05-25 16:01:25,516 - FleetView - INFO - MOD内艦艇を追加: HMS Warspite (設計: battleship)
+2025-05-25 16:01:25,516 - FleetView - INFO - MOD内艦艇を追加: HMS Valiant (設計: battleship)
+2025-05-25 16:01:25,517 - FleetView - INFO - MOD内任務部隊を追加: Task Force20 (Province: 540)
+2025-05-25 16:01:25,517 - FleetView - INFO - MOD内艦艇を追加: HMS Norfolk (設計: heavy_cruiser)
+2025-05-25 16:01:25,517 - FleetView - INFO - MOD内艦艇を追加: HMS Dorsetshire (設計: heavy_cruiser)
+2025-05-25 16:01:25,517 - FleetView - INFO - MOD内艦艇を追加: HMS Brocklesby (設計: destroyer)
+2025-05-25 16:01:25,517 - FleetView - INFO - MOD内任務部隊を追加: Task Force21 (Province: 540)
+2025-05-25 16:01:25,518 - FleetView - INFO - MOD内艦艇を追加: HMS Magnificent (設計: light_carrier)
+2025-05-25 16:01:25,518 - FleetView - INFO - MOD内艦艇を追加: HMS Majestic (設計: light_carrier)
+2025-05-25 16:01:25,518 - FleetView - INFO - MOD内艦艇を追加: HMS Bonaventure (設計: light_cruiser)
+2025-05-25 16:01:25,518 - FleetView - INFO - MOD内艦艇を追加: HMS Naiad (設計: light_cruiser)
+2025-05-25 16:01:25,518 - FleetView - INFO - MOD内艦艇を追加: HMS Undine (設計: destroyer)
+2025-05-25 16:01:25,518 - FleetView - INFO - MOD内艦艇を追加: HMS Ursa (設計: destroyer)
+2025-05-25 16:01:25,519 - FleetView - INFO - MOD内艦艇を追加: HMS Urchin (設計: destroyer)
+2025-05-25 16:01:25,519 - FleetView - INFO - MOD内艦艇を追加: HMS Urania (設計: destroyer)
+2025-05-25 16:01:25,519 - FleetView - INFO - MOD内任務部隊を追加: Task Force22 (Province: 540)
+2025-05-25 16:01:25,519 - FleetView - INFO - MOD内艦艇を追加: HMS Implacable (設計: carrier)
+2025-05-25 16:01:25,519 - FleetView - INFO - MOD内艦艇を追加: HMS Indefatigable (設計: carrier)
+2025-05-25 16:01:25,519 - FleetView - INFO - MOD内艦艇を追加: HMS Cambrian (設計: destroyer)
+2025-05-25 16:01:25,520 - FleetView - INFO - MOD内艦艇を追加: HMS Carron (設計: destroyer)
+2025-05-25 16:01:25,520 - FleetView - INFO - MOD内艦艇を追加: HMS Carysfort (設計: destroyer)
+2025-05-25 16:01:25,520 - FleetView - INFO - MOD内艦艇を追加: HMS Cavalier (設計: destroyer)
+2025-05-25 16:01:25,520 - FleetView - INFO - MOD内任務部隊を追加: Task Force23 (Province: 540)
+2025-05-25 16:01:25,520 - FleetView - INFO - MOD内艦艇を追加: HMS Uganda (設計: light_cruiser)
+2025-05-25 16:01:25,520 - FleetView - INFO - MOD内艦艇を追加: HMS Battleaxe (設計: destroyer)
+2025-05-25 16:01:25,520 - FleetView - INFO - MOD内艦艇を追加: HMS Broadsword (設計: destroyer)
+2025-05-25 16:01:25,520 - FleetView - INFO - MOD内艦艇を追加: HMS Aisne (設計: destroyer)
+2025-05-25 16:01:25,521 - FleetView - INFO - MOD内艦艇を追加: HMS Barrosa (設計: destroyer)
+2025-05-25 16:01:25,521 - FleetView - INFO - MOD内任務部隊を追加: Task Force24 (Province: 540)
+2025-05-25 16:01:25,521 - FleetView - INFO - MOD内艦艇を追加: HMS Matapan (設計: destroyer)
+2025-05-25 16:01:25,521 - FleetView - INFO - MOD内艦艇を追加: HMS Corunna (設計: destroyer)
+2025-05-25 16:01:25,521 - FleetView - INFO - MOD内艦艇を追加: HMS Dunkirk (設計: destroyer)
+2025-05-25 16:01:25,521 - FleetView - INFO - MOD内艦艇を追加: HMS Jutland (設計: destroyer)
+2025-05-25 16:01:25,521 - FleetView - INFO - MOD内任務部隊を追加: Task Force25 (Province: 540)
+2025-05-25 16:01:25,521 - FleetView - INFO - MOD内艦艇を追加: HMS Venturer (設計: submarine)
+2025-05-25 16:01:25,522 - FleetView - INFO - MOD内艦艇を追加: HMS Viking (設計: submarine)
+2025-05-25 16:01:25,522 - FleetView - INFO - MOD内艦艇を追加: HMS Veldt (設計: submarine)
+2025-05-25 16:01:25,522 - FleetView - INFO - MOD内艦艇を追加: HMS Vampire (設計: submarine)
+2025-05-25 16:01:25,522 - FleetView - INFO - MOD内艦艇を追加: HMS Vox (設計: submarine)
+2025-05-25 16:01:25,522 - FleetView - INFO - MOD内艦艇を追加: HMS Vigorous (設計: submarine)
+2025-05-25 16:01:25,522 - FleetView - INFO - MOD内艦艇を追加: HMS Virtue (設計: submarine)
+2025-05-25 16:01:25,522 - FleetView - INFO - MOD内艦艇を追加: HMS Visigoth (設計: submarine)
+2025-05-25 16:01:25,523 - FleetView - INFO - MOD内艦艇を追加: HMS Vivid (設計: submarine)
+2025-05-25 16:01:25,523 - FleetView - INFO - MOD内艦艇を追加: HMS Voracious (設計: submarine)
+2025-05-25 16:01:25,523 - FleetView - INFO - MOD内艦隊を追加: America and West Indies Station (Province: 351)
+2025-05-25 16:01:25,523 - FleetView - INFO - MOD内任務部隊を追加: Task Force26 (Province: 351)
+2025-05-25 16:01:25,523 - FleetView - INFO - MOD内艦艇を追加: HMS Howe (設計: battleship)
+2025-05-25 16:01:25,523 - FleetView - INFO - MOD内艦艇を追加: HMS Gravelines (設計: destroyer)
+2025-05-25 16:01:25,523 - FleetView - INFO - MOD内艦艇を追加: HMS St. James (設計: destroyer)
+2025-05-25 16:01:25,524 - FleetView - INFO - MOD内艦艇を追加: HMS Vigo (設計: destroyer)
+2025-05-25 16:01:25,524 - FleetView - INFO - MOD内任務部隊を追加: Task Force27 (Province: 351)
+2025-05-25 16:01:25,524 - FleetView - INFO - MOD内艦艇を追加: HMS Solebay (設計: destroyer)
+2025-05-25 16:01:25,524 - FleetView - INFO - MOD内艦艇を追加: HMS Saintes (設計: destroyer)
+2025-05-25 16:01:25,524 - FleetView - INFO - MOD内艦艇を追加: HMS Camperdown (設計: destroyer)
+2025-05-25 16:01:25,524 - FleetView - INFO - MOD内艦艇を追加: HMS Finisterre (設計: destroyer)
+2025-05-25 16:01:25,524 - FleetView - INFO - MOD内艦艇を追加: HMS Hogue (設計: destroyer)
+2025-05-25 16:01:25,525 - FleetView - INFO - MOD内艦艇を追加: HMS Lagos (設計: destroyer)
+2025-05-25 16:01:25,525 - FleetView - INFO - MOD内任務部隊を追加: Task Force28 (Province: 351)
+2025-05-25 16:01:25,525 - FleetView - INFO - MOD内艦艇を追加: HMS Bulwark (設計: light_carrier)
+2025-05-25 16:01:25,525 - FleetView - INFO - MOD内艦艇を追加: HMS Albion (設計: light_carrier)
+2025-05-25 16:01:25,525 - FleetView - INFO - MOD内艦艇を追加: HMS Bellerophon (設計: light_cruiser)
+2025-05-25 16:01:25,525 - FleetView - INFO - MOD内艦艇を追加: HMS Barfleur (設計: destroyer)
+2025-05-25 16:01:25,526 - FleetView - INFO - MOD内艦艇を追加: HMS Trafalgar (設計: destroyer)
+2025-05-25 16:01:25,526 - FleetView - INFO - MOD内艦艇を追加: HMS St. Kitts (設計: destroyer)
+2025-05-25 16:01:25,526 - FleetView - INFO - MOD内艦艇を追加: HMS Armada (設計: destroyer)
+2025-05-25 16:01:25,526 - FleetView - INFO - MOD内任務部隊を追加: Task Force29 (Province: 4989)
+2025-05-25 16:01:25,526 - FleetView - INFO - MOD内艦艇を追加: HMS Spartan (設計: light_cruiser)
+2025-05-25 16:01:25,526 - FleetView - INFO - MOD内艦艇を追加: HMS Obdurate (設計: destroyer)
+2025-05-25 16:01:25,526 - FleetView - INFO - MOD内艦艇を追加: HMS Obedient (設計: destroyer)
+2025-05-25 16:01:25,527 - FleetView - INFO - MOD内艦艇を追加: HMS Opportune (設計: destroyer)
+2025-05-25 16:01:25,527 - FleetView - INFO - MOD内艦艇を追加: HMS Orwell (設計: destroyer)
+2025-05-25 16:01:25,527 - FleetView - INFO - MOD内艦艇を追加: HMS Pathfinder (設計: destroyer)
+2025-05-25 16:01:25,527 - FleetView - INFO - MOD内艦艇を追加: HMS Penn (設計: destroyer)
+2025-05-25 16:01:25,527 - FleetView - INFO - MOD内任務部隊を追加: Task Force30 (Province: 4989)
+2025-05-25 16:01:25,527 - FleetView - INFO - MOD内艦艇を追加: HMS Diadem (設計: light_cruiser)
+2025-05-25 16:01:25,527 - FleetView - INFO - MOD内艦艇を追加: HMS Pakenham (設計: destroyer)
+2025-05-25 16:01:25,527 - FleetView - INFO - MOD内艦艇を追加: HMS Paladin (設計: destroyer)
+2025-05-25 16:01:25,528 - FleetView - INFO - MOD内艦艇を追加: HMS Panther (設計: destroyer)
+2025-05-25 16:01:25,528 - FleetView - INFO - MOD内艦艇を追加: HMS Partridge (設計: destroyer)
+2025-05-25 16:01:25,528 - FleetView - INFO - MOD内艦艇を追加: HMS Petard (設計: destroyer)
+2025-05-25 16:01:25,528 - FleetView - INFO - MOD内艦艇を追加: HMS Porcupine (設計: destroyer)
+2025-05-25 16:01:25,528 - FleetView - INFO - MOD内艦隊を追加: Pacific Squadron (Province: 12406)
+2025-05-25 16:01:25,528 - FleetView - INFO - MOD内任務部隊を追加: Task Force31 (Province: 12406)
+2025-05-25 16:01:25,528 - FleetView - INFO - MOD内艦艇を追加: HMS Nelson (設計: battleship)
+2025-05-25 16:01:25,528 - FleetView - INFO - MOD内艦艇を追加: HMS Rodney (設計: battleship)
+2025-05-25 16:01:25,529 - FleetView - INFO - MOD内任務部隊を追加: Task Force32 (Province: 12406)
+2025-05-25 16:01:25,529 - FleetView - INFO - MOD内艦艇を追加: HMS Terrible (設計: light_carrier)
+2025-05-25 16:01:25,529 - FleetView - INFO - MOD内艦艇を追加: HMS Venerable (設計: light_carrier)
+2025-05-25 16:01:25,529 - FleetView - INFO - MOD内艦艇を追加: HMS Hermione (設計: light_cruiser)
+2025-05-25 16:01:25,529 - FleetView - INFO - MOD内艦艇を追加: HMS Euryalus (設計: light_cruiser)
+2025-05-25 16:01:25,529 - FleetView - INFO - MOD内艦艇を追加: HMS Troubridge (設計: destroyer)
+2025-05-25 16:01:25,529 - FleetView - INFO - MOD内艦艇を追加: HMS Tumult (設計: destroyer)
+2025-05-25 16:01:25,529 - FleetView - INFO - MOD内艦艇を追加: HMS Tuscan (設計: destroyer)
+2025-05-25 16:01:25,530 - FleetView - INFO - MOD内艦艇を追加: HMS Tyrian (設計: destroyer)
+2025-05-25 16:01:25,530 - FleetView - INFO - MOD内任務部隊を追加: Task Force33 (Province: 12406)
+2025-05-25 16:01:25,530 - FleetView - INFO - MOD内艦艇を追加: HMS Victorious (設計: carrier)
+2025-05-25 16:01:25,530 - FleetView - INFO - MOD内艦艇を追加: HMS Illustrious (設計: carrier)
+2025-05-25 16:01:25,530 - FleetView - INFO - MOD内艦艇を追加: HMS Bermuda (設計: light_cruiser)
+2025-05-25 16:01:25,530 - FleetView - INFO - MOD内艦艇を追加: HMS Fiji (設計: light_cruiser)
+2025-05-25 16:01:25,530 - FleetView - INFO - MOD内艦艇を追加: HMS Wakeful (設計: destroyer)
+2025-05-25 16:01:25,530 - FleetView - INFO - MOD内艦艇を追加: HMS Whirlwind (設計: destroyer)
+2025-05-25 16:01:25,531 - FleetView - INFO - MOD内艦艇を追加: HMS Wizard (設計: destroyer)
+2025-05-25 16:01:25,531 - FleetView - INFO - MOD内任務部隊を追加: Task Force34 (Province: 12406)
+2025-05-25 16:01:25,531 - FleetView - INFO - MOD内艦艇を追加: HMS Birmingham (設計: light_cruiser)
+2025-05-25 16:01:25,531 - FleetView - INFO - MOD内艦艇を追加: HMS Glasgow (設計: light_cruiser)
+2025-05-25 16:01:25,531 - FleetView - INFO - MOD内艦艇を追加: HMS Newcastle (設計: light_cruiser)
+2025-05-25 16:01:25,531 - FleetView - INFO - MOD内艦艇を追加: HMS Sheffield (設計: light_cruiser)
+2025-05-25 16:01:25,531 - FleetView - INFO - MOD内艦艇を追加: HMS Saumarez (設計: destroyer)
+2025-05-25 16:01:25,532 - FleetView - INFO - MOD内艦艇を追加: HMS Savage (設計: destroyer)
+2025-05-25 16:01:25,532 - FleetView - INFO - MOD内艦艇を追加: HMS Scorpion (設計: destroyer)
+2025-05-25 16:01:25,532 - FleetView - INFO - MOD内艦艇を追加: HMS Scourge (設計: destroyer)
+2025-05-25 16:01:25,532 - FleetView - INFO - MOD内艦隊を追加: East Indies Station (Province: 12589)
+2025-05-25 16:01:25,532 - FleetView - INFO - MOD内任務部隊を追加: Task Force 41 (Province: 12589)
+2025-05-25 16:01:25,532 - FleetView - INFO - MOD内艦艇を追加: HMS Malaya (設計: battleship)
+2025-05-25 16:01:25,532 - FleetView - INFO - MOD内艦艇を追加: HMS Barham (設計: battleship)
+2025-05-25 16:01:25,532 - FleetView - INFO - MOD内任務部隊を追加: Task Force35 (Province: 12589)
+2025-05-25 16:01:25,533 - FleetView - INFO - MOD内艦艇を追加: HMS Ocean (設計: light_carrier)
+2025-05-25 16:01:25,533 - FleetView - INFO - MOD内艦艇を追加: HMS Perseus (設計: light_carrier)
+2025-05-25 16:01:25,533 - FleetView - INFO - MOD内艦艇を追加: HMS Mauritius (設計: light_cruiser)
+2025-05-25 16:01:25,533 - FleetView - INFO - MOD内艦艇を追加: HMS Jamaica (設計: light_cruiser)
+2025-05-25 16:01:25,533 - FleetView - INFO - MOD内艦艇を追加: HMS Kenya (設計: light_cruiser)
+2025-05-25 16:01:25,533 - FleetView - INFO - MOD内艦艇を追加: HMS Serapis (設計: destroyer)
+2025-05-25 16:01:25,533 - FleetView - INFO - MOD内艦艇を追加: HMS Shark (設計: destroyer)
+2025-05-25 16:01:25,534 - FleetView - INFO - MOD内任務部隊を追加: Task Force36 (Province: 4696)
+2025-05-25 16:01:25,534 - FleetView - INFO - MOD内艦艇を追加: HMS Cleopatra (設計: light_cruiser)
+2025-05-25 16:01:25,534 - FleetView - INFO - MOD内艦艇を追加: HMS Argonaut (設計: light_cruiser)
+2025-05-25 16:01:25,534 - FleetView - INFO - MOD内艦艇を追加: HMS Charybdis (設計: light_cruiser)
+2025-05-25 16:01:25,534 - FleetView - INFO - MOD内艦艇を追加: HMS Scylla (設計: light_cruiser)
+2025-05-25 16:01:25,534 - FleetView - INFO - MOD内任務部隊を追加: Task Force37 (Province: 12589)
+2025-05-25 16:01:25,534 - FleetView - INFO - MOD内艦艇を追加: HMS Formidable (設計: carrier)
+2025-05-25 16:01:25,535 - FleetView - INFO - MOD内艦艇を追加: HMS indomitable (設計: carrier)
+2025-05-25 16:01:25,535 - FleetView - INFO - MOD内艦艇を追加: HMS Liverpool (設計: light_cruiser)
+2025-05-25 16:01:25,535 - FleetView - INFO - MOD内艦艇を追加: HMS Manchester (設計: light_cruiser)
+2025-05-25 16:01:25,535 - FleetView - INFO - MOD内艦艇を追加: HMS Verulam (設計: destroyer)
+2025-05-25 16:01:25,535 - FleetView - INFO - MOD内艦艇を追加: HMS Virago (設計: destroyer)
+2025-05-25 16:01:25,535 - FleetView - INFO - MOD内艦艇を追加: HMS Vigilant (設計: destroyer)
+2025-05-25 16:01:25,535 - FleetView - INFO - MOD内艦艇を追加: HMS Venus (設計: destroyer)
+2025-05-25 16:01:25,536 - FleetView - INFO - MOD内艦艇を追加: HMS Success (設計: destroyer)
+2025-05-25 16:01:25,536 - FleetView - INFO - MOD内艦艇を追加: HMS Swift (設計: destroyer)
+2025-05-25 16:01:25,536 - FleetView - INFO - MOD内任務部隊を追加: Task Force38 (Province: 1468)
+2025-05-25 16:01:25,536 - FleetView - INFO - MOD内艦艇を追加: HMS Theseus (設計: light_carrier)
+2025-05-25 16:01:25,536 - FleetView - INFO - MOD内艦艇を追加: HMS Triumph (設計: light_carrier)
+2025-05-25 16:01:25,536 - FleetView - INFO - MOD内艦艇を追加: HMS Edinburgh (設計: light_cruiser)
+2025-05-25 16:01:25,536 - FleetView - INFO - MOD内艦艇を追加: HMS Belfast (設計: light_cruiser)
+2025-05-25 16:01:25,536 - FleetView - INFO - MOD内艦艇を追加: HMS Grenville (設計: destroyer)
+2025-05-25 16:01:25,537 - FleetView - INFO - MOD内艦艇を追加: HMS Ulster (設計: destroyer)
+2025-05-25 16:01:25,537 - FleetView - INFO - MOD内艦艇を追加: HMS Ulysses (設計: destroyer)
+2025-05-25 16:01:25,537 - FleetView - INFO - MOD内艦艇を追加: HMS Undaunted (設計: destroyer)
+2025-05-25 16:01:25,537 - FleetView - INFO - MOD内艦隊を追加: Channel Fleet (Province: 3501)
+2025-05-25 16:01:25,537 - FleetView - INFO - MOD内任務部隊を追加: Task Force39 (Province: 3501)
+2025-05-25 16:01:25,537 - FleetView - INFO - MOD内艦艇を追加: HMS Vulpine (設計: submarine)
+2025-05-25 16:01:25,537 - FleetView - INFO - MOD内艦艇を追加: HMS Varne (設計: submarine)
+2025-05-25 16:01:25,537 - FleetView - INFO - MOD内艦艇を追加: HMS Upshot (設計: submarine)
+2025-05-25 16:01:25,537 - FleetView - INFO - MOD内艦艇を追加: HMS Urtica (設計: submarine)
+2025-05-25 16:01:25,538 - FleetView - INFO - MOD内艦艇を追加: HMS Vineyard (設計: submarine)
+2025-05-25 16:01:25,538 - FleetView - INFO - MOD内艦艇を追加: HMS Variance (設計: submarine)
+2025-05-25 16:01:25,538 - FleetView - INFO - MOD内任務部隊を追加: Task Force40 (Province: 3501)
+2025-05-25 16:01:25,538 - FleetView - INFO - MOD内艦艇を追加: HMS Vengeful (設計: submarine)
+2025-05-25 16:01:25,538 - FleetView - INFO - MOD内艦艇を追加: HMS Vortex (設計: submarine)
+2025-05-25 16:01:25,538 - FleetView - INFO - MOD内艦艇を追加: HMS Virulent (設計: submarine)
+2025-05-25 16:01:25,538 - FleetView - INFO - MOD内艦艇を追加: HMS Volatile (設計: submarine)
+2025-05-25 16:01:25,538 - FleetView - INFO - MOD内艦艇を追加: HMS Vagabond (設計: submarine)
+2025-05-25 16:01:25,539 - FleetView - INFO - MOD内艦艇を追加: HMS Votary (設計: submarine)
+2025-05-25 16:01:25,539 - FleetView - INFO - 艦隊ファイルの検索結果: 1件
+2025-05-25 16:01:25,539 - FleetView - INFO - 艦隊データを読み込み完了: ENG
+2025-05-25 16:01:29,854 - FleetView - INFO - 港湾一覧を更新: ENG
+2025-05-25 16:01:47,883 - FleetView - INFO - マップデータを読み込みました: D:/hoi4_mods/SSW_mod
+2025-05-25 16:01:48,367 - FleetView - INFO - FleetViewの初期化が完了しました
+2025-05-25 16:01:48,368 - FleetView - INFO - mod_changedシグナルに接続しました
+2025-05-25 16:01:48,380 - controllers.app_controller - INFO - 国家情報の取得を開始: MODパス=D:/hoi4_mods/SSW_mod
+2025-05-25 16:01:48,397 - controllers.app_controller - INFO - 国家情報の取得完了: 515件の国家を処理
+2025-05-25 16:01:49,261 - NavalDesignSystem - INFO - ビュー 'home' を追加しました
+2025-05-25 16:01:49,263 - NavalDesignSystem - INFO - ビュー 'equipment' を追加しました
+2025-05-25 16:01:49,269 - NavalDesignSystem - INFO - ビュー 'hull_list' を追加しました
+2025-05-25 16:01:49,304 - NavalDesignSystem - INFO - ビュー 'hull_form' を追加しました
+2025-05-25 16:01:49,310 - NavalDesignSystem - INFO - ビュー 'design' を追加しました
+2025-05-25 16:01:49,322 - NavalDesignSystem - INFO - ビュー 'fleet' を追加しました
+2025-05-25 16:01:49,322 - NavalDesignSystem - INFO - ビュー 'nation' を追加しました
+2025-05-25 16:01:49,345 - NavalDesignSystem - INFO - ビュー 'nation_details' を追加しました
+2025-05-25 16:01:49,345 - NavalDesignSystem - INFO - ビュー 'settings' を追加しました
+2025-05-25 16:01:49,346 - MenuLoadingWorker - INFO - ビューの読み込み中: home
+2025-05-25 16:01:49,346 - MenuLoadingWorker - INFO - ビューの読み込み中: equipment
+2025-05-25 16:01:49,346 - MenuLoadingWorker - INFO - ビューの読み込み中: hull_list
+2025-05-25 16:01:49,346 - MenuLoadingWorker - INFO - ビューの読み込み中: hull_form
+2025-05-25 16:01:49,346 - MenuLoadingWorker - INFO - ビューの読み込み中: design
+2025-05-25 16:01:49,346 - MenuLoadingWorker - INFO - ビューの読み込み中: fleet
+2025-05-25 16:01:49,346 - MenuLoadingWorker - INFO - ビューの読み込み中: nation
+2025-05-25 16:01:49,346 - MenuLoadingWorker - INFO - ビューの読み込み中: nation_details
+2025-05-25 16:01:49,346 - MenuLoadingWorker - INFO - ビューの読み込み中: settings
+2025-05-25 16:01:49,505 - FleetView - INFO - MODが変更されました: D:/hoi4_mods/SSW_mod
+2025-05-25 16:01:49,505 - controllers.app_controller - INFO - 国家情報の取得を開始: MODパス=D:/hoi4_mods/SSW_mod
+2025-05-25 16:01:49,522 - controllers.app_controller - INFO - 国家情報の取得完了: 515件の国家を処理
+2025-05-25 16:01:49,818 - FleetView - INFO - 国家が変更されました: ENG
+2025-05-25 16:01:49,818 - FleetView - INFO - ローカル設計データが見つかりませんでした
+2025-05-25 16:01:49,818 - controllers.app_controller - INFO - MOD設計データの取得を開始: 国家タグ=ENG, MOD=The Sun Shining on the World
+2025-05-25 16:01:49,819 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\amphibious_mechanized.txt
+2025-05-25 16:01:49,819 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\anti_air.txt
+2025-05-25 16:01:49,820 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\anti_ship_missile.txt
+2025-05-25 16:01:49,820 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\anti_tank.txt
+2025-05-25 16:01:49,820 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\armored_car.txt
+2025-05-25 16:01:49,821 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\artillery.txt
+2025-05-25 16:01:49,821 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ballistic_missiles-vanilla.txt
+2025-05-25 16:01:49,822 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ballistic_missiles.txt
+2025-05-25 16:01:49,822 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\convoys.txt
+2025-05-25 16:01:49,822 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\emplacement_gun_ammo.txt
+2025-05-25 16:01:49,823 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\guided_missiles.txt
+2025-05-25 16:01:49,823 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\helicopter.txt
+2025-05-25 16:01:49,824 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\infantry.txt
+2025-05-25 16:01:49,824 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\infantry_anti_tank.txt
+2025-05-25 16:01:49,824 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\intercontinental_bomber.txt
+2025-05-25 16:01:49,825 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\mechanized.txt
+2025-05-25 16:01:49,825 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\mothership.txt
+2025-05-25 16:01:49,826 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\motorized.txt
+2025-05-25 16:01:49,826 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\nuclear_missiles.txt
+2025-05-25 16:01:49,827 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\plane_airframes.txt
+2025-05-25 16:01:49,829 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\quad_engine_airframe.txt
+2025-05-25 16:01:49,830 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\railway_gun.txt
+2025-05-25 16:01:49,830 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\sam_missile.txt
+2025-05-25 16:01:49,830 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_battle_carrier.txt
+2025-05-25 16:01:49,831 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_carrier.txt
+2025-05-25 16:01:49,835 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_cruiser.txt
+2025-05-25 16:01:49,840 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_cruiser_carrier.txt
+2025-05-25 16:01:49,844 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_frigate.txt
+2025-05-25 16:01:49,846 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_heavy.txt
+2025-05-25 16:01:49,850 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_light.txt
+2025-05-25 16:01:49,851 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_light_carrier.txt
+2025-05-25 16:01:49,853 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_missile_cruiser.txt
+2025-05-25 16:01:49,856 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_submarine.txt
+2025-05-25 16:01:49,858 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\ship_hull_submarine_carrier.txt
+2025-05-25 16:01:49,859 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\single_engine_airframe.txt
+2025-05-25 16:01:49,861 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\specialist_armored_vehicles.txt
+2025-05-25 16:01:49,862 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\super_heavy_railway_gun.txt
+2025-05-25 16:01:49,862 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\support.txt
+2025-05-25 16:01:49,862 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\tank_chassis.txt
+2025-05-25 16:01:49,864 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\trains.txt
+2025-05-25 16:01:49,865 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\twin_engine_airframe.txt
+2025-05-25 16:01:49,866 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\x_plane_airframes.txt
+2025-05-25 16:01:49,870 - controllers.app_controller - INFO - 設計ファイルを処理中: D:/hoi4_mods/SSW_mod\common\units\equipment\x_tank_chassis.txt
+2025-05-25 16:01:49,872 - controllers.app_controller - INFO - MOD設計データの取得完了: 0件の設計を処理
+2025-05-25 16:01:49,872 - FleetView - INFO - 艦隊データの読み込みを開始: ENG
+2025-05-25 16:01:49,872 - FleetView - INFO - 編成ファイルのパス: D:/hoi4_mods/SSW_mod\history\units
+2025-05-25 16:01:50,085 - FleetView - INFO - 設計データを読み込み: 45件
+2025-05-25 16:01:50,086 - FleetView - INFO - 艦隊ファイルを処理: ENG_1950_Naval.txt
+2025-05-25 16:01:50,112 - FleetView - INFO - 艦隊データを抽出: 9件
+2025-05-25 16:01:50,112 - FleetView - INFO - MOD内艦隊を追加: The Home Fleet (Province: 9458)
+2025-05-25 16:01:50,112 - FleetView - INFO - MOD内任務部隊を追加: Task Force1 (Province: 9458)
+2025-05-25 16:01:50,112 - FleetView - INFO - MOD内艦艇を追加: HMS Incomparable (設計: battleship)
+2025-05-25 16:01:50,113 - FleetView - INFO - MOD内艦艇を追加: HMS Lion (設計: battleship)
+2025-05-25 16:01:50,113 - FleetView - INFO - MOD内艦艇を追加: HMS Temeraire (設計: battleship)
+2025-05-25 16:01:50,113 - FleetView - INFO - MOD内任務部隊を追加: Task Force2 (Province: 9458)
+2025-05-25 16:01:50,113 - FleetView - INFO - MOD内艦艇を追加: HMS Revenge (設計: battleship)
+2025-05-25 16:01:50,113 - FleetView - INFO - MOD内艦艇を追加: HMS Resolution (設計: battleship)
+2025-05-25 16:01:50,113 - FleetView - INFO - MOD内艦艇を追加: HMS Ramillies (設計: battleship)
+2025-05-25 16:01:50,113 - FleetView - INFO - MOD内艦艇を追加: HMS Royal Sovereign (設計: battleship)
+2025-05-25 16:01:50,114 - FleetView - INFO - MOD内任務部隊を追加: Task Force3 (Province: 9458)
+2025-05-25 16:01:50,114 - FleetView - INFO - MOD内艦艇を追加: HMS London (設計: heavy_cruiser)
+2025-05-25 16:01:50,114 - FleetView - INFO - MOD内艦艇を追加: HMS Devonshire (設計: heavy_cruiser)
+2025-05-25 16:01:50,114 - FleetView - INFO - MOD内艦艇を追加: HMS Shropshire (設計: heavy_cruiser)
+2025-05-25 16:01:50,114 - FleetView - INFO - MOD内任務部隊を追加: Task Force4 (Province: 9458)
+2025-05-25 16:01:50,114 - FleetView - INFO - MOD内艦艇を追加: HMS Audacious (設計: carrier)
+2025-05-25 16:01:50,114 - FleetView - INFO - MOD内艦艇を追加: HMS Ark Royal (設計: carrier)
+2025-05-25 16:01:50,115 - FleetView - INFO - MOD内艦艇を追加: HMS Swiftsure (設計: light_cruiser)
+2025-05-25 16:01:50,115 - FleetView - INFO - MOD内艦艇を追加: HMS Comus (設計: destroyer)
+2025-05-25 16:01:50,115 - FleetView - INFO - MOD内艦艇を追加: HMS Concord (設計: destroyer)
+2025-05-25 16:01:50,115 - FleetView - INFO - MOD内艦艇を追加: HMS Contest (設計: destroyer)
+2025-05-25 16:01:50,115 - FleetView - INFO - MOD内艦艇を追加: HMS Consort (設計: destroyer)
+2025-05-25 16:01:50,115 - FleetView - INFO - MOD内任務部隊を追加: Task Force5 (Province: 9458)
+2025-05-25 16:01:50,116 - FleetView - INFO - MOD内艦艇を追加: HMS Ceylon (設計: destroyer)
+2025-05-25 16:01:50,116 - FleetView - INFO - MOD内艦艇を追加: HMS Crispin (設計: destroyer)
+2025-05-25 16:01:50,116 - FleetView - INFO - MOD内艦艇を追加: HMS Creole (設計: destroyer)
+2025-05-25 16:01:50,116 - FleetView - INFO - MOD内艦艇を追加: HMS Cheviot (設計: destroyer)
+2025-05-25 16:01:50,116 - FleetView - INFO - MOD内艦艇を追加: HMS Childers (設計: destroyer)
+2025-05-25 16:01:50,116 - FleetView - INFO - MOD内任務部隊を追加: Task Force6 (Province: 9458)
+2025-05-25 16:01:50,116 - FleetView - INFO - MOD内艦艇を追加: HMS Affray (設計: submarine)
+2025-05-25 16:01:50,117 - FleetView - INFO - MOD内艦艇を追加: HMS Andrew (設計: submarine)
+2025-05-25 16:01:50,117 - FleetView - INFO - MOD内艦艇を追加: HMS Aurochs (設計: submarine)
+2025-05-25 16:01:50,117 - FleetView - INFO - MOD内艦艇を追加: HMS Aeneas (設計: submarine)
+2025-05-25 16:01:50,117 - FleetView - INFO - MOD内艦艇を追加: HMS Alaric (設計: submarine)
+2025-05-25 16:01:50,117 - FleetView - INFO - MOD内艦艇を追加: HMS Astute (設計: submarine)
+2025-05-25 16:01:50,117 - FleetView - INFO - MOD内艦艇を追加: HMS Artemis (設計: submarine)
+2025-05-25 16:01:50,117 - FleetView - INFO - MOD内艦艇を追加: HMS Artful (設計: submarine)
+2025-05-25 16:01:50,117 - FleetView - INFO - MOD内艦艇を追加: HMS Anchorite (設計: submarine)
+2025-05-25 16:01:50,118 - FleetView - INFO - MOD内艦艇を追加: HMS Amphion (設計: submarine)
+2025-05-25 16:01:50,118 - FleetView - INFO - MOD内任務部隊を追加: Task Force7 (Province: 9458)
+2025-05-25 16:01:50,118 - FleetView - INFO - MOD内艦艇を追加: HMS Centaur (設計: light_carrier)
+2025-05-25 16:01:50,118 - FleetView - INFO - MOD内艦艇を追加: HMS Superb (設計: light_cruiser)
+2025-05-25 16:01:50,118 - FleetView - INFO - MOD内艦艇を追加: HMS Chaplet (設計: destroyer)
+2025-05-25 16:01:50,118 - FleetView - INFO - MOD内艦艇を追加: HMS Chequers (設計: destroyer)
+2025-05-25 16:01:50,118 - FleetView - INFO - MOD内艦艇を追加: HMS Chieftain (設計: destroyer)
+2025-05-25 16:01:50,118 - FleetView - INFO - MOD内艦艇を追加: HMS Chevron (設計: destroyer)
+2025-05-25 16:01:50,119 - FleetView - INFO - MOD内任務部隊を追加: Task Force8 (Province: 9458)
+2025-05-25 16:01:50,119 - FleetView - INFO - MOD内艦艇を追加: HMS Latona (設計: light_cruiser)
+2025-05-25 16:01:50,119 - FleetView - INFO - MOD内艦艇を追加: HMS Manxman (設計: light_cruiser)
+2025-05-25 16:01:50,119 - FleetView - INFO - MOD内艦艇を追加: HMS Myngs (設計: destroyer)
+2025-05-25 16:01:50,119 - FleetView - INFO - MOD内艦艇を追加: HMS Zephyr (設計: destroyer)
+2025-05-25 16:01:50,119 - FleetView - INFO - MOD内艦艇を追加: HMS Zambesi (設計: destroyer)
+2025-05-25 16:01:50,119 - FleetView - INFO - MOD内艦艇を追加: HMS Zealous (設計: destroyer)
+2025-05-25 16:01:50,119 - FleetView - INFO - MOD内艦艇を追加: HMS Zebra (設計: destroyer)
+2025-05-25 16:01:50,120 - FleetView - INFO - MOD内艦艇を追加: HMS Zenith (設計: destroyer)
+2025-05-25 16:01:50,120 - FleetView - INFO - MOD内艦艇を追加: HMS Zest (設計: destroyer)
+2025-05-25 16:01:50,120 - FleetView - INFO - MOD内艦艇を追加: HMS Zodiac (設計: destroyer)
+2025-05-25 16:01:50,120 - FleetView - INFO - MOD内艦隊を追加: North America Station (Province: 7361)
+2025-05-25 16:01:50,120 - FleetView - INFO - MOD内任務部隊を追加: Task Force9 (Province: 7361)
+2025-05-25 16:01:50,120 - FleetView - INFO - MOD内艦艇を追加: HMS Renown (設計: battle_cruiser)
+2025-05-25 16:01:50,120 - FleetView - INFO - MOD内艦艇を追加: HMS York (設計: heavy_cruiser)
+2025-05-25 16:01:50,121 - FleetView - INFO - MOD内艦艇を追加: HMS Exeter (設計: heavy_cruiser)
+2025-05-25 16:01:50,121 - FleetView - INFO - MOD内任務部隊を追加: Task Force10 (Province: 7361)
+2025-05-25 16:01:50,121 - FleetView - INFO - MOD内艦艇を追加: HMS Iron Duke (設計: carrier)
+2025-05-25 16:01:50,121 - FleetView - INFO - MOD内艦艇を追加: HMS Tiger (設計: light_cruiser)
+2025-05-25 16:01:50,121 - FleetView - INFO - MOD内艦艇を追加: HMS Cockade (設計: destroyer)
+2025-05-25 16:01:50,121 - FleetView - INFO - MOD内艦艇を追加: HMS Comet (設計: destroyer)
+2025-05-25 16:01:50,121 - FleetView - INFO - MOD内艦艇を追加: HMS  Constance (設計: destroyer)
+2025-05-25 16:01:50,121 - FleetView - INFO - MOD内艦艇を追加: HMS Cossack (設計: destroyer)
+2025-05-25 16:01:50,122 - FleetView - INFO - MOD内任務部隊を追加: Task Force11 (Province: 7361)
+2025-05-25 16:01:50,122 - FleetView - INFO - MOD内艦艇を追加: HMS Hercules (設計: light_carrier)
+2025-05-25 16:01:50,122 - FleetView - INFO - MOD内艦艇を追加: HMS Leviathan (設計: light_carrier)
+2025-05-25 16:01:50,122 - FleetView - INFO - MOD内艦艇を追加: HMS Dido (設計: light_cruiser)
+2025-05-25 16:01:50,122 - FleetView - INFO - MOD内艦艇を追加: HMS Phoebe (設計: light_cruiser)
+2025-05-25 16:01:50,122 - FleetView - INFO - MOD内艦艇を追加: HMS Teazer (設計: destroyer)
+2025-05-25 16:01:50,122 - FleetView - INFO - MOD内艦艇を追加: HMS Tenacious (設計: destroyer)
+2025-05-25 16:01:50,123 - FleetView - INFO - MOD内艦艇を追加: HMS Termagant (設計: destroyer)
+2025-05-25 16:01:50,123 - FleetView - INFO - MOD内艦艇を追加: HMS Terpsichore (設計: destroyer)
+2025-05-25 16:01:50,123 - FleetView - INFO - MOD内任務部隊を追加: Task Force12 (Province: 7361)
+2025-05-25 16:01:50,123 - FleetView - INFO - MOD内艦艇を追加: HMS Acheron (設計: submarine)
+2025-05-25 16:01:50,123 - FleetView - INFO - MOD内艦艇を追加: HMS Ace (設計: submarine)
+2025-05-25 16:01:50,123 - FleetView - INFO - MOD内艦艇を追加: HMS Alcide (設計: submarine)
+2025-05-25 16:01:50,124 - FleetView - INFO - MOD内艦艇を追加: HMS Alderney (設計: submarine)
+2025-05-25 16:01:50,124 - FleetView - INFO - MOD内艦艇を追加: HMS Alliance (設計: submarine)
+2025-05-25 16:01:50,124 - FleetView - INFO - MOD内艦艇を追加: HMS Ambush (設計: submarine)
+2025-05-25 16:01:50,124 - FleetView - INFO - MOD内任務部隊を追加: Task Force13 (Province: 7361)
+2025-05-25 16:01:50,124 - FleetView - INFO - MOD内艦艇を追加: HMS Welshman (設計: light_cruiser)
+2025-05-25 16:01:50,124 - FleetView - INFO - MOD内艦艇を追加: HMS Racehorse (設計: destroyer)
+2025-05-25 16:01:50,124 - FleetView - INFO - MOD内艦艇を追加: HMS Rapid (設計: destroyer)
+2025-05-25 16:01:50,125 - FleetView - INFO - MOD内艦艇を追加: HMS Relentless (設計: destroyer)
+2025-05-25 16:01:50,125 - FleetView - INFO - MOD内艦艇を追加: HMS Rocket (設計: destroyer)
+2025-05-25 16:01:50,125 - FleetView - INFO - MOD内艦艇を追加: HMS Roebuck (設計: destroyer)
+2025-05-25 16:01:50,125 - FleetView - INFO - MOD内艦隊を追加: China Squadron (Province: 10062)
+2025-05-25 16:01:50,125 - FleetView - INFO - MOD内任務部隊を追加: Task Force14 (Province: 10062)
+2025-05-25 16:01:50,125 - FleetView - INFO - MOD内艦艇を追加: HMS Colossus (設計: light_carrier)
+2025-05-25 16:01:50,126 - FleetView - INFO - MOD内艦艇を追加: HMS Glory (設計: light_carrier)
+2025-05-25 16:01:50,126 - FleetView - INFO - MOD内艦艇を追加: HMS Defencce (設計: light_cruiser)
+2025-05-25 16:01:50,126 - FleetView - INFO - MOD内艦艇を追加: HMS Agincourt (設計: destroyer)
+2025-05-25 16:01:50,126 - FleetView - INFO - MOD内艦艇を追加: HMS Alamein (設計: destroyer)
+2025-05-25 16:01:50,126 - FleetView - INFO - MOD内任務部隊を追加: Task Force15 (Province: 10062)
+2025-05-25 16:01:50,126 - FleetView - INFO - MOD内艦艇を追加: HMS Maidstone (設計: light_cruiser)
+2025-05-25 16:01:50,126 - FleetView - INFO - MOD内艦艇を追加: HMS Minotaur (設計: light_cruiser)
+2025-05-25 16:01:50,127 - FleetView - INFO - MOD内艦艇を追加: HMS Milne (設計: destroyer)
+2025-05-25 16:01:50,127 - FleetView - INFO - MOD内艦艇を追加: HMS Mahratta (設計: destroyer)
+2025-05-25 16:01:50,127 - FleetView - INFO - MOD内艦艇を追加: HMS Martin (設計: destroyer)
+2025-05-25 16:01:50,127 - FleetView - INFO - MOD内艦艇を追加: HMS Auriga (設計: submarine)
+2025-05-25 16:01:50,127 - FleetView - INFO - MOD内艦隊を追加: Far East Fleet (Province: 10201)
+2025-05-25 16:01:50,127 - FleetView - INFO - MOD内任務部隊を追加: Task Force16 (Province: 10201)
+2025-05-25 16:01:50,127 - FleetView - INFO - MOD内艦艇を追加: HMS Duke of York (設計: battleship)
+2025-05-25 16:01:50,127 - FleetView - INFO - MOD内艦艇を追加: HMS Anson (設計: battleship)
+2025-05-25 16:01:50,127 - FleetView - INFO - MOD内任務部隊を追加: Task Force17 (Province: 10201)
+2025-05-25 16:01:50,128 - FleetView - INFO - MOD内艦艇を追加: HMS Centurion (設計: carrier)
+2025-05-25 16:01:50,128 - FleetView - INFO - MOD内艦艇を追加: HMS Newfoundland (設計: light_cruiser)
+2025-05-25 16:01:50,128 - FleetView - INFO - MOD内艦艇を追加: HMS Caprice (設計: destroyer)
+2025-05-25 16:01:50,128 - FleetView - INFO - MOD内艦艇を追加: HMS Cassandra (設計: destroyer)
+2025-05-25 16:01:50,128 - FleetView - INFO - MOD内艦艇を追加: HMS Caesar (設計: destroyer)
+2025-05-25 16:01:50,129 - FleetView - INFO - MOD内艦艇を追加: HMS Cavendish (設計: destroyer)
+2025-05-25 16:01:50,129 - FleetView - INFO - MOD内任務部隊を追加: Task Force18 (Province: 10201)
+2025-05-25 16:01:50,129 - FleetView - INFO - MOD内艦艇を追加: HMS Abdiel (設計: light_cruiser)
+2025-05-25 16:01:50,129 - FleetView - INFO - MOD内艦艇を追加: HMS Sayurala (設計: destroyer)
+2025-05-25 16:01:50,129 - FleetView - INFO - MOD内艦艇を追加: HMS Sindurala (設計: destroyer)
+2025-05-25 16:01:50,129 - FleetView - INFO - MOD内艦艇を追加: HMS Sumedha (設計: destroyer)
+2025-05-25 16:01:50,129 - FleetView - INFO - MOD内艦艇を追加: HMS Sumitra (設計: destroyer)
+2025-05-25 16:01:50,129 - FleetView - INFO - MOD内艦隊を追加: Atlantic Squadron (Province: 540)
+2025-05-25 16:01:50,130 - FleetView - INFO - MOD内任務部隊を追加: Task Force19 (Province: 540)
+2025-05-25 16:01:50,130 - FleetView - INFO - MOD内艦艇を追加: HMS Warspite (設計: battleship)
+2025-05-25 16:01:50,130 - FleetView - INFO - MOD内艦艇を追加: HMS Valiant (設計: battleship)
+2025-05-25 16:01:50,130 - FleetView - INFO - MOD内任務部隊を追加: Task Force20 (Province: 540)
+2025-05-25 16:01:50,130 - FleetView - INFO - MOD内艦艇を追加: HMS Norfolk (設計: heavy_cruiser)
+2025-05-25 16:01:50,130 - FleetView - INFO - MOD内艦艇を追加: HMS Dorsetshire (設計: heavy_cruiser)
+2025-05-25 16:01:50,130 - FleetView - INFO - MOD内艦艇を追加: HMS Brocklesby (設計: destroyer)
+2025-05-25 16:01:50,131 - FleetView - INFO - MOD内任務部隊を追加: Task Force21 (Province: 540)
+2025-05-25 16:01:50,131 - FleetView - INFO - MOD内艦艇を追加: HMS Magnificent (設計: light_carrier)
+2025-05-25 16:01:50,131 - FleetView - INFO - MOD内艦艇を追加: HMS Majestic (設計: light_carrier)
+2025-05-25 16:01:50,131 - FleetView - INFO - MOD内艦艇を追加: HMS Bonaventure (設計: light_cruiser)
+2025-05-25 16:01:50,131 - FleetView - INFO - MOD内艦艇を追加: HMS Naiad (設計: light_cruiser)
+2025-05-25 16:01:50,131 - FleetView - INFO - MOD内艦艇を追加: HMS Undine (設計: destroyer)
+2025-05-25 16:01:50,131 - FleetView - INFO - MOD内艦艇を追加: HMS Ursa (設計: destroyer)
+2025-05-25 16:01:50,131 - FleetView - INFO - MOD内艦艇を追加: HMS Urchin (設計: destroyer)
+2025-05-25 16:01:50,132 - FleetView - INFO - MOD内艦艇を追加: HMS Urania (設計: destroyer)
+2025-05-25 16:01:50,132 - FleetView - INFO - MOD内任務部隊を追加: Task Force22 (Province: 540)
+2025-05-25 16:01:50,132 - FleetView - INFO - MOD内艦艇を追加: HMS Implacable (設計: carrier)
+2025-05-25 16:01:50,132 - FleetView - INFO - MOD内艦艇を追加: HMS Indefatigable (設計: carrier)
+2025-05-25 16:01:50,132 - FleetView - INFO - MOD内艦艇を追加: HMS Cambrian (設計: destroyer)
+2025-05-25 16:01:50,132 - FleetView - INFO - MOD内艦艇を追加: HMS Carron (設計: destroyer)
+2025-05-25 16:01:50,132 - FleetView - INFO - MOD内艦艇を追加: HMS Carysfort (設計: destroyer)
+2025-05-25 16:01:50,132 - FleetView - INFO - MOD内艦艇を追加: HMS Cavalier (設計: destroyer)
+2025-05-25 16:01:50,133 - FleetView - INFO - MOD内任務部隊を追加: Task Force23 (Province: 540)
+2025-05-25 16:01:50,133 - FleetView - INFO - MOD内艦艇を追加: HMS Uganda (設計: light_cruiser)
+2025-05-25 16:01:50,133 - FleetView - INFO - MOD内艦艇を追加: HMS Battleaxe (設計: destroyer)
+2025-05-25 16:01:50,133 - FleetView - INFO - MOD内艦艇を追加: HMS Broadsword (設計: destroyer)
+2025-05-25 16:01:50,133 - FleetView - INFO - MOD内艦艇を追加: HMS Aisne (設計: destroyer)
+2025-05-25 16:01:50,133 - FleetView - INFO - MOD内艦艇を追加: HMS Barrosa (設計: destroyer)
+2025-05-25 16:01:50,133 - FleetView - INFO - MOD内任務部隊を追加: Task Force24 (Province: 540)
+2025-05-25 16:01:50,134 - FleetView - INFO - MOD内艦艇を追加: HMS Matapan (設計: destroyer)
+2025-05-25 16:01:50,134 - FleetView - INFO - MOD内艦艇を追加: HMS Corunna (設計: destroyer)
+2025-05-25 16:01:50,134 - FleetView - INFO - MOD内艦艇を追加: HMS Dunkirk (設計: destroyer)
+2025-05-25 16:01:50,134 - FleetView - INFO - MOD内艦艇を追加: HMS Jutland (設計: destroyer)
+2025-05-25 16:01:50,134 - FleetView - INFO - MOD内任務部隊を追加: Task Force25 (Province: 540)
+2025-05-25 16:01:50,134 - FleetView - INFO - MOD内艦艇を追加: HMS Venturer (設計: submarine)
+2025-05-25 16:01:50,135 - FleetView - INFO - MOD内艦艇を追加: HMS Viking (設計: submarine)
+2025-05-25 16:01:50,135 - FleetView - INFO - MOD内艦艇を追加: HMS Veldt (設計: submarine)
+2025-05-25 16:01:50,135 - FleetView - INFO - MOD内艦艇を追加: HMS Vampire (設計: submarine)
+2025-05-25 16:01:50,135 - FleetView - INFO - MOD内艦艇を追加: HMS Vox (設計: submarine)
+2025-05-25 16:01:50,135 - FleetView - INFO - MOD内艦艇を追加: HMS Vigorous (設計: submarine)
+2025-05-25 16:01:50,135 - FleetView - INFO - MOD内艦艇を追加: HMS Virtue (設計: submarine)
+2025-05-25 16:01:50,135 - FleetView - INFO - MOD内艦艇を追加: HMS Visigoth (設計: submarine)
+2025-05-25 16:01:50,136 - FleetView - INFO - MOD内艦艇を追加: HMS Vivid (設計: submarine)
+2025-05-25 16:01:50,136 - FleetView - INFO - MOD内艦艇を追加: HMS Voracious (設計: submarine)
+2025-05-25 16:01:50,136 - FleetView - INFO - MOD内艦隊を追加: America and West Indies Station (Province: 351)
+2025-05-25 16:01:50,136 - FleetView - INFO - MOD内任務部隊を追加: Task Force26 (Province: 351)
+2025-05-25 16:01:50,136 - FleetView - INFO - MOD内艦艇を追加: HMS Howe (設計: battleship)
+2025-05-25 16:01:50,136 - FleetView - INFO - MOD内艦艇を追加: HMS Gravelines (設計: destroyer)
+2025-05-25 16:01:50,136 - FleetView - INFO - MOD内艦艇を追加: HMS St. James (設計: destroyer)
+2025-05-25 16:01:50,137 - FleetView - INFO - MOD内艦艇を追加: HMS Vigo (設計: destroyer)
+2025-05-25 16:01:50,137 - FleetView - INFO - MOD内任務部隊を追加: Task Force27 (Province: 351)
+2025-05-25 16:01:50,137 - FleetView - INFO - MOD内艦艇を追加: HMS Solebay (設計: destroyer)
+2025-05-25 16:01:50,137 - FleetView - INFO - MOD内艦艇を追加: HMS Saintes (設計: destroyer)
+2025-05-25 16:01:50,137 - FleetView - INFO - MOD内艦艇を追加: HMS Camperdown (設計: destroyer)
+2025-05-25 16:01:50,137 - FleetView - INFO - MOD内艦艇を追加: HMS Finisterre (設計: destroyer)
+2025-05-25 16:01:50,137 - FleetView - INFO - MOD内艦艇を追加: HMS Hogue (設計: destroyer)
+2025-05-25 16:01:50,138 - FleetView - INFO - MOD内艦艇を追加: HMS Lagos (設計: destroyer)
+2025-05-25 16:01:50,138 - FleetView - INFO - MOD内任務部隊を追加: Task Force28 (Province: 351)
+2025-05-25 16:01:50,138 - FleetView - INFO - MOD内艦艇を追加: HMS Bulwark (設計: light_carrier)
+2025-05-25 16:01:50,138 - FleetView - INFO - MOD内艦艇を追加: HMS Albion (設計: light_carrier)
+2025-05-25 16:01:50,138 - FleetView - INFO - MOD内艦艇を追加: HMS Bellerophon (設計: light_cruiser)
+2025-05-25 16:01:50,138 - FleetView - INFO - MOD内艦艇を追加: HMS Barfleur (設計: destroyer)
+2025-05-25 16:01:50,138 - FleetView - INFO - MOD内艦艇を追加: HMS Trafalgar (設計: destroyer)
+2025-05-25 16:01:50,138 - FleetView - INFO - MOD内艦艇を追加: HMS St. Kitts (設計: destroyer)
+2025-05-25 16:01:50,139 - FleetView - INFO - MOD内艦艇を追加: HMS Armada (設計: destroyer)
+2025-05-25 16:01:50,139 - FleetView - INFO - MOD内任務部隊を追加: Task Force29 (Province: 4989)
+2025-05-25 16:01:50,139 - FleetView - INFO - MOD内艦艇を追加: HMS Spartan (設計: light_cruiser)
+2025-05-25 16:01:50,139 - FleetView - INFO - MOD内艦艇を追加: HMS Obdurate (設計: destroyer)
+2025-05-25 16:01:50,139 - FleetView - INFO - MOD内艦艇を追加: HMS Obedient (設計: destroyer)
+2025-05-25 16:01:50,139 - FleetView - INFO - MOD内艦艇を追加: HMS Opportune (設計: destroyer)
+2025-05-25 16:01:50,139 - FleetView - INFO - MOD内艦艇を追加: HMS Orwell (設計: destroyer)
+2025-05-25 16:01:50,140 - FleetView - INFO - MOD内艦艇を追加: HMS Pathfinder (設計: destroyer)
+2025-05-25 16:01:50,140 - FleetView - INFO - MOD内艦艇を追加: HMS Penn (設計: destroyer)
+2025-05-25 16:01:50,140 - FleetView - INFO - MOD内任務部隊を追加: Task Force30 (Province: 4989)
+2025-05-25 16:01:50,140 - FleetView - INFO - MOD内艦艇を追加: HMS Diadem (設計: light_cruiser)
+2025-05-25 16:01:50,140 - FleetView - INFO - MOD内艦艇を追加: HMS Pakenham (設計: destroyer)
+2025-05-25 16:01:50,140 - FleetView - INFO - MOD内艦艇を追加: HMS Paladin (設計: destroyer)
+2025-05-25 16:01:50,140 - FleetView - INFO - MOD内艦艇を追加: HMS Panther (設計: destroyer)
+2025-05-25 16:01:50,141 - FleetView - INFO - MOD内艦艇を追加: HMS Partridge (設計: destroyer)
+2025-05-25 16:01:50,141 - FleetView - INFO - MOD内艦艇を追加: HMS Petard (設計: destroyer)
+2025-05-25 16:01:50,141 - FleetView - INFO - MOD内艦艇を追加: HMS Porcupine (設計: destroyer)
+2025-05-25 16:01:50,141 - FleetView - INFO - MOD内艦隊を追加: Pacific Squadron (Province: 12406)
+2025-05-25 16:01:50,141 - FleetView - INFO - MOD内任務部隊を追加: Task Force31 (Province: 12406)
+2025-05-25 16:01:50,141 - FleetView - INFO - MOD内艦艇を追加: HMS Nelson (設計: battleship)
+2025-05-25 16:01:50,141 - FleetView - INFO - MOD内艦艇を追加: HMS Rodney (設計: battleship)
+2025-05-25 16:01:50,141 - FleetView - INFO - MOD内任務部隊を追加: Task Force32 (Province: 12406)
+2025-05-25 16:01:50,142 - FleetView - INFO - MOD内艦艇を追加: HMS Terrible (設計: light_carrier)
+2025-05-25 16:01:50,142 - FleetView - INFO - MOD内艦艇を追加: HMS Venerable (設計: light_carrier)
+2025-05-25 16:01:50,142 - FleetView - INFO - MOD内艦艇を追加: HMS Hermione (設計: light_cruiser)
+2025-05-25 16:01:50,142 - FleetView - INFO - MOD内艦艇を追加: HMS Euryalus (設計: light_cruiser)
+2025-05-25 16:01:50,142 - FleetView - INFO - MOD内艦艇を追加: HMS Troubridge (設計: destroyer)
+2025-05-25 16:01:50,142 - FleetView - INFO - MOD内艦艇を追加: HMS Tumult (設計: destroyer)
+2025-05-25 16:01:50,142 - FleetView - INFO - MOD内艦艇を追加: HMS Tuscan (設計: destroyer)
+2025-05-25 16:01:50,142 - FleetView - INFO - MOD内艦艇を追加: HMS Tyrian (設計: destroyer)
+2025-05-25 16:01:50,143 - FleetView - INFO - MOD内任務部隊を追加: Task Force33 (Province: 12406)
+2025-05-25 16:01:50,143 - FleetView - INFO - MOD内艦艇を追加: HMS Victorious (設計: carrier)
+2025-05-25 16:01:50,143 - FleetView - INFO - MOD内艦艇を追加: HMS Illustrious (設計: carrier)
+2025-05-25 16:01:50,143 - FleetView - INFO - MOD内艦艇を追加: HMS Bermuda (設計: light_cruiser)
+2025-05-25 16:01:50,143 - FleetView - INFO - MOD内艦艇を追加: HMS Fiji (設計: light_cruiser)
+2025-05-25 16:01:50,143 - FleetView - INFO - MOD内艦艇を追加: HMS Wakeful (設計: destroyer)
+2025-05-25 16:01:50,144 - FleetView - INFO - MOD内艦艇を追加: HMS Whirlwind (設計: destroyer)
+2025-05-25 16:01:50,144 - FleetView - INFO - MOD内艦艇を追加: HMS Wizard (設計: destroyer)
+2025-05-25 16:01:50,144 - FleetView - INFO - MOD内任務部隊を追加: Task Force34 (Province: 12406)
+2025-05-25 16:01:50,144 - FleetView - INFO - MOD内艦艇を追加: HMS Birmingham (設計: light_cruiser)
+2025-05-25 16:01:50,144 - FleetView - INFO - MOD内艦艇を追加: HMS Glasgow (設計: light_cruiser)
+2025-05-25 16:01:50,144 - FleetView - INFO - MOD内艦艇を追加: HMS Newcastle (設計: light_cruiser)
+2025-05-25 16:01:50,144 - FleetView - INFO - MOD内艦艇を追加: HMS Sheffield (設計: light_cruiser)
+2025-05-25 16:01:50,145 - FleetView - INFO - MOD内艦艇を追加: HMS Saumarez (設計: destroyer)
+2025-05-25 16:01:50,145 - FleetView - INFO - MOD内艦艇を追加: HMS Savage (設計: destroyer)
+2025-05-25 16:01:50,145 - FleetView - INFO - MOD内艦艇を追加: HMS Scorpion (設計: destroyer)
+2025-05-25 16:01:50,145 - FleetView - INFO - MOD内艦艇を追加: HMS Scourge (設計: destroyer)
+2025-05-25 16:01:50,145 - FleetView - INFO - MOD内艦隊を追加: East Indies Station (Province: 12589)
+2025-05-25 16:01:50,145 - FleetView - INFO - MOD内任務部隊を追加: Task Force 41 (Province: 12589)
+2025-05-25 16:01:50,145 - FleetView - INFO - MOD内艦艇を追加: HMS Malaya (設計: battleship)
+2025-05-25 16:01:50,146 - FleetView - INFO - MOD内艦艇を追加: HMS Barham (設計: battleship)
+2025-05-25 16:01:50,146 - FleetView - INFO - MOD内任務部隊を追加: Task Force35 (Province: 12589)
+2025-05-25 16:01:50,146 - FleetView - INFO - MOD内艦艇を追加: HMS Ocean (設計: light_carrier)
+2025-05-25 16:01:50,146 - FleetView - INFO - MOD内艦艇を追加: HMS Perseus (設計: light_carrier)
+2025-05-25 16:01:50,146 - FleetView - INFO - MOD内艦艇を追加: HMS Mauritius (設計: light_cruiser)
+2025-05-25 16:01:50,146 - FleetView - INFO - MOD内艦艇を追加: HMS Jamaica (設計: light_cruiser)
+2025-05-25 16:01:50,146 - FleetView - INFO - MOD内艦艇を追加: HMS Kenya (設計: light_cruiser)
+2025-05-25 16:01:50,146 - FleetView - INFO - MOD内艦艇を追加: HMS Serapis (設計: destroyer)
+2025-05-25 16:01:50,147 - FleetView - INFO - MOD内艦艇を追加: HMS Shark (設計: destroyer)
+2025-05-25 16:01:50,147 - FleetView - INFO - MOD内任務部隊を追加: Task Force36 (Province: 4696)
+2025-05-25 16:01:50,147 - FleetView - INFO - MOD内艦艇を追加: HMS Cleopatra (設計: light_cruiser)
+2025-05-25 16:01:50,147 - FleetView - INFO - MOD内艦艇を追加: HMS Argonaut (設計: light_cruiser)
+2025-05-25 16:01:50,147 - FleetView - INFO - MOD内艦艇を追加: HMS Charybdis (設計: light_cruiser)
+2025-05-25 16:01:50,147 - FleetView - INFO - MOD内艦艇を追加: HMS Scylla (設計: light_cruiser)
+2025-05-25 16:01:50,147 - FleetView - INFO - MOD内任務部隊を追加: Task Force37 (Province: 12589)
+2025-05-25 16:01:50,147 - FleetView - INFO - MOD内艦艇を追加: HMS Formidable (設計: carrier)
+2025-05-25 16:01:50,148 - FleetView - INFO - MOD内艦艇を追加: HMS indomitable (設計: carrier)
+2025-05-25 16:01:50,148 - FleetView - INFO - MOD内艦艇を追加: HMS Liverpool (設計: light_cruiser)
+2025-05-25 16:01:50,148 - FleetView - INFO - MOD内艦艇を追加: HMS Manchester (設計: light_cruiser)
+2025-05-25 16:01:50,148 - FleetView - INFO - MOD内艦艇を追加: HMS Verulam (設計: destroyer)
+2025-05-25 16:01:50,148 - FleetView - INFO - MOD内艦艇を追加: HMS Virago (設計: destroyer)
+2025-05-25 16:01:50,148 - FleetView - INFO - MOD内艦艇を追加: HMS Vigilant (設計: destroyer)
+2025-05-25 16:01:50,148 - FleetView - INFO - MOD内艦艇を追加: HMS Venus (設計: destroyer)
+2025-05-25 16:01:50,148 - FleetView - INFO - MOD内艦艇を追加: HMS Success (設計: destroyer)
+2025-05-25 16:01:50,149 - FleetView - INFO - MOD内艦艇を追加: HMS Swift (設計: destroyer)
+2025-05-25 16:01:50,149 - FleetView - INFO - MOD内任務部隊を追加: Task Force38 (Province: 1468)
+2025-05-25 16:01:50,149 - FleetView - INFO - MOD内艦艇を追加: HMS Theseus (設計: light_carrier)
+2025-05-25 16:01:50,149 - FleetView - INFO - MOD内艦艇を追加: HMS Triumph (設計: light_carrier)
+2025-05-25 16:01:50,149 - FleetView - INFO - MOD内艦艇を追加: HMS Edinburgh (設計: light_cruiser)
+2025-05-25 16:01:50,149 - FleetView - INFO - MOD内艦艇を追加: HMS Belfast (設計: light_cruiser)
+2025-05-25 16:01:50,150 - FleetView - INFO - MOD内艦艇を追加: HMS Grenville (設計: destroyer)
+2025-05-25 16:01:50,150 - FleetView - INFO - MOD内艦艇を追加: HMS Ulster (設計: destroyer)
+2025-05-25 16:01:50,150 - FleetView - INFO - MOD内艦艇を追加: HMS Ulysses (設計: destroyer)
+2025-05-25 16:01:50,150 - FleetView - INFO - MOD内艦艇を追加: HMS Undaunted (設計: destroyer)
+2025-05-25 16:01:50,150 - FleetView - INFO - MOD内艦隊を追加: Channel Fleet (Province: 3501)
+2025-05-25 16:01:50,150 - FleetView - INFO - MOD内任務部隊を追加: Task Force39 (Province: 3501)
+2025-05-25 16:01:50,150 - FleetView - INFO - MOD内艦艇を追加: HMS Vulpine (設計: submarine)
+2025-05-25 16:01:50,150 - FleetView - INFO - MOD内艦艇を追加: HMS Varne (設計: submarine)
+2025-05-25 16:01:50,151 - FleetView - INFO - MOD内艦艇を追加: HMS Upshot (設計: submarine)
+2025-05-25 16:01:50,151 - FleetView - INFO - MOD内艦艇を追加: HMS Urtica (設計: submarine)
+2025-05-25 16:01:50,151 - FleetView - INFO - MOD内艦艇を追加: HMS Vineyard (設計: submarine)
+2025-05-25 16:01:50,151 - FleetView - INFO - MOD内艦艇を追加: HMS Variance (設計: submarine)
+2025-05-25 16:01:50,151 - FleetView - INFO - MOD内任務部隊を追加: Task Force40 (Province: 3501)
+2025-05-25 16:01:50,151 - FleetView - INFO - MOD内艦艇を追加: HMS Vengeful (設計: submarine)
+2025-05-25 16:01:50,151 - FleetView - INFO - MOD内艦艇を追加: HMS Vortex (設計: submarine)
+2025-05-25 16:01:50,151 - FleetView - INFO - MOD内艦艇を追加: HMS Virulent (設計: submarine)
+2025-05-25 16:01:50,152 - FleetView - INFO - MOD内艦艇を追加: HMS Volatile (設計: submarine)
+2025-05-25 16:01:50,152 - FleetView - INFO - MOD内艦艇を追加: HMS Vagabond (設計: submarine)
+2025-05-25 16:01:50,152 - FleetView - INFO - MOD内艦艇を追加: HMS Votary (設計: submarine)
+2025-05-25 16:01:50,152 - FleetView - INFO - 艦隊ファイルの検索結果: 1件
+2025-05-25 16:01:50,152 - FleetView - INFO - 艦隊データを読み込み完了: ENG
+2025-05-25 16:01:50,241 - FleetView - INFO - 港湾一覧を更新: ENG
+2025-05-25 16:01:53,735 - FleetView - INFO - マップデータを読み込みました: D:/hoi4_mods/SSW_mod
+2025-05-25 16:01:57,129 - FleetView - INFO - マップデータを再読み込み: D:/hoi4_mods/SSW_mod
+2025-05-25 16:01:57,154 - __main__ - INFO - Main window displayed
+2025-05-25 16:01:57,154 - __main__ - INFO - Starting event loop
+2025-05-25 16:01:57,193 - NavalDesignSystem - INFO - リソースの解放を実行しました
+2025-05-25 16:01:57,193 - NavalDesignSystem - INFO - すべてのビューの読み込みが完了しました
+2025-05-25 16:01:57,193 - NavalDesignSystem - INFO - 登録されたビュー: ['home', 'equipment', 'hull_list', 'hull_form', 'design', 'fleet', 'nation', 'nation_details', 'settings']
+2025-05-25 16:01:57,193 - NavalDesignSystem - INFO - スタックウィジェットのページ数: 9
+2025-05-25 16:01:57,333 - NavalDesignSystem - ERROR - プログレス更新中にエラーが発生: 'NoneType' object has no attribute 'setLabelText'
+2025-05-25 16:02:34,412 - controllers.app_controller - INFO - 国家情報の取得を開始: MODパス=D:/hoi4_mods/SSW_mod
+2025-05-25 16:02:34,428 - controllers.app_controller - INFO - 国家情報の取得完了: 515件の国家を処理
+2025-05-25 16:02:42,007 - NavalDesignSystem - INFO - リソースの解放を実行しました
