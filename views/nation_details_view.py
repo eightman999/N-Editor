@@ -944,16 +944,15 @@ class NationDetailsView(QWidget):
             QMessageBox.critical(self, "エラー", f"装備フォームの表示中にエラーが発生しました：\n{str(e)}")
 
     def on_hull_double_clicked(self, item):
-        """船体アイテムがダブルクリックされた時の処理"""
+        """船体アイテムがダブルクリックされたときの処理"""
         try:
-            if not self.app_controller:
-                return
-
+            # アイテムから船体データを取得
             hull_data = item.data(Qt.UserRole)
             if hull_data:
-                self.app_controller.show_hull_form(hull_data)
+                # 船体データと艦種を渡して設計ビューを表示
+                self.app_controller.show_design_view(hull_data, hull_data.get('type', ''))
         except Exception as e:
-            QMessageBox.critical(self, "エラー", f"船体フォームの表示中にエラーが発生しました：\n{str(e)}")
+            QMessageBox.critical(self, "エラー", f"設計ビューの表示に失敗しました: {str(e)}")
 
     def on_design_double_clicked(self, item):
         """設計アイテムがダブルクリックされた時の処理"""

@@ -7,7 +7,7 @@ from PyQt5.QtGui import QColor, QPalette
 from utils.path_utils import get_data_dir
 
 class DesignView(QWidget):
-    def __init__(self, parent=None, app_controller=None):
+    def __init__(self, parent=None, app_controller=None, hull_data=None):
         super().__init__(parent)
         # app_controllerがNoneの場合、親ウィンドウから取得を試みる
         if app_controller is None and parent is not None:
@@ -25,6 +25,10 @@ class DesignView(QWidget):
         self.internal_slots = []  # 内部スロットのリストを初期化
         self.slot_category_selections = {}  # スロットカテゴリー選択を初期化
         self.initUI()
+
+        # 船体データが渡された場合は初期化
+        if hull_data:
+            self.on_hull_selected(hull_data)
 
     def initUI(self):
         # メインレイアウト

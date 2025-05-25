@@ -86,6 +86,9 @@ class AppController(QObject):
     def __init__(self, app_settings):
         super().__init__()  # QObjectの初期化
 
+        # ロガーの初期化
+        self.logger = logging.getLogger(__name__)
+
         self.app_settings = app_settings
         self.main_window = None
         self.nation_details_view = None
@@ -1395,9 +1398,27 @@ class AppController(QObject):
         """船体フォームを表示（簡易実装）"""
         print(f"船体フォーム表示: {hull_data}")
 
-    def show_design_view(self, design_data):
-        """設計ビューを表示（簡易実装）"""
-        print(f"設計ビュー表示: {design_data}")
+    def show_design_view(self, hull_data=None, ship_type=None):
+        """設計ビューを表示"""
+        try:
+            if hull_data:
+                # 船体IDからJSONファイルをロード
+                hull_id = hull_data.get('id')
+                if hull_id:
+                    loaded_hull_data = self.load_hull(hull_id)
+                    if loaded_hull_data:
+                        # ロードした船体データと艦種を渡して設計ビューを表示
+                        self.main_window.views['design'].on_hull_selected(loaded_hull_data)
+                        # 艦種が指定されている場合は設定
+                        if ship_type:
+                            design_view = self.main_window.views['design']
+                            index = design_view.ship_type_combo.findText(ship_type)
+                            if index >= 0:
+                                design_view.ship_type_combo.setCurrentIndex(index)
+            self.main_window.show_view('design')
+        except Exception as e:
+            self.logger.error(f"設計ビューの表示中にエラーが発生: {e}")
+            QMessageBox.critical(self.main_window, "エラー", "設計ビューの表示に失敗しました。")
 
     def get_equipment_type_mapping(self):
         """

@@ -3,6 +3,10 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QHeaderView, QMessageBox, QDialog, QFileDialog)
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QColor
+import json
+import zipfile
+import os
+import tempfile
 
 from .equipment_form import EquipmentForm
 
@@ -63,6 +67,10 @@ class EquipmentView(QWidget):
         self.export_button = QPushButton("エクスポート")
         self.export_button.clicked.connect(self.on_export_clicked)
         header_layout.addWidget(self.export_button)
+
+        self.export_all_button = QPushButton("全装備エクスポート")
+        self.export_all_button.clicked.connect(self.on_export_all_clicked)
+        header_layout.addWidget(self.export_all_button)
 
         self.import_button = QPushButton("インポート")
         self.import_button.clicked.connect(self.on_import_clicked)
@@ -342,6 +350,48 @@ class EquipmentView(QWidget):
                 json.dump(equipment_data, f, ensure_ascii=False, indent=2)
 
             QMessageBox.information(self, "エクスポート完了", f"装備データを '{file_name}' にエクスポートしました。")
+        except Exception as e:
+            QMessageBox.critical(self, "エクスポートエラー", f"エクスポートに失敗しました。\n{e}")
+
+    def on_export_all_clicked(self):
+        """全装備エクスポートボタンの処理"""
+        # 保存先の選択
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getSaveFileName(
+            self, "全装備データエクスポート", "all_equipment.zip", "ZIP Files (*.zip)", options=options
+        )
+
+        if not file_name:
+            return
+
+        try:
+            # 一時ディレクトリの作成
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # 全装備データの取得
+                if self.app_controller:
+                    equipment_list = self.app_controller.get_all_equipment(None)
+                else:
+                    from models.equipment_model import EquipmentModel
+                    equipment_model = EquipmentModel()
+                    equipment_list = equipment_model.get_all_equipment(None)
+
+                # 各装備データをJSONファイルとして保存
+                for equipment in equipment_list:
+                    equipment_id = equipment.get('common', {}).get('ID', '')
+                    if equipment_id:
+                        json_path = os.path.join(temp_dir, f"{equipment_id}.json")
+                        with open(json_path, 'w', encoding='utf-8') as f:
+                            json.dump(equipment, f, ensure_ascii=False, indent=2)
+
+                # ZIPファイルの作成
+                with zipfile.ZipFile(file_name, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    for root, _, files in os.walk(temp_dir):
+                        for file in files:
+                            file_path = os.path.join(root, file)
+                            arcname = os.path.basename(file_path)
+                            zipf.write(file_path, arcname)
+
+            QMessageBox.information(self, "エクスポート完了", f"全装備データを '{file_name}' にエクスポートしました。")
         except Exception as e:
             QMessageBox.critical(self, "エクスポートエラー", f"エクスポートに失敗しました。\n{e}")
 
