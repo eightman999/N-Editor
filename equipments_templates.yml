@@ -1,0 +1,567 @@
+# This file defines data structure templates for each equipment type.
+
+# Each ID prefix corresponds to the directory name where the equipment data is stored.
+
+# 注: 日本語表示用の名称はdisplay_nameフィールドに定義されています。
+
+#--- 砲系統 ---
+
+gun_types:
+  small_caliber_gun:
+    display_name: "小口径砲"
+    id_prefix: SMLG
+    common_elements:
+      name: "string"               # 例: 62口径5インチ単装砲
+      id: "string"                 # 例: SMLG001 (このIDは {id_prefix} + 連番などで構成)
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      shell_weight_kg: "number"
+      initial_velocity_mps: "number (m/s)"
+      rounds_per_minute: "integer (rpm)"
+      caliber_cm: "number"
+      barrel_length: "integer (口径長)"
+      barrel_count: "integer"
+      max_elevation: "string (例: +85/-10 度)"
+      turret_count: "integer"
+  medium_caliber_gun:
+    display_name: "中口径砲"
+    id_prefix: SMMG
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      shell_weight_kg: "number"
+      initial_velocity_mps: "number (m/s)"
+      rounds_per_minute: "integer (rpm)"
+      caliber_cm: "number"
+      barrel_length: "integer (口径長)"
+      barrel_count: "integer"
+      max_elevation: "string (例: +55/-5 度)"
+      turret_count: "integer"
+  large_caliber_gun:
+    display_name: "大口径砲"
+    id_prefix: SMHG
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      shell_weight_kg: "number"
+      initial_velocity_mps: "number (m/s)"
+      rounds_per_minute: "integer (rpm)"
+      caliber_cm: "number"
+      barrel_length: "integer (口径長)"
+      barrel_count: "integer"
+      max_elevation: "string (例: +45/-5 度)"
+      turret_count: "integer"
+  super_large_caliber_gun:
+    display_name: "超大口径砲"
+    id_prefix: SMSHG
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      shell_weight_kg: "number"
+      initial_velocity_mps: "number (m/s)"
+      rounds_per_minute: "integer (rpm)"
+      caliber_cm: "number"
+      barrel_length: "integer (口径長)"
+      barrel_count: "integer"
+      max_elevation: "string (例: +45/-3 度)"
+      turret_count: "integer"
+  anti_aircraft_gun:
+    display_name: "対空砲"
+    id_prefix: SMAA
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      shell_weight_g: "number"       # グラム
+      initial_velocity_mps: "number (m/s)"
+      rounds_per_minute: "integer (rpm)"
+      caliber_mm: "number"      # ミリメートル
+      barrel_length: "integer (口径長)"
+      barrel_count: "integer"
+      max_elevation: "string (例: +90/-0 度)"
+      turret_count: "integer"
+
+#--- 魚雷系統 ---
+
+torpedo_types:
+  torpedo:
+    display_name: "魚雷"
+    id_prefix: SMTP
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      explosive_weight_kg: "number"
+      max_range_m: "number (メートル)"
+      speed_kts: "number (ノット)"
+      diameter_cm: "number (直径)"
+      launcher_count: "integer"
+  submarine_torpedo:
+    display_name: "潜水艦魚雷"
+    id_prefix: SMSTP
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      explosive_weight_kg: "number"
+      max_range_m: "number (メートル)"
+      speed_kts: "number (ノット)"
+      diameter_cm: "number (直径)"
+      launcher_count: "integer"
+
+#--- ミサイル系統 ---
+
+missile_types:
+  anti_ship_missile:
+    display_name: "対艦ミサイル"
+    id_prefix: SMASM
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      explosive_weight_kg: "number"
+      max_range_km: "number (キロメートル)"
+      initial_velocity_mps: "number (m/s)"
+      rounds_per_minute: "integer (rpm)"
+      diameter_cm: "number (直径)"
+      launcher_count: "integer"
+  anti_aircraft_missile:
+    display_name: "対空ミサイル"
+    id_prefix: SMSAM
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      explosive_weight_kg: "number"
+      max_range_km: "number (キロメートル)"
+      initial_velocity_mps: "number (m/s)"
+      rounds_per_minute: "integer (rpm)"
+      diameter_cm: "number (直径)"
+      launcher_count: "integer"
+
+#--- 航空機系統 ---
+
+aircraft_types:
+  seaplane:
+    display_name: "水上機"
+    id_prefix: SMSP
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      max_speed_kmh: "number (km/h)"
+      range_km: "number (km)"
+      fuel: "number (リットル)"
+  carrier_recon_aircraft:
+    display_name: "艦上偵察機"
+    id_prefix: SMCR
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      max_speed_kmh: "number (km/h)"
+      range_km: "number (km)"
+      fuel: "number (リットル)"
+  rotary_wing_aircraft:
+    display_name: "回転翼機"
+    id_prefix: SMHC
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      max_speed_kmh: "number (km/h)"
+      range_km: "number (km)"
+      fuel: "number (リットル)"
+  asw_patrol_aircraft:
+    display_name: "対潜哨戒機"
+    id_prefix: SMASP
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      max_speed_kmh: "number (km/h)"
+      range_km: "number (km)"
+      fuel: "number (リットル)"
+  large_flying_boat:
+    display_name: "大型飛行艇"
+    id_prefix: SMLSP
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      max_speed_kmh: "number (km/h)"
+      range_km: "number (km)"
+      fuel: "number (リットル)"
+
+#--- 対潜兵装系統 ---
+
+asw_types:
+  depth_charge_launcher:
+    display_name: "爆雷投射機"
+    id_prefix: SMDCL
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      shell_weight_kg: "number"
+      explosive_weight_kg: "number"
+      range_m: "number (メートル)"
+  depth_charge:
+    display_name: "爆雷"
+    id_prefix: SMDC
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      shell_weight_kg: "number"
+      explosive_weight_kg: "number"
+      range_m: "number (メートル)"
+  asw_mortar:
+    display_name: "対潜迫撃砲"
+    id_prefix: SMASL
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      shell_weight_kg: "number"
+      explosive_weight_kg: "number"
+      range_m: "number (メートル)"
+
+#--- センサー系統 ---
+
+sensor_types:
+  sonar:
+    display_name: "ソナー"
+    id_prefix: SMSO
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      detection_range_km: "number (キロメートル)"
+      output_db: "number (デシベル)"
+  large_sonar:
+    display_name: "大型ソナー"
+    id_prefix: SMLSO
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      detection_range_km: "number (キロメートル)"
+      output_db: "number (デシベル)"
+  small_radar:
+    display_name: "小型電探"
+    id_prefix: SMLR
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      detection_range_km: "number (キロメートル)"
+      output_db: "number (デシベル)"
+  large_radar:
+    display_name: "大型電探"
+    id_prefix: SMHR
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+
+other_elements:
+  fire_control_system:
+    display_name: "火器管制/測距儀"
+    id_prefix: SMRF
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      detection_range_km: "number (キロメートル)"
+  other:
+    display_name: "その他"
+    id_prefix: SMO
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+  hunger:
+    display_name: "ハンガー"
+    id_prefix: SMH
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      max_capacity: "integer (機)"
+  medium_bulge:
+    display_name: "中型バルジ"
+    id_prefix: SMMB
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      available_armor: "integer (mm)"
+  large_bulge:
+    display_name: "大型バルジ"
+    id_prefix: SMLB
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      available_armor: "integer (mm)"

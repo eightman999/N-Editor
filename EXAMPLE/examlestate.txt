@@ -1,0 +1,25 @@
+state = {
+	id = 1
+	name = "STATE_1"
+	manpower = 462900
+	state_category = town
+	
+	history = {
+		owner = ITA
+		add_core_of = FRA
+		add_claim_by = ITA
+		buildings = {
+			infrastructure = 2
+			industrial_complex = 1
+			air_base = 1
+			3838 = {	naval_base = 3	}
+		}
+		victory_points = {	3838	3	}
+		add_to_array = {	COR.pfk_state_array_1 = THIS	}
+	}
+	
+	provinces = {
+		3838	9851	11804
+	}
+	local_supplies = 0.0
+}

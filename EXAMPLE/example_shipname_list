@@ -1,0 +1,49 @@
+### REGULAR DESTROYER NAMES###
+BUL_HISTORICAL_DD = {
+	name = NAME_THEME_HISTORICAL_DESTROYERS
+	for_countries = {
+		BUL
+	}
+	type = ship
+	ship_types = {
+		ship_hull_light
+		destroyer
+	}
+	fallback_name = "Razrushitel %d"
+	unique = {
+		"Drazki"
+		"Smeli"
+		"Khrabri"
+		"Strogi"
+		"Letyashchi"
+		"Shumni"
+		"Bodri"
+		"Zheleznyakov"
+		"Georgi Dimitrov"
+		"Vasil Levski"
+		"Khristo Botev"
+		"Nadezhda"
+	}
+}
+
+### LIGHT CRUISER NAMES###
+BUL_HISTORICAL_CL = {
+	name = NAME_THEME_HISTORICAL_CL
+	for_countries = {
+		BUL
+	}
+	type = ship
+	ship_types = {
+		ship_hull_cruiser
+		light_cruiser
+	}
+	fallback_name = "Svetlina Kraitser %d"
+	unique = {
+		"Sofia"
+		"Pernik"
+		"Svoge"
+		"Slivnica"
+		"Breznik"
+		"Radomir"
+	}
+}

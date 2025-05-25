@@ -1,21 +1,3 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Logs
-log/
-*.log
-
-# IDE
-.vscode/
-.idea/
-
-# Environment
-.env
-venv/
-env/
-
 *.pyc
 *.py
 *.pyc
