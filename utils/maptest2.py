@@ -1,26 +1,29 @@
 import logging
 import sys
 import os
-import sys
-import os
 import csv
 import re
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QGraphicsView, QGraphicsScene,
     QFileDialog, QVBoxLayout, QWidget, QMessageBox, QLabel,
-    QPushButton, QHBoxLayout, QComboBox, QLineEdit
+    QPushButton, QHBoxLayout, QComboBox, QLineEdit, QScrollBar
 )
 from PyQt5.QtGui import QPixmap, QImage, QColor, QPainter, QFont, QPen, QBrush
-from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint
+from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint, QPropertyAnimation, QEasingCurve, pyqtProperty, QTimer
+
+# PIL (Pillow) は画像を扱うために必要です
 from PIL import Image
 import numpy as np
-import random # 色をランダムに割り当てるため
-import time # パフォーマンス計測用
+import random  # 色をランダムに割り当てるため
+import time  # パフォーマンス計測用
+
+# 既存のパーサーモジュールをインポート
 from parser.StateParser import StateParser
 from parser.StateParser import ParserError
 from parser.StrategicRegionParser import StrategicRegionParser
 from parser.CountryColorParser import CountryColorParser
 from parser.NavalOOBParser import NavalOOBParser
+
 
 def get_file_content(file_path):
     """ファイルの内容を読み込む関数"""
@@ -38,6 +41,7 @@ def get_file_content(file_path):
         # print(f"ファイルの読み込みに失敗しました: {file_path} - {str(e)}")
         return None
 
+
 # プロビンスデータを保持するクラス
 class Province:
     def __init__(self, id, r, g, b, name, type):
@@ -49,10 +53,11 @@ class Province:
         self.strategic_region_id = None
         self.display_color = QColor(r, g, b)
 
+
 class MapViewer(QGraphicsView):
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+
         # ロガーの設定
         self.logger = logging.getLogger('MapViewer')
         if not self.logger.handlers:
@@ -61,11 +66,12 @@ class MapViewer(QGraphicsView):
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.INFO)
-        
+
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
         self.setRenderHint(QPainter.Antialiasing, False)
 
+        # スクロールモードを無効にし、手動でスクロールを制御
         self.setDragMode(QGraphicsView.NoDrag)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
 
@@ -84,21 +90,21 @@ class MapViewer(QGraphicsView):
         self.current_filter = "provinces"
         self.base_qimage_cache = {}
 
-        self._rgb_to_id_map_array = np.full(256*256*256, -1, dtype=np.int32)
+        self._rgb_to_id_map_array = np.full(256 * 256 * 256, -1, dtype=np.int32)
 
         self.province_centroids = {}
         self.naval_base_locations = {}
         self.state_boundaries = {}
-        
+
         # 艦隊情報を保持する変数を追加
         self.fleet_data = {}  # プロビンスIDをキーとして艦隊情報を保持
         self.show_fleet_info = False  # 艦隊情報の表示フラグ
         self.current_country = None  # 現在選択されている国家
         self.show_mod_fleets = False  # MOD内の艦隊を表示するフラグ
-        
+
         # app_controllerを追加
         self.app_controller = parent.app_controller if parent else None
-        
+
         # マウスオーバー時のツールチップ用
         self.setMouseTracking(True)
         self.hovered_province = None
@@ -166,7 +172,7 @@ class MapViewer(QGraphicsView):
         self.filter_combo.addItem("戦略地域", "strategic_regions")
         self.filter_combo.addItem("国家", "countries")
         self.filter_combo.currentIndexChanged.connect(self.on_filter_changed)
-        
+
         # Windows 98風のクラシックなスタイル設定
         self.filter_combo.setStyleSheet("""
             QComboBox {
@@ -202,9 +208,85 @@ class MapViewer(QGraphicsView):
                 font-size: 10pt;
             }
         """)
-        
+
         # プルダウンの位置を設定
         self.filter_combo.move(10, 10)
+
+        # マップの左右ループスクロールと滑らかなスクロールのための変数
+        self._scroll_offset_x = 0.0  # 現在のX方向のスクロールオフセット
+        self._last_drag_pos = QPoint()  # マウスドラッグの開始位置
+        self._last_move_delta = QPoint(0, 0)  # 慣性スクロールのための最後の移動量
+
+        self._animation = QPropertyAnimation(self, b"scrollOffsetX")  # スクロールアニメーション
+        self._animation.setDuration(200)  # アニメーション時間 (ミリ秒) - より速く
+        self._animation.setEasingCurve(QEasingCurve.OutCubic)  # イージングカーブ
+        self._animation.finished.connect(self._animation_finished)  # アニメーション終了時の処理
+
+    @pyqtProperty(float)
+    def scrollOffsetX(self):
+        """X方向のスクロールオフセットプロパティ"""
+        return self._scroll_offset_x
+
+    @scrollOffsetX.setter
+    def scrollOffsetX(self, value):
+        """X方向のスクロールオフセットを設定し、マップを更新"""
+        if self.original_width > 0:
+            # マップの幅で剰余演算を行い、ループを実現
+            self._scroll_offset_x = value % self.original_width
+        else:
+            self._scroll_offset_x = value
+        self.update_map_item_position()  # マップアイテムの位置を更新
+
+    def _animation_finished(self):
+        """アニメーション終了時にログを出力"""
+        self.logger.debug("Scroll animation finished.")
+
+    def update_map_item_position(self):
+        """マップアイテムの表示位置を更新し、ループ描画を考慮する"""
+        if self.map_image_item is None or self.original_width == 0:
+            return
+
+        # メインのマップアイテムのピックスマップ
+        current_pixmap = self.map_image_item.pixmap()
+
+        # シーンから既存のループ用アイテムを削除
+        # QGraphicsScene.items() は変更中に呼ばれると問題がある可能性があるので、コピーしてから削除
+        items_to_remove = [item for item in self.scene.items() if item.data(0) == "loop_map_item"]
+        for item in items_to_remove:
+            self.scene.removeItem(item)
+
+        # メインのマップアイテムの位置を設定
+        # _scroll_offset_x はマップの左端がビューポートのどこに位置するかを示す
+        # シーンの左端を基準にするため、負の値で設定
+        main_item_x_pos = -self._scroll_offset_x
+        self.map_image_item.setPos(main_item_x_pos, 0)
+
+        # 現在のビューポートのシーン座標での矩形
+        view_rect_scene = self.mapToScene(self.viewport().rect()).boundingRect()
+
+        # 描画が必要なマップコピーの範囲を決定
+        # 例えば、-2 から +2 までの範囲でコピーをチェックする
+        # これにより、ズームアウト時でも十分な範囲がカバーされる
+        num_copies_each_side = 2  # 左右にそれぞれ2枚のコピーを常に考慮
+
+        for i in range(-num_copies_each_side, num_copies_each_side + 1):
+            # メインアイテム自身は既に設定されているのでスキップ
+            if i == 0:
+                continue
+
+            copy_x_pos = main_item_x_pos + i * self.original_width
+
+            # コピーアイテムのシーン座標での矩形
+            copy_rect_scene = QRectF(copy_x_pos, 0, self.original_width, self.original_height)
+
+            # コピーアイテムがビューポートと重なる場合のみ描画
+            if copy_rect_scene.intersects(view_rect_scene):
+                loop_item = self.scene.addPixmap(current_pixmap)
+                loop_item.setPos(copy_x_pos, 0)
+                loop_item.setData(0, "loop_map_item")  # カスタムデータで識別
+
+        # シーンの更新を強制
+        self.scene.update()
 
     def load_map_data(self, mod_path):
         start_time = time.time()
@@ -213,9 +295,15 @@ class MapViewer(QGraphicsView):
         self.original_map_image_data = None
         self.provinces_data_by_rgb = {}
         self.provinces_data_by_id = {}
+
         self.states_data = {}
         self.strategic_regions_data = {}
         self.country_colors = {}
+
+        self.original_width = 0
+        self.original_height = 0
+
+        self.current_filter = "provinces"
         self.base_qimage_cache = {}
         self.state_owners = {}  # ステートの所有者情報を保持
 
@@ -235,31 +323,24 @@ class MapViewer(QGraphicsView):
                 parser = CountryColorParser(content)
                 self.country_colors = parser.parse()
                 # print(f"Loaded {len(self.country_colors)} country colors")
-                # デバッグ: 国家の色情報を出力
-                # print("\n=== 国家の色情報 ===")
-                # for country, color_data in self.country_colors.items():
-                #     print(f"国家: {country}, 色: {color_data['color']}")
-                # print("===================\n")
 
         provinces_img_path = os.path.join(base_mod_dir, 'map', 'provinces.bmp')
-        # print(f"Searching for provinces.bmp at: {provinces_img_path}")
         if not os.path.exists(provinces_img_path):
-            QMessageBox.critical(self, "エラー", f"provinces.bmp が指定されたModパスのmap/ ディレクトリ以下に見つかりません。\n({provinces_img_path})")
+            QMessageBox.critical(self, "エラー",
+                                 f"provinces.bmp が指定されたModパスのmap/ ディレクトリ以下に見つかりません。\n({provinces_img_path})")
             return False
 
         definition_csv_path = os.path.join(base_mod_dir, 'map', 'definition.csv')
-        # print(f"Searching for definition.csv at: {definition_csv_path}")
         if not os.path.exists(definition_csv_path):
-            QMessageBox.critical(self, "エラー", f"definition.csv が指定されたModパスのmap/ ディレクトリ以下に見つかりません。\n({definition_csv_path})")
+            QMessageBox.critical(self, "エラー",
+                                 f"definition.csv が指定されたModパスのmap/ ディレクトリ以下に見つかりません。\n({definition_csv_path})")
             return False
 
         try:
-            # print(f"Loading provinces image from: {provinces_img_path}")
             img_pil = Image.open(provinces_img_path).convert("RGB")
             self.original_width, self.original_height = img_pil.size
             self.original_map_image_data = np.array(img_pil)
 
-            # print(f"Loading definition.csv from: {definition_csv_path}")
             with open(definition_csv_path, 'r', encoding='latin-1') as f:
                 reader = csv.reader(f, delimiter=';')
                 next(reader)
@@ -278,15 +359,12 @@ class MapViewer(QGraphicsView):
                             if rgb_hash < len(self._rgb_to_id_map_array):
                                 self._rgb_to_id_map_array[rgb_hash] = id
                         except ValueError as e:
-                            # print(f"Skipping malformed row in definition.csv: {row} - Error: {e}")
                             pass
-            # print(f"Loaded {len(self.provinces_data_by_id)} provinces from definition.csv.")
 
             # ステートデータの読み込み
             states_dir = os.path.join(base_mod_dir, 'history', 'states')
 
             if os.path.exists(states_dir):
-                # print(f"Loading states from: {states_dir}")
                 for filename in os.listdir(states_dir):
                     if filename.endswith('.txt'):
                         file_path = os.path.join(states_dir, filename)
@@ -299,22 +377,17 @@ class MapViewer(QGraphicsView):
                                 state_id = state_data.get('id')
                                 if state_id is not None and 'provinces' in state_data and state_data['provinces']:
                                     state_name = state_data.get('name', f"State {state_id}").strip('"')
-                                    state_color = QColor(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+                                    state_color = QColor(random.randint(0, 255), random.randint(0, 255),
+                                                         random.randint(0, 255))
                                     self.states_data[state_id] = {
                                         'name': state_name,
                                         'provinces': state_data['provinces'],
                                         'color': (state_color.red(), state_color.green(), state_color.blue()),
                                         'raw_data': state_data
                                     }
-                                    # デバッグ: ステートの所有者情報を出力
                                     owner = state_data.get('owner')
                                     if owner:
-                                        self.state_owners[state_id] = owner  # 所有者情報を保存
-                                        # print(f"ステート {state_id} ({state_name}) の所有者: {owner}")
-                                        pass
-                                    else:
-                                        # print(f"ステート {state_id} ({state_name}) の所有者: なし")
-                                        pass
+                                        self.state_owners[state_id] = owner
                                     for prov_id in state_data['provinces']:
                                         if prov_id in self.provinces_data_by_id:
                                             self.provinces_data_by_id[prov_id].state_id = state_id
@@ -324,32 +397,20 @@ class MapViewer(QGraphicsView):
                                         for prov_id, buildings in state_data['province_buildings'].items():
                                             if isinstance(buildings, dict) and 'naval_base' in buildings:
                                                 self.naval_base_locations[prov_id] = buildings['naval_base']
-                                                # print(f"Found naval base in province {prov_id} with level {buildings['naval_base']}")
-
-                                    # print(f"Successfully loaded state file: {filename} (ID: {state_id}, Provinces: {len(state_data['provinces'])})")
-                                else:
-                                    # print(f"Skipping state file {filename}: Missing 'id', 'provinces' key, or 'provinces' is empty.")
-                                    pass
                             except ParserError as e:
-                                # print(f"Error parsing state file {filename}: {e}")
                                 pass
                             except Exception as e:
-                                # print(f"Unexpected error processing state file {filename}: {e}")
                                 pass
                         else:
-                            # print(f"Skipping state file {filename}: Could not read content.")
                             pass
             else:
-                # print(f"State directory not found: {states_dir}")
                 pass
-            # print(f"Loaded {len(self.states_data)} states.")
 
             # 戦略地域の読み込み (map/strategicregions)
             self.strategic_regions_data = {}
             strategic_regions_dir = os.path.join(base_mod_dir, 'map', 'strategicregions')
 
             if os.path.exists(strategic_regions_dir):
-                # print(f"Loading strategic regions from: {strategic_regions_dir}")
                 for filename in os.listdir(strategic_regions_dir):
                     if filename.endswith('.txt'):
                         file_path = os.path.join(strategic_regions_dir, filename)
@@ -362,7 +423,8 @@ class MapViewer(QGraphicsView):
                                 region_id = region_data.get('id')
                                 if region_id is not None and 'provinces' in region_data and region_data['provinces']:
                                     region_name = region_data.get('name', f"Strategic Region {region_id}").strip('"')
-                                    region_color = QColor(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+                                    region_color = QColor(random.randint(0, 255), random.randint(0, 255),
+                                                          random.randint(0, 255))
                                     self.strategic_regions_data[region_id] = {
                                         'name': region_name,
                                         'provinces': region_data['provinces'],
@@ -372,23 +434,14 @@ class MapViewer(QGraphicsView):
                                     for prov_id in region_data['provinces']:
                                         if prov_id in self.provinces_data_by_id:
                                             self.provinces_data_by_id[prov_id].strategic_region_id = region_id
-                                    # print(f"Successfully loaded strategic region file: {filename} (ID: {region_id}, Provinces: {len(region_data['provinces'])})")
-                                else:
-                                    # print(f"Skipping strategic region file {filename}: Missing 'id', 'provinces' key, or 'provinces' is empty.")
-                                    pass
                             except ParserError as e:
-                                # print(f"Error parsing strategic region file {filename}: {e}")
                                 pass
                             except Exception as e:
-                                # print(f"Unexpected error processing strategic region file {filename}: {e}")
                                 pass
                         else:
-                            # print(f"Skipping strategic region file {filename}: Could not read content.")
                             pass
             else:
-                # print(f"Strategic region directory not found: {strategic_regions_dir}")
                 pass
-            # print(f"Loaded {len(self.strategic_regions_data)} strategic regions.")
 
             # プロビンス重心の計算
             self.calculate_province_centroids()
@@ -401,7 +454,7 @@ class MapViewer(QGraphicsView):
 
             default_unknown_color = (50, 50, 50)
 
-            self._palette_province = np.full((max_prov_id + 1, 3), (0,0,0), dtype=np.uint8)
+            self._palette_province = np.full((max_prov_id + 1, 3), (0, 0, 0), dtype=np.uint8)
             self._palette_state = np.full((max_prov_id + 1, 3), default_unknown_color, dtype=np.uint8)
             self._palette_region = np.full((max_prov_id + 1, 3), default_unknown_color, dtype=np.uint8)
 
@@ -414,12 +467,11 @@ class MapViewer(QGraphicsView):
 
                     # strategic_regions_dataが空の場合もあるためチェック
                     if prov_obj.strategic_region_id is not None and self.strategic_regions_data and prov_obj.strategic_region_id in self.strategic_regions_data:
-                        self._palette_region[prov_id] = self.strategic_regions_data[prov_obj.strategic_region_id]['color']
+                        self._palette_region[prov_id] = self.strategic_regions_data[prov_obj.strategic_region_id][
+                            'color']
 
             self.render_map()
             end_time = time.time()
-            # print(f"Total map data loading and initial rendering time: {end_time - start_time:.2f} seconds.")
-            # print(f"DEBUG: naval_base_locations: {self.naval_base_locations}")
             return True
 
         except Exception as e:
@@ -429,7 +481,6 @@ class MapViewer(QGraphicsView):
             return False
 
     def calculate_province_centroids(self):
-        # print("Calculating province centroids (highly optimized)...")
         start_time = time.time()
         if self.original_map_image_data is None:
             return
@@ -476,15 +527,13 @@ class MapViewer(QGraphicsView):
                 center_y = sum_y_per_prov[prov_id] / count_per_prov[prov_id]
                 self.province_centroids[prov_id] = (center_x, center_y)
             else:
-                self.province_centroids[prov_id] = None # プロビンスが存在しない、または画像中に見つからない場合
+                self.province_centroids[prov_id] = None  # プロビンスが存在しない、または画像中に見つからない場合
 
         end_time = time.time()
-        # print(f"Province centroid calculation time (highly optimized): {end_time - start_time:.2f} seconds.")
 
     def calculate_state_boundaries(self):
-        # print("Calculating state boundaries...")
         start_time = time.time()
-        
+
         if self.original_map_image_data is None:
             return
 
@@ -520,7 +569,6 @@ class MapViewer(QGraphicsView):
             self.state_boundaries[state_id] = list(boundaries)
 
         end_time = time.time()
-        # print(f"State boundary calculation time: {end_time - start_time:.2f} seconds")
 
     def render_map(self):
         start_time = time.time()
@@ -528,11 +576,12 @@ class MapViewer(QGraphicsView):
             print("マップデータが読み込まれていません")
             return
 
-        print(f"render_map called: current_filter={self.current_filter}, show_fleet_info={self.show_fleet_info}")
-        print(f"艦隊データの状態: {self.fleet_data}")
-        
+        self.logger.debug(
+            f"render_map called: current_filter={self.current_filter}, show_fleet_info={self.show_fleet_info}")
+        self.logger.debug(f"艦隊データの状態: {self.fleet_data}")
+
         if self.current_filter not in self.base_qimage_cache:
-            print("キャッシュからマップを生成")
+            self.logger.debug("キャッシュからマップを生成")
             original_pixels_flat = self.original_map_image_data.reshape(-1, 3)
 
             pixel_hashes = (original_pixels_flat[:, 0].astype(np.int32) * 65536 +
@@ -551,7 +600,9 @@ class MapViewer(QGraphicsView):
                 selected_palette = self._palette_region
             elif self.current_filter == "countries":
                 # 国家モードの場合、ステートの所有者の色を使用
-                selected_palette = np.full((max(self.provinces_data_by_id.keys()) + 1 if self.provinces_data_by_id else 1, 3), (50, 50, 50), dtype=np.uint8)
+                selected_palette = np.full(
+                    (max(self.provinces_data_by_id.keys()) + 1 if self.provinces_data_by_id else 1, 3), (50, 50, 50),
+                    dtype=np.uint8)
                 for state_id, state_data in self.states_data.items():
                     owner = state_data['raw_data'].get('owner', None)
                     if owner and owner in self.country_colors:
@@ -560,7 +611,9 @@ class MapViewer(QGraphicsView):
                             if prov_id <= max(self.provinces_data_by_id.keys()):
                                 selected_palette[prov_id] = color
             else:
-                selected_palette = np.full((max(self.provinces_data_by_id.keys()) + 1 if self.provinces_data_by_id else 1, 3), (0,0,0), dtype=np.uint8)
+                selected_palette = np.full(
+                    (max(self.provinces_data_by_id.keys()) + 1 if self.provinces_data_by_id else 1, 3), (0, 0, 0),
+                    dtype=np.uint8)
 
             default_unknown_color = (50, 50, 50)
             filtered_colors_flat = np.full_like(original_pixels_flat, default_unknown_color, dtype=np.uint8)
@@ -568,7 +621,8 @@ class MapViewer(QGraphicsView):
             max_id_in_palette = selected_palette.shape[0] - 1
             valid_indices_for_palette_lookup = (prov_ids_flat >= 0) & (prov_ids_flat <= max_id_in_palette)
 
-            filtered_colors_flat[valid_indices_for_palette_lookup] = selected_palette[prov_ids_flat[valid_indices_for_palette_lookup]]
+            filtered_colors_flat[valid_indices_for_palette_lookup] = selected_palette[
+                prov_ids_flat[valid_indices_for_palette_lookup]]
 
             display_array = filtered_colors_flat.reshape(self.original_height, self.original_width, 3)
 
@@ -577,35 +631,44 @@ class MapViewer(QGraphicsView):
             q_image = QImage(display_array.data, width, height, bytes_per_line, QImage.Format_RGB888)
             self.base_qimage_cache[self.current_filter] = q_image.copy()
         else:
-            print("キャッシュからマップを読み込み")
+            self.logger.debug("キャッシュからマップを読み込み")
             pass
 
         current_pixmap = QPixmap.fromImage(self.base_qimage_cache[self.current_filter])
 
         # 国家モードの場合、ステートの境界線を描画
         if self.current_filter == "countries":
-            print("ステートの境界線を描画")
+            self.logger.debug("ステートの境界線を描画")
             self.draw_state_boundaries(current_pixmap)
 
         self.draw_naval_bases(current_pixmap)
-        
+
         # 艦隊情報を描画
-        print(f"艦隊情報の描画条件チェック: show_fleet_info={self.show_fleet_info}, fleet_data={bool(self.fleet_data)}")
+        self.logger.debug(
+            f"艦隊情報の描画条件チェック: show_fleet_info={self.show_fleet_info}, fleet_data={bool(self.fleet_data)}")
         if self.show_fleet_info and self.fleet_data:
-            print("艦隊情報を描画")
+            self.logger.debug("艦隊情報を描画")
             self.draw_fleet_info(current_pixmap)
         else:
-            print(f"艦隊情報の描画をスキップ: show_fleet_info={self.show_fleet_info}, fleet_data={bool(self.fleet_data)}")
+            self.logger.debug(
+                f"艦隊情報の描画をスキップ: show_fleet_info={self.show_fleet_info}, fleet_data={bool(self.fleet_data)}")
 
+        # シーンをクリアし、新しいマップアイテムを追加
         self.scene.clear()
         self.map_image_item = self.scene.addPixmap(current_pixmap)
-        self.setSceneRect(QRectF(current_pixmap.rect()))
+        # シーンの矩形をマップのサイズに設定
+        self.setSceneRect(QRectF(0, 0, self.original_width, self.original_height))
+        # ビューポートにマップ全体をフィットさせる
         self.fitInView(self.sceneRect(), Qt.KeepAspectRatio)
 
+        # 初期ズームレベル
         self.scale(4.0, 4.0)
 
+        # マップアイテムの位置を更新してループ描画を適用
+        self.update_map_item_position()
+
         end_time = time.time()
-        print(f"マップの描画が完了: 所要時間 {end_time - start_time:.2f}秒")
+        self.logger.debug(f"マップの描画が完了: 所要時間 {end_time - start_time:.2f}秒")
 
     def draw_state_boundaries(self, target_pixmap: QPixmap):
         painter = QPainter(target_pixmap)
@@ -704,12 +767,12 @@ class MapViewer(QGraphicsView):
                                 text_rect = painter.fontMetrics().boundingRect(text)
                                 text_rect.moveCenter(QPoint(int(center_x), int(center_y + circle_radius + 5)))
                                 text_rect.adjust(-2, -2, 2, 2)  # パディングを追加
-                                
+
                                 # 背景を描画
                                 painter.setPen(Qt.NoPen)
                                 painter.setBrush(QColor(0, 0, 0, 180))
                                 painter.drawRect(text_rect)
-                                
+
                                 # テキストを描画
                                 painter.setPen(QColor(255, 255, 255))
                                 painter.drawText(text_rect, Qt.AlignCenter, text)
@@ -726,7 +789,8 @@ class MapViewer(QGraphicsView):
             self.logger.debug("艦隊データが空です")
             return
 
-        self.logger.info(f"draw_fleet_info called: show_fleet_info={self.show_fleet_info}, fleet_data={bool(self.fleet_data)}")
+        self.logger.info(
+            f"draw_fleet_info called: show_fleet_info={self.show_fleet_info}, fleet_data={bool(self.fleet_data)}")
         self.logger.info(f"艦隊データのプロビンス数: {len(self.fleet_data)}")
 
         try:
@@ -737,7 +801,7 @@ class MapViewer(QGraphicsView):
             for province_id, fleets in self.fleet_data.items():
                 try:
                     self.logger.info(f"プロビンス {province_id} の処理開始")
-                    
+
                     # プロビンスの中心座標を取得
                     if province_id not in self.province_centroids:
                         self.logger.warning(f"プロビンス {province_id} の中心座標が見つかりません")
@@ -755,27 +819,27 @@ class MapViewer(QGraphicsView):
                         if not isinstance(fleet, dict):
                             self.logger.warning(f"無効な艦隊データ: {fleet}")
                             continue
-                            
+
                         # 艦隊名のオーバーライドを確認
                         fleet_name = fleet.get('name', '')
                         if isinstance(fleet_name, dict) and 'override' in fleet_name:
                             fleet_name = fleet_name['override']
-                            
+
                         for task_force in fleet.get('task_forces', []):
                             if not isinstance(task_force, dict):
                                 self.logger.warning(f"無効な任務部隊データ: {task_force}")
                                 continue
-                                
+
                             # 任務部隊名のオーバーライドを確認
                             task_force_name = task_force.get('name', '')
                             if isinstance(task_force_name, dict) and 'override' in task_force_name:
                                 task_force_name = task_force_name['override']
-                                
+
                             ships = task_force.get('ships', [])
                             if not isinstance(ships, list):
                                 self.logger.warning(f"無効な艦艇リスト: {ships}")
                                 continue
-                                
+
                             total_ships += len(ships)
 
                     self.logger.info(f"プロビンス {province_id} の総隻数: {total_ships}")
@@ -805,7 +869,7 @@ class MapViewer(QGraphicsView):
                     continue
 
             painter.end()
-            
+
         except Exception as e:
             self.logger.error(f"艦隊情報の描画中にエラーが発生: {str(e)}")
             if painter:
@@ -816,7 +880,7 @@ class MapViewer(QGraphicsView):
         if province_id in self.fleet_data:
             fleet_info = self.fleet_data[province_id]
             details = "艦隊編成:\n\n"
-            
+
             for fleet in fleet_info:
                 details += f"艦隊: {fleet['name']}\n"
                 for task_force in fleet.get('task_forces', []):
@@ -826,12 +890,12 @@ class MapViewer(QGraphicsView):
                     for ship in task_force.get('ships', []):
                         ship_type = ship.get('design', 'unknown')
                         ship_counts[ship_type] = ship_counts.get(ship_type, 0) + 1
-                    
+
                     # 艦艇タイプごとの情報を表示
                     for ship_type, count in ship_counts.items():
                         details += f"    {ship_type}: {count}隻\n"
                 details += "\n"
-            
+
             QMessageBox.information(self, "艦隊情報", details)
 
     def search_province(self):
@@ -845,12 +909,16 @@ class MapViewer(QGraphicsView):
             if search_id in self.provinces_data_by_id:
                 province = self.provinces_data_by_id[search_id]
                 self.search_result_label.setText(f"プロビンス {search_id}: {province.name}")
-                
+
                 # プロビンスの中心座標を取得
                 if search_id in self.province_centroids and self.province_centroids[search_id] is not None:
                     center_x, center_y = self.province_centroids[search_id]
                     # その位置に移動
-                    self.centerOn(center_x, center_y)
+                    # アニメーションを停止し、直接スクロールオフセットを設定
+                    if self._animation.state() == QPropertyAnimation.Running:
+                        self._animation.stop()
+                    self.scrollOffsetX = center_x - self.viewport().width() / 2  # ビューポートの中心に移動
+                    self.verticalScrollBar().setValue(int(center_y - self.viewport().height() / 2))  # Y軸は通常のスクロールバーで
                     # ズームイン
                     self.scale(2.0, 2.0)
             else:
@@ -858,39 +926,77 @@ class MapViewer(QGraphicsView):
         except ValueError:
             self.search_result_label.setText("有効なIDを入力してください")
 
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            # 左クリックでドラッグ開始位置を記録し、アニメーションを停止
+            self._last_drag_pos = event.pos()
+            if self._animation.state() == QPropertyAnimation.Running:
+                self._animation.stop()
+        elif event.button() == Qt.RightButton:
+            # 右クリックでプロビンス情報ダイアログを表示
+            pos = self.mapToScene(event.pos())
+            x, y = int(pos.x()), int(pos.y())
+
+            # ループを考慮したX座標の調整
+            adjusted_x = int(x % self.original_width)
+            if adjusted_x < 0:  # 負の値になった場合の調整
+                adjusted_x += self.original_width
+
+            if self.original_map_image_data is not None and \
+                    0 <= adjusted_x < self.original_width and 0 <= y < self.original_height:
+
+                r, g, b = self.original_map_image_data[y, adjusted_x]
+                rgb_key = (r, g, b)
+
+                if rgb_key in self.provinces_data_by_rgb:
+                    province = self.provinces_data_by_rgb[rgb_key]
+                    if self.show_fleet_info:
+                        self.show_fleet_details(province.id)
+                    else:
+                        info = f"プロビンスID: {province.id}\n"
+                        if province.name:
+                            info += f"名前: {province.name}\n"
+                        if province.type:
+                            info += f"タイプ: {province.type}\n"
+                        if province.state_id:
+                            info += f"ステートID: {province.state_id}\n"
+                        if province.strategic_region_id:
+                            info += f"戦略地域ID: {province.strategic_region_id}\n"
+                        QMessageBox.information(self, "プロビンス情報", info)
+        else:
+            super().mousePressEvent(event)
+
     def mouseMoveEvent(self, event):
-        super().mouseMoveEvent(event)
-        
-        # マウス位置をシーンの座標に変換
+        # マウスオーバー時のツールチップ処理
         scene_pos = self.mapToScene(event.pos())
         x, y = int(scene_pos.x()), int(scene_pos.y())
 
-        # マウス位置が有効な範囲内かチェック
+        # ループを考慮したX座標の調整
+        adjusted_x = int(x % self.original_width)
+        if adjusted_x < 0:
+            adjusted_x += self.original_width
+
         if self.original_map_image_data is not None and \
-                0 <= y < self.original_height and 0 <= x < self.original_width:
-            
-            # マウス位置のRGB値を取得
-            pixel_rgb = tuple(self.original_map_image_data[y, x])
+                0 <= adjusted_x < self.original_width and 0 <= y < self.original_height:
+
+            pixel_rgb = tuple(self.original_map_image_data[y, adjusted_x])
             found_province = self.provinces_data_by_rgb.get(pixel_rgb)
 
-            # プロビンスが見つかった場合
             if found_province:
                 self.hovered_province = found_province
                 tooltip_text = f"ID: {found_province.id}\n名前: {found_province.name}"
-                
+
                 if found_province.id in self.naval_base_locations:
                     tooltip_text += f"\n海軍基地レベル: {self.naval_base_locations[found_province.id]}"
-                
-                # ツールチップの位置を右上に固定
+
                 tooltip_pos = self.mapToGlobal(event.pos())
                 self.tooltip_label.setText(tooltip_text)
                 self.tooltip_label.adjustSize()
-                
-                # ウィンドウの右上に表示
+
                 window_rect = self.window().geometry()
                 tooltip_x = window_rect.right() - self.tooltip_label.width() - 10
                 tooltip_y = window_rect.top() + 10
-                
+
                 self.tooltip_label.move(tooltip_x, tooltip_y)
                 self.tooltip_label.show()
             else:
@@ -899,6 +1005,48 @@ class MapViewer(QGraphicsView):
         else:
             self.hovered_province = None
             self.tooltip_label.hide()
+
+        # マップドラッグ処理 (左ボタン)
+        if event.buttons() & Qt.LeftButton and hasattr(self, '_last_drag_pos'):
+            delta = event.pos() - self._last_drag_pos
+            self._last_drag_pos = event.pos()
+
+            # X方向のスクロールはカスタムプロパティで制御（マウスを右に動かすとマップが右に動くように）
+            # 修正点: 左右の移動方向を反転
+            self.scrollOffsetX = self.scrollOffsetX - delta.x()
+
+            # Y方向のスクロールはQGraphicsViewの標準スクロールバーで制御
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - delta.y())
+
+            # 慣性スクロールのために最後の移動量を記録
+            self._last_move_delta = delta
+
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            # ドラッグ終了時に慣性スクロールを開始
+            if self._animation.state() == QPropertyAnimation.Running:
+                self._animation.stop()
+
+            inertia_factor = 2.0  # 慣性の強さ (値を大きくすると長く滑る)
+
+            # 最後の移動量に基づいて慣性スクロールの目標値を計算
+            # 修正点: 慣性スクロールの方向も反転
+            target_x = self.scrollOffsetX - self._last_move_delta.x() * inertia_factor
+
+            self._animation.setStartValue(self.scrollOffsetX)
+            self._animation.setEndValue(target_x)
+            self._animation.start()
+
+            # 慣性スクロールのための最後の移動量をリセット
+            self._last_move_delta = QPoint(0, 0)
+
+        # QGraphicsViewのデフォルトのドラッグモードは使用しないため、中ボタンの処理は不要
+        # elif event.button() == Qt.MiddleButton:
+        #     self.setDragMode(QGraphicsView.NoDrag)
+
+        super().mouseReleaseEvent(event)
 
     def leaveEvent(self, event):
         super().leaveEvent(event)
@@ -912,51 +1060,17 @@ class MapViewer(QGraphicsView):
 
     def zoom_in(self):
         self.scale(1.25, 1.25)
+        # ズーム後もマップアイテムの位置を更新してループ描画を維持
+        self.update_map_item_position()
 
     def zoom_out(self):
         self.scale(1.0 / 1.25, 1.0 / 1.25)
+        # ズーム後もマップアイテムの位置を更新してループ描画を維持
+        self.update_map_item_position()
 
     def wheelEvent(self, event):
-        # マウスホイールによるズームを無効化
+        # マウスホイールによるズームを無効化（既存の動作を維持）
         pass
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            # マウス位置からプロビンスIDを取得
-            pos = self.mapToScene(event.pos())
-            x, y = int(pos.x()), int(pos.y())
-            
-            if 0 <= x < self.original_width and 0 <= y < self.original_height:
-                r, g, b = self.original_map_image_data[y, x]
-                rgb_key = (r, g, b)
-                
-                if rgb_key in self.provinces_data_by_rgb:
-                    province = self.provinces_data_by_rgb[rgb_key]
-                    if self.show_fleet_info:
-                        self.show_fleet_details(province.id)
-                    else:
-                        # 既存のプロビンス情報表示処理
-                        info = f"プロビンスID: {province.id}\n"
-                        if province.name:
-                            info += f"名前: {province.name}\n"
-                        if province.type:
-                            info += f"タイプ: {province.type}\n"
-                        if province.state_id:
-                            info += f"ステートID: {province.state_id}\n"
-                        if province.strategic_region_id:
-                            info += f"戦略地域ID: {province.strategic_region_id}\n"
-                        
-                        QMessageBox.information(self, "プロビンス情報", info)
-        elif event.button() == Qt.MiddleButton:
-            self.setDragMode(QGraphicsView.ScrollHandDrag)
-            super().mousePressEvent(event)
-        else:
-            super().mousePressEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        if event.button() == Qt.MiddleButton:
-            self.setDragMode(QGraphicsView.NoDrag)
-        super().mouseReleaseEvent(event)
 
     def keyPressEvent(self, event):
         # キーボードショートカット
@@ -964,50 +1078,64 @@ class MapViewer(QGraphicsView):
             self.zoom_in()
         elif event.key() == Qt.Key_Minus:  # -キー
             self.zoom_out()
+        elif event.key() == Qt.Key_Left:  # 左矢印キーで左にスクロール
+            target_x = self.scrollOffsetX - 50  # 50ピクセル移動
+            self._animation.setStartValue(self.scrollOffsetX)
+            self._animation.setEndValue(target_x)
+            self._animation.start()
+        elif event.key() == Qt.Key_Right:  # 右矢印キーで右にスクロール
+            target_x = self.scrollOffsetX + 50  # 50ピクセル移動
+            self._animation.setStartValue(self.scrollOffsetX)
+            self._animation.setEndValue(target_x)
+            self._animation.start()
+        elif event.key() == Qt.Key_Up:  # 上矢印キーで上にスクロール
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() - 50)
+        elif event.key() == Qt.Key_Down:  # 下矢印キーで下にスクロール
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() + 50)
         else:
             super().keyPressEvent(event)
 
     def load_mod_fleet_data(self, mod_path, country_tag):
         """MOD内の艦隊データを読み込む"""
-        print(f"load_mod_fleet_data called: mod_path={mod_path}, country_tag={country_tag}")
+        self.logger.info(f"load_mod_fleet_data called: mod_path={mod_path}, country_tag={country_tag}")
         if not mod_path or not country_tag:
             return None
 
         try:
             # 艦隊データを格納するディクショナリ
             fleet_data = {}
-            
+
             # 艦隊データファイルのパス
             units_path = os.path.join(mod_path, "history", "units")
             if not os.path.exists(units_path):
-                print(f"艦隊データディレクトリが見つかりません: {units_path}")
+                self.logger.info(f"艦隊データディレクトリが見つかりません: {units_path}")
                 return None
 
             # 艦隊データファイルを検索
-            import re
+
             pattern = re.compile(f"{country_tag}_\\d{{4}}_(?:naval|Naval|Navy|navy)(?:_mtg)?\\.txt$")
-            
+
             for filename in os.listdir(units_path):
                 if pattern.match(filename):
                     file_path = os.path.join(units_path, filename)
-                    print(f"艦隊データファイルを読み込み: {filename}")
-                    
+                    self.logger.info(f"艦隊データファイルを読み込み: {filename}")
+
                     try:
                         with open(file_path, 'r', encoding='utf-8') as f:
                             content = f.read()
-                            
+
                             # NavalOOBParserを使用して艦隊データを解析
                             parser = NavalOOBParser(content)
                             parsed_data = parser.parse()
-                            
+
                             # 艦隊データを抽出
                             units = parsed_data.get('units', {})
                             fleets = units.get('fleet', [])
-                            
+
                             # 単一の艦隊の場合はリストに変換
                             if isinstance(fleets, dict):
                                 fleets = [fleets]
-                            
+
                             # 艦隊データを処理
                             for fleet in fleets:
                                 fleet_data_entry = {
@@ -1015,24 +1143,25 @@ class MapViewer(QGraphicsView):
                                     'province_id': fleet.get('naval_base', 0),
                                     'task_forces': []
                                 }
-                                
+
                                 # 任務部隊を処理
                                 task_forces = fleet.get('task_force', [])
                                 if isinstance(task_forces, dict):
                                     task_forces = [task_forces]
-                                
+
                                 for task_force in task_forces:
                                     task_force_entry = {
-                                        'name': task_force.get('name', f"MOD任務部隊_{len(fleet_data_entry['task_forces'])}"),
+                                        'name': task_force.get('name',
+                                                               f"MOD任務部隊_{len(fleet_data_entry['task_forces'])}"),
                                         'province_id': task_force.get('location', fleet_data_entry['province_id']),
                                         'ships': []
                                     }
-                                    
+
                                     # 艦艇を処理
                                     ships = task_force.get('ship', [])
                                     if isinstance(ships, dict):
                                         ships = [ships]
-                                    
+
                                     for ship in ships:
                                         ship_entry = {
                                             'name': ship.get('name', f"MOD艦艇_{len(task_force_entry['ships'])}"),
@@ -1041,68 +1170,68 @@ class MapViewer(QGraphicsView):
                                             'design': ship.get('definition', {})
                                         }
                                         task_force_entry['ships'].append(ship_entry)
-                                    
+
                                     fleet_data_entry['task_forces'].append(task_force_entry)
-                                
+
                                 # 艦隊データを保存
                                 prov_id = fleet_data_entry['province_id']
                                 if prov_id not in fleet_data:
                                     fleet_data[prov_id] = []
                                 fleet_data[prov_id].append(fleet_data_entry)
-                    
+
                     except Exception as e:
-                        print(f"艦隊データファイルの読み込みエラー: {e}")
+                        self.logger.error(f"艦隊データファイルの読み込みエラー: {e}")
                         continue
 
-            print(f"MOD内の艦隊データ読み込み完了: {len(fleet_data)}個のプロビンスに艦隊が存在")
+            self.logger.info(f"MOD内の艦隊データ読み込み完了: {len(fleet_data)}個のプロビンスに艦隊が存在")
             return fleet_data
 
         except Exception as e:
-            print(f"MOD内の艦隊データ読み込み中にエラーが発生: {e}")
+            self.logger.error(f"MOD内の艦隊データ読み込み中にエラーが発生: {e}")
             return None
 
     def set_fleet_data(self, fleet_data, country_tag, show_mod_fleets=False):
         """艦隊情報を設定する"""
         self.logger.info(f"set_fleet_data called: country_tag={country_tag}, show_mod_fleets={show_mod_fleets}")
         self.logger.info(f"艦隊データのプロビンス数: {len(fleet_data) if fleet_data else 0}")
-        
+
         try:
             # 艦隊データを初期化
             self.fleet_data = {}
-            
+
             # 基本の艦隊データを設定
             if fleet_data:
                 if not isinstance(fleet_data, dict):
                     self.logger.error(f"無効な艦隊データの型: {type(fleet_data)}")
                     return
-                    
+
                 # 艦隊データの検証
                 for prov_id, fleets in fleet_data.items():
                     if not isinstance(fleets, list):
                         self.logger.error(f"プロビンス {prov_id} の艦隊データが無効な型です: {type(fleets)}")
                         continue
-                        
+
                     valid_fleets = []
                     for fleet in fleets:
                         if not isinstance(fleet, dict):
                             self.logger.warning(f"無効な艦隊データ: {fleet}")
                             continue
-                            
+
                         if 'task_forces' not in fleet:
                             self.logger.warning(f"任務部隊情報が欠落している艦隊データ: {fleet}")
                             continue
-                            
+
                         valid_fleets.append(fleet)
-                    
+
                     if valid_fleets:
                         self.fleet_data[prov_id] = valid_fleets
-                
+
                 self.logger.info(f"基本の艦隊データを設定: {len(self.fleet_data)}個のプロビンス")
-            
+
             self.current_country = country_tag
             self.show_fleet_info = True
             self.show_mod_fleets = show_mod_fleets
-            
+
             # MOD内の艦隊データを読み込む
             if show_mod_fleets and self.app_controller:
                 try:
@@ -1113,32 +1242,34 @@ class MapViewer(QGraphicsView):
                             # 既存の艦隊データと統合
                             for prov_id, fleets in mod_fleet_data.items():
                                 if not isinstance(fleets, list):
-                                    self.logger.error(f"MOD内のプロビンス {prov_id} の艦隊データが無効な型です: {type(fleets)}")
+                                    self.logger.error(
+                                        f"MOD内のプロビンス {prov_id} の艦隊データが無効な型です: {type(fleets)}")
                                     continue
-                                    
+
                                 if prov_id in self.fleet_data:
                                     self.fleet_data[prov_id].extend(fleets)
                                 else:
                                     self.fleet_data[prov_id] = fleets
-                            self.logger.info(f"MOD内の艦隊データを統合しました: {len(self.fleet_data)}個のプロビンスに艦隊が存在")
+                            self.logger.info(
+                                f"MOD内の艦隊データを統合しました: {len(self.fleet_data)}個のプロビンスに艦隊が存在")
                 except Exception as e:
                     self.logger.error(f"MOD内の艦隊データ読み込みエラー: {str(e)}")
-            
+
             # 艦隊データの状態を確認
             self.logger.info(f"艦隊データの最終状態: {len(self.fleet_data)}個のプロビンスに艦隊が存在")
             for prov_id, fleets in self.fleet_data.items():
                 self.logger.info(f"プロビンス {prov_id}: {len(fleets)}個の艦隊")
-            
+
             # 国家カラーモードに変更
             self.current_filter = "countries"
             self.filter_combo.setCurrentText("国家")
-            
+
             # キャッシュをクリアして再描画
             self.base_qimage_cache.clear()
             self.logger.info("マップの再描画を開始")
             self.render_map()  # マップを再描画して艦隊情報を表示
             self.logger.info("マップの再描画が完了")
-            
+
         except Exception as e:
             self.logger.error(f"艦隊データの設定中にエラーが発生: {str(e)}")
             self.fleet_data = {}
@@ -1159,6 +1290,7 @@ class MapViewer(QGraphicsView):
         """MOD内の艦隊表示を切り替え"""
         self.show_mod_fleets = not self.show_mod_fleets
         self.render_map()  # マップを再描画
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -1196,7 +1328,8 @@ class MainWindow(QMainWindow):
         exit_action = file_menu.addAction("終了")
         exit_action.triggered.connect(self.close)
 
-        QMessageBox.information(self, "開始", "Modディレクトリを選択してください。\n(例: your_mod_name/)\n\nprovinces.bmp と definition.csv が map/ ディレクトリ以下に、\nhistory/states/ と map/strategicregions/ 以下にファイルが存在する必要があります。")
+        QMessageBox.information(self, "開始",
+                                "Modディレクトリを選択してください。\n(例: your_mod_name/)\n\nprovinces.bmp と definition.csv が map/ ディレクトリ以下に、\nhistory/states/ と map/strategicregions/ 以下にファイルが存在する必要があります。")
         self.select_mod_path()
 
     def select_mod_path(self):
@@ -1206,6 +1339,7 @@ class MainWindow(QMainWindow):
                 pass
         else:
             QMessageBox.information(self, "キャンセル", "Modディレクトリの選択がキャンセルされました。")
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
