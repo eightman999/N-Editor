@@ -1,6 +1,6 @@
-*.pyc
-*.py
+
 __pycache__/
+*.pyc
 # Ignore all Python bytecode files and cache directories
 
 # Ignore virtual environment directories

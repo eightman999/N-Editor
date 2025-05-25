@@ -8,7 +8,7 @@ from pathlib import Path
 
 from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QTableWidget, QHeaderView, QTableWidgetItem, QHBoxLayout, \
     QPushButton
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal, QRunnable, QThreadPool, pyqtSlot
 
 from views.main_window import NavalDesignSystem
 from views.home_view import HomeView
@@ -25,12 +25,56 @@ from utils.path_utils import get_data_dir
 # ロガーの設定
 logger = logging.getLogger(__name__)
 
+# バックグラウンドタスクを実行するためのWorkerクラス
+class Worker(QRunnable):
+    """
+    バックグラウンドで時間のかかる処理を実行するためのQRunnableサブクラス。
+    PyQtのメインスレッドをブロックせずに処理を行うために使用します。
+    """
+    def __init__(self, fn, *args, **kwargs):
+        super(Worker, self).__init__()
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals() # 処理結果を通知するためのシグナル
+
+    @pyqtSlot()
+    def run(self):
+        """
+        ワーカーが実行するメインの処理。
+        指定された関数を実行し、結果をシグナルで通知します。
+        """
+        try:
+            # 関数を実行
+            result = self.fn(*self.args, **self.kwargs)
+            self.signals.result.emit(result) # 成功時に結果を送信
+        except Exception as e:
+            # エラー発生時にエラー情報を送信
+            logger.error(f"Worker task failed: {e}", exc_info=True)
+            self.signals.error.emit(str(e))
+        finally:
+            self.signals.finished.emit() # 処理完了を通知
+
+class WorkerSignals(QObject):
+    """
+    Workerからの通信を処理するためのシグナルを定義するQObjectサブクラス。
+    """
+    finished = pyqtSignal() # 処理完了時に発射
+    error = pyqtSignal(str) # エラー発生時に発射（エラーメッセージを送信）
+    result = pyqtSignal(object) # 処理結果を送信（任意のオブジェクトを送信）
+    progress = pyqtSignal(int) # 進捗を送信（0-100の整数）
+
 
 class AppController(QObject):
     """アプリケーション全体のコントローラークラス"""
 
     # シグナル定義
     mod_changed = pyqtSignal(str)  # MODが変更されたときに発射（MODパスを送信）
+    # バックグラウンド処理用のシグナル
+    background_task_started = pyqtSignal(str)
+    background_task_progress = pyqtSignal(str, int) # タスク名, 進捗
+    background_task_finished = pyqtSignal(str, object) # タスク名, 結果
+    background_task_error = pyqtSignal(str, str) # タスク名, エラーメッセージ
 
     def __init__(self, app_settings):
         super().__init__()  # QObjectの初期化
@@ -38,6 +82,11 @@ class AppController(QObject):
         self.app_settings = app_settings
         self.main_window = None
         self.nation_details_view = None
+
+        # QThreadPoolの初期化
+        # これにより、バックグラウンドでタスクを並行して実行できます。
+        self.threadpool = QThreadPool()
+        logger.info(f"QThreadPool initialized with max thread count: {self.threadpool.maxThreadCount()}")
 
         # 装備モデルの初期化（データディレクトリをapp_settingsから取得）
         self.equipment_model = EquipmentModel(data_dir=self.app_settings.equipment_dir)
@@ -124,10 +173,11 @@ class AppController(QObject):
             mod_name = current_mod.get("name", os.path.basename(mod_path))
 
             if os.path.exists(mod_path):
-                self.open_mod(mod_path, mod_name)
-                print(f"前回のMOD '{mod_name}' を復元しました。")
+                # MODのオープン処理をバックグラウンドで実行
+                self.open_mod_async(mod_path, mod_name)
+                print(f"前回のMOD '{mod_name}' をバックグラウンドで復元しています。")
 
-                # MOD設定後、ホーム画面のMOD情報を更新
+                # MOD設定後、ホーム画面のMOD情報を更新（これはUIスレッドで安全に実行）
                 if hasattr(self.main_window, 'views') and 'home' in self.main_window.views:
                     home_view = self.main_window.views['home']
                     if hasattr(home_view, 'update_current_mod_info'):
@@ -166,29 +216,23 @@ class AppController(QObject):
     # MOD関連機能
 
     def open_mod(self, mod_path, mod_name=None):
-        """MODを開く処理"""
+        """MODを開く処理（同期版）"""
         if not mod_path or not os.path.exists(mod_path):
             print(f"エラー: MODパス '{mod_path}' が見つかりません。")
             return False
 
-        # MODのデータをロードするロジック
-        # ここではまずMODの情報を確認
         descriptor_path = os.path.join(mod_path, "descriptor.mod")
-
         if not os.path.exists(descriptor_path):
             print(f"エラー: MODディレクトリにdescriptor.modファイルが見つかりません。")
             return False
 
-        # MOD名が指定されていない場合はdescriptor.modから取得
         if not mod_name:
             mod_info = self.parse_descriptor_mod(descriptor_path)
             if mod_info and "name" in mod_info:
                 mod_name = mod_info["name"]
             else:
-                # 情報が取得できない場合はディレクトリ名を使用
                 mod_name = os.path.basename(mod_path)
 
-        # 現在開いているMODのパスと名前を設定として保存
         self.app_settings.set_current_mod(mod_path, mod_name)
         self.current_mod = {"path": mod_path, "name": mod_name}
 
@@ -197,6 +241,79 @@ class AppController(QObject):
 
         print(f"MOD '{mod_name}' を開きました。パス: {mod_path}")
         return True
+
+    def open_mod_async(self, mod_path, mod_name=None):
+        """
+        MODを開く処理をバックグラウンドで実行します。
+        このメソッドはUIスレッドから呼び出され、実際の重い処理はWorkerスレッドで行われます。
+        """
+        task_name = f"MODロード: {mod_name or os.path.basename(mod_path)}"
+        self.background_task_started.emit(task_name)
+
+        # Workerを作成し、open_mod_background_taskをバックグラウンドで実行
+        worker = Worker(self._open_mod_background_task, mod_path, mod_name)
+        worker.signals.result.connect(lambda result: self._on_mod_opened(task_name, result))
+        worker.signals.error.connect(lambda error: self.background_task_error.emit(task_name, error))
+        worker.signals.finished.connect(lambda: logger.info(f"Task '{task_name}' finished."))
+
+        self.threadpool.start(worker)
+
+    def _open_mod_background_task(self, mod_path, mod_name):
+        """
+        MODロードの実際のバックグラウンド処理。
+        ここでは、複数のデータロード処理をシミュレートします。
+        """
+        logger.info(f"バックグラウンドでMOD '{mod_name}' のロードを開始します。")
+        results = {}
+
+        # 1. descriptor.modの解析
+        descriptor_path = os.path.join(mod_path, "descriptor.mod")
+        mod_info = self.parse_descriptor_mod(descriptor_path)
+        if mod_info and "name" in mod_info:
+            mod_name = mod_info["name"]
+        results["mod_info"] = mod_info
+        self.background_task_progress.emit(f"MODロード: {mod_name}", 20)
+        time.sleep(0.5) # シミュレーション
+
+        # 2. 国家情報のロード
+        nations = self.get_nations(mod_path)
+        results["nations"] = nations
+        self.background_task_progress.emit(f"MODロード: {mod_name}", 50)
+        time.sleep(1) # シミュレーション
+
+        # 3. MOD固有の設計データのロード（例として）
+        # self.get_nation_mod_designs や get_nation_mod_formations など、
+        # 実際にMODから読み込むメソッドをここに呼び出す
+        # 例: mod_designs = self.get_nation_mod_designs("TAG") # 特定の国家タグが必要な場合
+        # results["mod_designs"] = mod_designs
+        self.background_task_progress.emit(f"MODロード: {mod_name}", 80)
+        time.sleep(0.5) # シミュレーション
+
+        # 最終的にAppControllerのMOD設定を更新
+        self.app_settings.set_current_mod(mod_path, mod_name)
+        self.current_mod = {"path": mod_path, "name": mod_name}
+
+        return results
+
+    def _on_mod_opened(self, task_name, results):
+        """
+        MODロードが完了したときにUIスレッドで呼び出されるスロット。
+        UIの更新や後処理を行います。
+        """
+        logger.info(f"Task '{task_name}' completed. Results received: {results.keys()}")
+        # MOD変更シグナルを発射 (UIスレッドで安全)
+        self.mod_changed.emit(self.current_mod["path"])
+        self.background_task_finished.emit(task_name, results)
+        print(f"MOD '{self.current_mod['name']}' のバックグラウンドロードが完了しました。")
+
+        # ホーム画面のMOD情報を更新
+        if hasattr(self.main_window, 'views') and 'home' in self.main_window.views:
+            home_view = self.main_window.views['home']
+            if hasattr(home_view, 'update_current_mod_info'):
+                home_view.update_current_mod_info()
+            if hasattr(home_view, 'mod_selector') and hasattr(home_view.mod_selector, 'update_list_widget'):
+                home_view.mod_selector.update_list_widget()
+
 
     def parse_descriptor_mod(self, file_path):
         """descriptor.modファイルを解析して情報を抽出"""
@@ -905,7 +1022,7 @@ class AppController(QObject):
                 if not filename.endswith('.json'):
                     continue
 
-                file_path = os.path.join(design_dir, filename)
+                file_path = os.path.join(design_dir, file_name)
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         design_data = json.load(f)
@@ -1159,3 +1276,4 @@ class AppController(QObject):
         except Exception as e:
             print(f"装備表示名取得中にエラーが発生しました: {e}")
             return equipment_type
+
