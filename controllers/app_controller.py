@@ -5,6 +5,7 @@ import time
 import json
 import logging
 from pathlib import Path
+import concurrent.futures # 追加: マルチスレッド処理用
 
 from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QTableWidget, QHeaderView, QTableWidgetItem, QHBoxLayout, \
     QPushButton
@@ -21,6 +22,10 @@ from models.equipment_model import EquipmentModel
 from models.hull_model import HullModel
 from views.nation_details_view import NationDetailsView
 from utils.path_utils import get_data_dir
+
+# パーサーのインポート (コメントアウトを解除または追加)
+from parser.StateParser import StateParser
+from parser.StrategicRegionParser import StrategicRegionParser
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -82,6 +87,10 @@ class AppController(QObject):
         self.app_settings = app_settings
         self.main_window = None
         self.nation_details_view = None
+
+        # マップデータ格納用辞書を初期化
+        self.states = {}
+        self.strategic_regions = {}
 
         # QThreadPoolの初期化
         # これにより、バックグラウンドでタスクを並行して実行できます。
@@ -258,10 +267,51 @@ class AppController(QObject):
 
         self.threadpool.start(worker)
 
+    def _find_files_recursive(self, directory, pattern):
+        """
+        指定されたディレクトリとそのサブディレクトリから、パターンに一致するファイルを再帰的に検索します。
+        """
+        found_files = []
+        for root, _, files in os.walk(directory):
+            for file in files:
+                if file.endswith(pattern):
+                    found_files.append(os.path.join(root, file))
+        return found_files
+
+    def _parse_state_file_worker(self, file_path):
+        """
+        個別のstateファイルを解析するワーカー関数。
+        StateParserはファイルパスを受け取り、解析結果の辞書を返すと仮定します。
+        """
+        try:
+            parser = StateParser()
+            # StateParserのparse_fileメソッドが、そのファイル内の全ての州データを
+            # {state_id: state_data} の形式で返すことを想定
+            parsed_data = parser.parse_file(file_path)
+            return parsed_data
+        except Exception as e:
+            logger.error(f"Error parsing state file {file_path}: {e}", exc_info=True)
+            return None
+
+    def _parse_strategic_region_file_worker(self, file_path):
+        """
+        個別のstrategic regionファイルを解析するワーカー関数。
+        StrategicRegionParserはファイルパスを受け取り、解析結果の辞書を返すと仮定します。
+        """
+        try:
+            parser = StrategicRegionParser()
+            # StrategicRegionParserのparse_fileメソッドが、そのファイル内の全ての戦略地域データを
+            # {region_id: region_data} の形式で返すことを想定
+            parsed_data = parser.parse_file(file_path)
+            return parsed_data
+        except Exception as e:
+            logger.error(f"Error parsing strategic region file {file_path}: {e}", exc_info=True)
+            return None
+
     def _open_mod_background_task(self, mod_path, mod_name):
         """
         MODロードの実際のバックグラウンド処理。
-        ここでは、複数のデータロード処理をシミュレートします。
+        ここでは、複数のデータロード処理をマルチスレッドで実行します。
         """
         logger.info(f"バックグラウンドでMOD '{mod_name}' のロードを開始します。")
         results = {}
@@ -272,27 +322,71 @@ class AppController(QObject):
         if mod_info and "name" in mod_info:
             mod_name = mod_info["name"]
         results["mod_info"] = mod_info
-        self.background_task_progress.emit(f"MODロード: {mod_name}", 20)
-        time.sleep(0.5) # シミュレーション
+        self.background_task_progress.emit(f"MODロード: {mod_name}", 10) # 進捗更新
 
-        # 2. 国家情報のロード
+        # 2. 国家情報のロード (I/Oバウンドではないため、そのまま)
         nations = self.get_nations(mod_path)
         results["nations"] = nations
-        self.background_task_progress.emit(f"MODロード: {mod_name}", 50)
-        time.sleep(1) # シミュレーション
+        self.background_task_progress.emit(f"MODロード: {mod_name}", 30) # 進捗更新
 
-        # 3. MOD固有の設計データのロード（例として）
-        # self.get_nation_mod_designs や get_nation_mod_formations など、
-        # 実際にMODから読み込むメソッドをここに呼び出す
-        # 例: mod_designs = self.get_nation_mod_designs("TAG") # 特定の国家タグが必要な場合
-        # results["mod_designs"] = mod_designs
-        self.background_task_progress.emit(f"MODロード: {mod_name}", 80)
-        time.sleep(0.5) # シミュレーション
+        # 3. マップデータ（Stateファイル）のロードとパース (マルチスレッド化)
+        state_files_dir = os.path.join(mod_path, "history", "states")
+        state_files = self._find_files_recursive(state_files_dir, ".txt")
+        logger.info(f"Found {len(state_files)} state files.")
+
+        temp_states = {}
+        if state_files:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+                future_to_state = {executor.submit(self._parse_state_file_worker, file_path): file_path for file_path in state_files}
+                for i, future in enumerate(concurrent.futures.as_completed(future_to_state)):
+                    file_path = future_to_state[future]
+                    try:
+                        data = future.result()
+                        if data:
+                            temp_states.update(data) # 各スレッドの結果をマージ
+                    except Exception as exc:
+                        logger.error(f'State file {file_path} generated an exception: {exc}', exc_info=True)
+                    # 進捗を報告
+                    progress_percent = 30 + int(40 * (i + 1) / len(state_files))
+                    self.background_task_progress.emit(f"MODロード: {mod_name}", progress_percent)
+
+        self.states = temp_states # 最終的な結果をコントローラーの属性に設定
+        results["states_count"] = len(self.states)
+        logger.info(f"Loaded {len(self.states)} states.")
+        self.background_task_progress.emit(f"MODロード: {mod_name}", 70) # 進捗更新
+
+        # 4. マップデータ（Strategic Regionファイル）のロードとパース (マルチスレッド化)
+        strategic_regions_dir = os.path.join(mod_path, "map", "strategicregions")
+        strategic_region_files = self._find_files_recursive(strategic_regions_dir, ".txt")
+        logger.info(f"Found {len(strategic_region_files)} strategic region files.")
+
+        temp_strategic_regions = {}
+        if strategic_region_files:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+                future_to_region = {executor.submit(self._parse_strategic_region_file_worker, file_path): file_path for file_path in strategic_region_files}
+                for i, future in enumerate(concurrent.futures.as_completed(future_to_region)):
+                    file_path = future_to_region[future]
+                    try:
+                        data = future.result()
+                        if data:
+                            temp_strategic_regions.update(data) # 各スレッドの結果をマージ
+                    except Exception as exc:
+                        logger.error(f'Strategic region file {file_path} generated an exception: {exc}', exc_info=True)
+                    # 進捗を報告
+                    progress_percent = 70 + int(20 * (i + 1) / len(strategic_region_files))
+                    self.background_task_progress.emit(f"MODロード: {mod_name}", progress_percent)
+
+        self.strategic_regions = temp_strategic_regions # 最終的な結果をコントローラーの属性に設定
+        results["strategic_regions_count"] = len(self.strategic_regions)
+        logger.info(f"Loaded {len(self.strategic_regions)} strategic regions.")
+        self.background_task_progress.emit(f"MODロード: {mod_name}", 90) # 進捗更新
 
         # 最終的にAppControllerのMOD設定を更新
         self.app_settings.set_current_mod(mod_path, mod_name)
         self.current_mod = {"path": mod_path, "name": mod_name}
 
+        self.background_task_progress.emit(f"MODロード: {mod_name}", 100) # 最終進捗
+        logger.info(f"MOD '{mod_name}' のロードが完了しました。")
         return results
 
     def _on_mod_opened(self, task_name, results):
@@ -1276,4 +1370,3 @@ class AppController(QObject):
         except Exception as e:
             print(f"装備表示名取得中にエラーが発生しました: {e}")
             return equipment_type
-
