@@ -81,7 +81,8 @@ class EquipmentView(QWidget):
         self.equipment_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.equipment_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)  # 名前列を拡大
 
-        # ダブルクリックでの選択処理
+        # クリックイベントの設定
+        self.equipment_table.clicked.connect(self.on_table_clicked)
         self.equipment_table.doubleClicked.connect(self.on_table_double_clicked)
 
         main_layout.addWidget(self.equipment_table)
@@ -410,6 +411,45 @@ class EquipmentView(QWidget):
 
         except Exception as e:
             QMessageBox.critical(self, "インポートエラー", f"インポートに失敗しました。\n{e}")
+
+    def on_table_clicked(self, index):
+        """テーブルクリック時の処理"""
+        # 左クリックの場合のみ処理
+        if index.column() == 1:  # 名称列をクリックした場合
+            row = index.row()
+            equipment_id = self.equipment_table.item(row, 0).text()
+            
+            # 装備データを取得
+            if self.app_controller:
+                equipment_data = self.app_controller.load_equipment(equipment_id)
+                if equipment_data:
+                    # 継承用のフォームを表示
+                    self.show_inheritance_form(equipment_data)
+
+    def show_inheritance_form(self, equipment_data):
+        """継承用のフォームを表示"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("装備継承")
+        dialog.setMinimumWidth(800)
+        dialog.setMinimumHeight(600)
+
+        # フォームの作成
+        form = EquipmentForm(dialog, self.app_controller)
+        
+        # 継承データの設定
+        form.inherit_from_equipment(equipment_data)
+
+        # レイアウトの設定
+        layout = QVBoxLayout()
+        layout.addWidget(form)
+        dialog.setLayout(layout)
+
+        # 保存完了時の処理を接続
+        form.equipment_saved.connect(lambda: self.load_equipment_list())
+        form.equipment_saved.connect(dialog.accept)
+
+        # ダイアログを表示
+        dialog.exec_()
 
     def on_table_double_clicked(self, index):
         """テーブルダブルクリック時の処理"""

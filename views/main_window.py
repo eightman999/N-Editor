@@ -21,6 +21,7 @@ from views.fleet_view import FleetView
 from views.settings_view import SettingsView
 from views.nation_view import NationView
 from views.nation_details_view import NationDetailsView
+from views.ship_list_view import ShipListView
 
 class MenuLoadingWorker(QThread):
     """メニュー読み込み用のワーカースレッド"""
@@ -220,6 +221,7 @@ class NavalDesignSystem(QMainWindow):
             "艦隊配備",
             "国家確認",
             "国家詳細",
+            "艦艇一覧",
             "設定"
         ])
 
@@ -296,6 +298,7 @@ class NavalDesignSystem(QMainWindow):
             ("fleet", FleetView(self)),
             ("nation", NationView(self, self.app_controller)),
             ("nation_details", NationDetailsView(self, self.app_controller)),
+            ("ship_list", ShipListView(self, self.app_controller)),
             ("settings", SettingsView(self, self.app_settings))
         ]
 
@@ -505,7 +508,7 @@ class NavalDesignSystem(QMainWindow):
         self.stacked_widget.setCurrentIndex(index)
 
         # ステータスバーにメッセージを表示
-        menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "国家確認", "国家詳細", "設定"]
+        menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "国家確認", "国家詳細", "艦艇一覧", "設定"]
         if 0 <= index < len(menu_texts):
             self.statusBar().showMessage(f"{menu_texts[index]}ページを表示しています")
 
@@ -520,7 +523,8 @@ class NavalDesignSystem(QMainWindow):
             "fleet": 5,
             "nation": 6,
             "nation_details": 7,
-            "settings": 8
+            "ship_list": 8,
+            "settings": 9
         }
 
         if view_name in view_mapping:
@@ -529,7 +533,7 @@ class NavalDesignSystem(QMainWindow):
             self.stacked_widget.setCurrentIndex(index)
 
             # ステータスバーにメッセージを表示
-            menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "国家確認", "国家詳細", "設定"]
+            menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "国家確認", "国家詳細", "艦艇一覧", "設定"]
             if 0 <= index < len(menu_texts):
                 self.statusBar().showMessage(f"{menu_texts[index]}ページを表示しています")
 

@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QListWidget, QListWidgetItem,
                              QSizePolicy, QMessageBox, QTabWidget, QComboBox,
-                             QTreeWidget, QTreeWidgetItem, QLineEdit, QCompleter)
+                             QTreeWidget, QTreeWidgetItem, QLineEdit, QCompleter,
+                             QMenu)
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QIcon, QPixmap, QFont
 import os
@@ -105,6 +106,8 @@ class NationDetailsView(QWidget):
         # mod内の設計タブ
         self.mod_design_list = QListWidget()
         self.mod_design_list.setStyleSheet(self.equipment_list.styleSheet())
+        self.mod_design_list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.mod_design_list.customContextMenuRequested.connect(self.show_mod_design_context_menu)
         self.tab_widget.addTab(self.mod_design_list, "mod内の設計")
 
         # 編成タブ
@@ -1100,3 +1103,23 @@ class NationDetailsView(QWidget):
             index = self.nation_combo.findData(self.current_nation_tag)
             if index >= 0:
                 self.nation_combo.setCurrentIndex(index)
+
+    def show_mod_design_context_menu(self, position):
+        """mod内の設計リストの右クリックメニューを表示"""
+        try:
+            item = self.mod_design_list.itemAt(position)
+            if not item:
+                return
+
+            menu = QMenu()
+            view_action = menu.addAction("デザインビューで表示")
+            
+            action = menu.exec_(self.mod_design_list.mapToGlobal(position))
+            
+            if action == view_action:
+                design_data = item.data(Qt.UserRole)
+                if design_data and self.app_controller:
+                    self.app_controller.show_design_view(design_data)
+                    
+        except Exception as e:
+            QMessageBox.critical(self, "エラー", f"コンテキストメニューの表示中にエラーが発生しました：\n{str(e)}")

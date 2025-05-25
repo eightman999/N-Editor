@@ -26,6 +26,8 @@ from utils.path_utils import get_data_dir
 # パーサーのインポート (コメントアウトを解除または追加)
 from parser.StateParser import StateParser
 from parser.StrategicRegionParser import StrategicRegionParser
+from parser.EffectParser import EffectParser
+from parser.NavalOOBParser import NavalOOBParser
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -103,6 +105,9 @@ class AppController(QObject):
         # 船体モデルの初期化
         self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
 
+        # 装備テンプレートの読み込み
+        self.equipment_templates = self.load_equipment_templates()
+
         # 初回起動時の処理
         if self.app_settings.get_setting("first_run"):
             self.on_first_run()
@@ -110,6 +115,50 @@ class AppController(QObject):
         # 現在のMODを確認
         self.current_mod = self.app_settings.get_current_mod()
         print(f"AppController初期化: current_mod = {self.current_mod}")
+
+    def load_equipment_templates(self):
+        """装備テンプレートの読み込み"""
+        try:
+            import yaml
+            template_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'equipments_templates.yml')
+            
+            if not os.path.exists(template_file):
+                print(f"警告: 装備テンプレートファイル '{template_file}' が見つかりません。")
+                return {}
+
+            with open(template_file, 'r', encoding='utf-8') as f:
+                templates = yaml.safe_load(f)
+                print(f"テンプレート読み込み完了: {len(templates)}カテゴリー")
+                for category, types in templates.items():
+                    print(f"カテゴリー '{category}': {len(types)}タイプ")
+                    for type_key, type_data in types.items():
+                        print(f"  - {type_key}: {type_data.get('display_name', 'N/A')}")
+
+            return templates
+        except Exception as e:
+            print(f"装備テンプレート読み込みエラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return {}
+
+    def get_equipment_template(self, equipment_type):
+        """装備タイプに対応するテンプレートを取得"""
+        try:
+            # 各カテゴリーを検索
+            for category in self.equipment_templates.values():
+                if isinstance(category, dict):
+                    # キー名で直接検索
+                    if equipment_type in category:
+                        return category[equipment_type]
+                    # display_nameで検索
+                    for type_key, type_data in category.items():
+                        if isinstance(type_data, dict) and 'display_name' in type_data:
+                            if type_data['display_name'] == equipment_type:
+                                return type_data
+            return None
+        except Exception as e:
+            print(f"テンプレート取得エラー: {e}")
+            return None
 
     def on_first_run(self):
         """初回起動時の処理"""
@@ -1165,7 +1214,7 @@ class AppController(QObject):
                 return design_list
 
             # MODの設計データディレクトリ
-            design_dir = os.path.join(current_mod["path"], "common", "units", "equipment")
+            design_dir = os.path.join(current_mod["path"], "common", "scripted_effect")
 
             if not os.path.exists(design_dir):
                 logger.warning(f"設計データディレクトリが見つかりません: {design_dir}")
@@ -1182,16 +1231,13 @@ class AppController(QObject):
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
 
-                    # 国家タグと設計データのパターンを検索
-                    pattern = r'(\w+)\s*=\s*{([^}]+)}'
-                    matches = re.findall(pattern, content)
+                    # EffectParserを使用して設計データをパース
+                    parser = EffectParser(content, filename=file_path)
+                    designs_by_country = parser.parse_designs()
 
-                    for match in matches:
-                        design_id = match[0]
-                        design_data = match[1]
-
-                        # 国家タグが一致するものをフィルタリング
-                        if f'country = {nation_tag}' in design_data:
+                    # 指定された国家の設計データを取得
+                    if nation_tag in designs_by_country:
+                        for design_id, design_data in designs_by_country[nation_tag].items():
                             design_list.append({
                                 'id': design_id,
                                 'name': design_id,
@@ -1222,14 +1268,21 @@ class AppController(QObject):
                 return formation_list
 
             # MODの編成データディレクトリ
-            formation_dir = os.path.join(current_mod["path"], "common", "units", "formations")
+            formation_dir = os.path.join(current_mod["path"], "history", "units")
 
             if not os.path.exists(formation_dir):
                 logger.warning(f"編成データディレクトリが見つかりません: {formation_dir}")
                 return formation_list
 
+            # 国家タグに基づくファイル名パターン
+            import re
+            patterns = [
+                f"{nation_tag}_naval_oob.txt",  # 標準的な命名規則
+                f"{nation_tag}_\\d{{4}}_(?:naval|Naval|Navy|navy)(?:_mtg)?\\.txt$"  # 年付きの命名規則
+            ]
+
             for filename in os.listdir(formation_dir):
-                if not filename.endswith('.txt'):
+                if not any(re.match(pattern, filename) for pattern in patterns):
                     continue
 
                 file_path = os.path.join(formation_dir, filename)
@@ -1239,22 +1292,18 @@ class AppController(QObject):
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
 
-                    # 国家タグと編成データのパターンを検索
-                    pattern = r'(\w+)\s*=\s*{([^}]+)}'
-                    matches = re.findall(pattern, content)
+                    # NavalOOBParserを使用して編成データをパース
+                    parser = NavalOOBParser(content)
+                    fleets = parser.extract_fleets()
 
-                    for match in matches:
-                        formation_id = match[0]
-                        formation_data = match[1]
-
-                        # 国家タグが一致するものをフィルタリング
-                        if f'country = {nation_tag}' in formation_data:
-                            formation_list.append({
-                                'id': formation_id,
-                                'name': formation_id,
-                                'data': formation_data
-                            })
-                            logger.info(f"編成データを追加: ID={formation_id}")
+                    # 艦隊データを編成リストに変換
+                    for fleet in fleets:
+                        formation_list.append({
+                            'id': fleet.get('name', ''),
+                            'name': fleet.get('name', ''),
+                            'data': fleet
+                        })
+                        logger.info(f"編成データを追加: ID={fleet.get('name', '')}")
 
                 except Exception as e:
                     logger.error(f"編成ファイル '{filename}' の読み込みエラー: {e}")
@@ -1378,3 +1427,190 @@ class AppController(QObject):
         except Exception as e:
             print(f"装備表示名取得中にエラーが発生しました: {e}")
             return equipment_type
+
+    def get_ships(self, nation_tag=None, ship_type=None):
+        """
+        艦艇データを取得
+
+        Args:
+            nation_tag (str, optional): 国家タグでフィルタリング
+            ship_type (str, optional): 艦種でフィルタリング
+
+        Returns:
+            list: 艦艇データのリスト
+        """
+        try:
+            ships = []
+            ships_dir = os.path.join(self.app_settings.data_dir, "ships")
+
+            if not os.path.exists(ships_dir):
+                return ships
+
+            for filename in os.listdir(ships_dir):
+                if not filename.endswith('.json'):
+                    continue
+
+                file_path = os.path.join(ships_dir, filename)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        ship_data = json.load(f)
+
+                    # フィルタリング
+                    if nation_tag and ship_data.get('nation') != nation_tag:
+                        continue
+                    if ship_type and ship_data.get('type') != ship_type:
+                        continue
+
+                    ships.append(ship_data)
+                except Exception as e:
+                    print(f"艦艇ファイル '{filename}' の読み込みエラー: {e}")
+
+            # 名前でソート
+            ships.sort(key=lambda x: x.get('name', ''))
+            return ships
+
+        except Exception as e:
+            print(f"艦艇データ取得中にエラーが発生しました: {e}")
+            return []
+
+    def save_ship(self, ship_data):
+        """
+        艦艇データを保存
+
+        Args:
+            ship_data (dict): 保存する艦艇データ
+
+        Returns:
+            bool: 保存成功時はTrue、失敗時はFalse
+        """
+        try:
+            # 保存先ディレクトリの作成
+            ships_dir = os.path.join(self.app_settings.data_dir, "ships")
+            os.makedirs(ships_dir, exist_ok=True)
+
+            # 艦艇ID（未設定の場合は生成）
+            ship_id = ship_data.get("id", "")
+            if not ship_id:
+                # 艦名から一意のIDを生成
+                base_id = ''.join(e for e in ship_data["name"] if e.isalnum())
+                ship_id = f"SHIP_{base_id}_{int(time.time())}"
+                ship_data["id"] = ship_id
+
+            # ファイル名は艦艇IDを使用
+            file_name = f"{ship_id}.json"
+            file_path = os.path.join(ships_dir, file_name)
+
+            # JSONに変換して保存
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(ship_data, f, ensure_ascii=False, indent=2)
+
+            print(f"艦艇データ '{ship_id}' を保存しました。")
+            return True
+
+        except Exception as e:
+            print(f"艦艇データの保存中にエラーが発生しました: {e}")
+            return False
+
+    def delete_ship(self, ship_id):
+        """
+        艦艇データを削除
+
+        Args:
+            ship_id (str): 削除する艦艇のID
+
+        Returns:
+            bool: 削除成功時はTrue、失敗時はFalse
+        """
+        try:
+            # 艦艇データを削除
+            ships_dir = os.path.join(self.app_settings.data_dir, "ships")
+            file_path = os.path.join(ships_dir, f"{ship_id}.json")
+
+            if not os.path.exists(file_path):
+                print(f"艦艇ID '{ship_id}' のデータが見つかりません。")
+                return False
+
+            # ファイルを削除
+            os.remove(file_path)
+            print(f"艦艇ID '{ship_id}' のデータを削除しました。")
+            return True
+
+        except Exception as e:
+            print(f"艦艇データ削除中にエラーが発生しました: {e}")
+            return False
+
+    def get_ship_types(self):
+        """
+        利用可能な艦種の一覧を取得
+
+        Returns:
+            List[str]: 艦種のリスト
+        """
+        return [
+            "戦艦", "巡洋戦艦", "重巡洋艦", "軽巡洋艦", "駆逐艦", "潜水艦",
+            "空母", "軽空母", "水上機母艦", "輸送艦", "補給艦"
+        ]
+
+    def refresh_mod_ships(self, nation_tag):
+        """MODから国家の艦艇データを更新"""
+        try:
+            ship_list = []
+            current_mod = self.get_current_mod()
+            logger.info(
+                f"MOD艦艇データの更新を開始: 国家タグ={nation_tag}, MOD={current_mod.get('name') if current_mod else 'None'}")
+
+            if not current_mod or not current_mod.get("path"):
+                logger.warning("MODが選択されていません")
+                return ship_list
+
+            # MODの編成データディレクトリ
+            naval_oob_dir = os.path.join(current_mod["path"], "history", "units")
+
+            if not os.path.exists(naval_oob_dir):
+                logger.warning(f"編成データディレクトリが見つかりません: {naval_oob_dir}")
+                return ship_list
+
+            # 国家タグに基づくファイル名パターン
+            import re
+            patterns = [
+                f"{nation_tag}_naval_oob.txt",  # 標準的な命名規則
+                f"{nation_tag}_\\d{{4}}_(?:naval|Naval|Navy|navy)(?:_mtg)?\\.txt$"  # 年付きの命名規則
+            ]
+
+            for filename in os.listdir(naval_oob_dir):
+                if not any(re.match(pattern, filename) for pattern in patterns):
+                    continue
+
+                file_path = os.path.join(naval_oob_dir, filename)
+                logger.info(f"艦艇ファイルを処理中: {file_path}")
+
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    # NavalOOBParserを使用して艦艇データをパース
+                    parser = NavalOOBParser(content)
+                    ships = parser.extract_ships()
+
+                    # 艦艇データをリストに変換
+                    for ship in ships:
+                        ship_list.append({
+                            'id': ship.get('name', ''),
+                            'name': ship.get('name', ''),
+                            'type': ship.get('type', ''),
+                            'design': ship.get('design', ''),
+                            'fleet': ship.get('fleet', ''),
+                            'task_force': ship.get('task_force', ''),
+                            'data': ship
+                        })
+                        logger.info(f"艦艇データを追加: ID={ship.get('name', '')}, 設計={ship.get('design', '')}, 所属艦隊={ship.get('fleet', '')}")
+
+                except Exception as e:
+                    logger.error(f"艦艇ファイル '{filename}' の読み込みエラー: {e}")
+
+            logger.info(f"MOD艦艇データの更新完了: {len(ship_list)}件の艦艇を処理")
+            return ship_list
+
+        except Exception as e:
+            logger.error(f"MOD艦艇データ更新中にエラーが発生しました: {e}")
+            return []

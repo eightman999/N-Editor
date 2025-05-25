@@ -76,7 +76,7 @@ def t_COMMENT(t):
     global current_override_name
     comment = t.value[1:].strip()  # '#'を除去して前後の空白を削除
     if comment.startswith('@override.name='):
-        current_override_name = comment[15:]  # '@override.name='の長さは15
+        current_override_name = comment[40:]# '@override.name='の長さは15
     return None
 
 
@@ -305,6 +305,70 @@ class NavalOOBParser:
             return pride_ships
         except Exception as e:
             raise ParserError(f"Failed to extract pride ships: {e}")
+
+    def extract_ships(self):
+        """
+        パースされたデータから艦艇情報を抽出する
+
+        Returns:
+            list: 艦艇データのリスト
+        """
+        try:
+            fleets = self.extract_fleets()
+            ships = []
+
+            for fleet in fleets:
+                # 艦隊名のオーバーライドを確認
+                fleet_name = fleet.get('name', '')
+                if isinstance(fleet_name, dict) and 'override' in fleet_name:
+                    fleet_name = fleet_name['override']
+
+                task_forces = fleet.get('task_force', [])
+                if isinstance(task_forces, dict):
+                    task_forces = [task_forces]
+
+                for task_force in task_forces:
+                    # 任務部隊名のオーバーライドを確認
+                    task_force_name = task_force.get('name', '')
+                    if isinstance(task_force_name, dict) and 'override' in task_force_name:
+                        task_force_name = task_force_name['override']
+
+                    fleet_ships = task_force.get('ship', [])
+                    if isinstance(fleet_ships, dict):
+                        fleet_ships = [fleet_ships]
+
+                    for ship in fleet_ships:
+                        # 艦艇名のオーバーライドを確認
+                        ship_name = ship.get('name', '')
+                        if isinstance(ship_name, dict) and 'override' in ship_name:
+                            ship_name = ship_name['override']
+
+                        # 設計名の取得（equipment内のversion_name）
+                        design_name = ''
+                        equipment = ship.get('equipment', {})
+                        for hull_key, hull_data in equipment.items():
+                            if isinstance(hull_data, dict):
+                                version_name = hull_data.get('version_name', '')
+                                if isinstance(version_name, dict) and 'override' in version_name:
+                                    version_name = version_name['override']
+                                if version_name:
+                                    design_name = version_name
+                                    break
+
+                        # 艦艇データを構造化
+                        ship_data = {
+                            'name': ship_name,
+                            'type': ship.get('definition', ''),
+                            'design': design_name,
+                            'fleet': fleet_name,
+                            'task_force': task_force_name,
+                            'data': ship
+                        }
+                        ships.append(ship_data)
+
+            return ships
+        except Exception as e:
+            raise ParserError(f"Failed to extract ship data: {e}")
 
 # パーサーの構築
 # Find the absolute path to the directory containing this script
