@@ -284,10 +284,14 @@ class AppController(QObject):
         StateParserはファイルパスを受け取り、解析結果の辞書を返すと仮定します。
         """
         try:
-            parser = StateParser()
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            parser = StateParser(content) # 修正: ファイル内容をコンストラクタに渡す
             # StateParserのparse_fileメソッドが、そのファイル内の全ての州データを
-            # {state_id: state_data} の形式で返すことを想定
-            parsed_data = parser.parse_file(file_path)
+            # {state_id: state_data} の形式で返すことを想定 (または、コンストラクタでパースが完了し、
+            # ゲッターメソッドでデータが取得できることを想定)
+            # ここでは、StateParserがparse()メソッドを持ち、それが解析結果を返すと仮定
+            parsed_data = parser.parse() # 修正: parse() メソッドを呼び出す
             return parsed_data
         except Exception as e:
             logger.error(f"Error parsing state file {file_path}: {e}", exc_info=True)
@@ -299,10 +303,14 @@ class AppController(QObject):
         StrategicRegionParserはファイルパスを受け取り、解析結果の辞書を返すと仮定します。
         """
         try:
-            parser = StrategicRegionParser()
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            parser = StrategicRegionParser(content) # 修正: ファイル内容をコンストラクタに渡す
             # StrategicRegionParserのparse_fileメソッドが、そのファイル内の全ての戦略地域データを
-            # {region_id: region_data} の形式で返すことを想定
-            parsed_data = parser.parse_file(file_path)
+            # {region_id: region_data} の形式で返すことを想定 (または、コンストラクタでパースが完了し、
+            # ゲッターメソッドでデータが取得できることを想定)
+            # ここでは、StrategicRegionParserがparse()メソッドを持ち、それが解析結果を返すと仮定
+            parsed_data = parser.parse() # 修正: parse() メソッドを呼び出す
             return parsed_data
         except Exception as e:
             logger.error(f"Error parsing strategic region file {file_path}: {e}", exc_info=True)
@@ -1116,7 +1124,7 @@ class AppController(QObject):
                 if not filename.endswith('.json'):
                     continue
 
-                file_path = os.path.join(design_dir, file_name)
+                file_path = os.path.join(design_dir, filename)
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         design_data = json.load(f)
