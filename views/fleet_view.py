@@ -161,6 +161,8 @@ class FleetView(QWidget):
                 border: 1px solid #cccccc;
             }
         """)
+        # ダブルクリックイベントを追加
+        self.port_tree.itemDoubleClicked.connect(self.on_port_item_double_clicked)
 
         # 編成エリアに追加
         formation_layout.addWidget(self.fleet_tree, 1)
@@ -249,6 +251,8 @@ class FleetView(QWidget):
     def connect_signals(self):
         self.fleet_tree.itemDoubleClicked.connect(self.on_item_double_clicked)
         self.design_list.itemDoubleClicked.connect(self.on_design_double_clicked)
+        self.fleet_tree.itemClicked.connect(self.on_fleet_item_clicked)
+        self.port_tree.itemClicked.connect(self.on_port_item_clicked)
 
         # ドラッグ&ドロップのシグナル接続
         self.design_list.mouseMoveEvent = self.design_list_mouse_move_event
@@ -692,6 +696,25 @@ class FleetView(QWidget):
         source_type = source_data.get("type")
         target_type = target_data.get("type")
 
+        # 階層の深さをチェック
+        source_depth = self.get_item_depth(source_item)
+        target_depth = self.get_item_depth(target_item)
+
+        # 艦隊は最上位のみ
+        if source_type == "fleet" and source_depth != 0:
+            event.ignore()
+            return
+
+        # 任務部隊は艦隊の直下のみ
+        if source_type == "task_force" and source_depth != 1:
+            event.ignore()
+            return
+
+        # 艦艇は任務部隊の直下のみ
+        if source_type == "ship" and source_depth != 2:
+            event.ignore()
+            return
+
         # 艦隊には任務部隊のみ追加可能
         if target_type == "fleet" and source_type != "task_force":
             event.ignore()
@@ -702,7 +725,25 @@ class FleetView(QWidget):
             event.ignore()
             return
 
+        # 任務部隊の中に任務部隊を入れられないように制限
+        if target_type == "task_force" and source_type == "task_force":
+            event.ignore()
+            return
+
+        # 艦艇を艦隊に直接追加できないように制限
+        if target_type == "fleet" and source_type == "ship":
+            event.ignore()
+            return
+
         event.acceptProposedAction()
+
+    def get_item_depth(self, item):
+        """アイテムの階層の深さを取得"""
+        depth = 0
+        while item.parent():
+            depth += 1
+            item = item.parent()
+        return depth
 
     def fleet_tree_drop_event(self, event):
         """艦隊ツリーのドロップイベント"""
@@ -742,9 +783,43 @@ class FleetView(QWidget):
                     source_type = source_data.get("type")
                     target_type = target_data.get("type")
 
+                    # 階層の深さをチェック
+                    source_depth = self.get_item_depth(source_item)
+                    target_depth = self.get_item_depth(target_item)
+
+                    # 艦隊は最上位のみ
+                    if source_type == "fleet" and source_depth != 0:
+                        QMessageBox.warning(self, "警告", "艦隊は最上位にのみ配置できます。")
+                        event.ignore()
+                        return
+
+                    # 任務部隊は艦隊の直下のみ
+                    if source_type == "task_force" and source_depth != 1:
+                        QMessageBox.warning(self, "警告", "任務部隊は艦隊の直下にのみ配置できます。")
+                        event.ignore()
+                        return
+
+                    # 艦艇は任務部隊の直下のみ
+                    if source_type == "ship" and source_depth != 2:
+                        QMessageBox.warning(self, "警告", "艦艇は任務部隊の直下にのみ配置できます。")
+                        event.ignore()
+                        return
+
                     # 移動の制限を確認
                     if (target_type == "fleet" and source_type == "task_force") or \
                             (target_type == "task_force" and source_type == "ship"):
+                        # 任務部隊の中に任務部隊を入れられないように制限
+                        if target_type == "task_force" and source_type == "task_force":
+                            QMessageBox.warning(self, "警告", "任務部隊の中に任務部隊を入れることはできません。")
+                            event.ignore()
+                            return
+
+                        # 艦艇を艦隊に直接追加できないように制限
+                        if target_type == "fleet" and source_type == "ship":
+                            QMessageBox.warning(self, "警告", "艦艇は艦隊に直接追加できません。")
+                            event.ignore()
+                            return
+
                         # 移動を実行（子要素を含めて）
                         self.move_tree_item(source_item, target_item)
                         event.acceptProposedAction()
@@ -843,14 +918,70 @@ class FleetView(QWidget):
                 item = QTreeWidgetItem(selected)
                 item.setText(0, f"任務部隊: {name} (Province: {province_id})")
                 item.setData(0, Qt.UserRole, {"type": "task_force", "name": name, "province_id": province_id})
+                # 艦隊を展開
+                selected.setExpanded(True)
             except ValueError:
                 QMessageBox.warning(self, "警告", "Province IDは数値で入力してください。")
 
     def on_item_double_clicked(self, item, column):
         """ツリーアイテムがダブルクリックされた時の処理"""
         data = item.data(0, Qt.UserRole)
-        if data and data.get("type") in ["fleet", "task_force"]:
-            QMessageBox.information(self, "情報", f"選択: {data['name']}")
+        if not data:
+            return
+
+        item_type = data.get("type")
+        if item_type == "fleet":
+            # 艦隊の編集
+            dialog = FleetDialog(self)
+            dialog.name_edit.setText(data["name"])
+            dialog.province_edit.setText(str(data["province_id"]))
+            if dialog.exec_():
+                name, province_id = dialog.get_data()
+                try:
+                    province_id = int(province_id)
+                    item.setText(0, f"艦隊: {name} (Province: {province_id})")
+                    item.setData(0, Qt.UserRole, {
+                        "type": "fleet",
+                        "name": name,
+                        "province_id": province_id
+                    })
+                except ValueError:
+                    QMessageBox.warning(self, "警告", "Province IDは数値で入力してください。")
+
+        elif item_type == "task_force":
+            # 任務部隊の編集
+            dialog = TaskForceDialog(self)
+            dialog.name_edit.setText(data["name"])
+            dialog.province_edit.setText(str(data["province_id"]))
+            if dialog.exec_():
+                name, province_id = dialog.get_data()
+                try:
+                    province_id = int(province_id)
+                    item.setText(0, f"任務部隊: {name} (Province: {province_id})")
+                    item.setData(0, Qt.UserRole, {
+                        "type": "task_force",
+                        "name": name,
+                        "province_id": province_id
+                    })
+                except ValueError:
+                    QMessageBox.warning(self, "警告", "Province IDは数値で入力してください。")
+
+        elif item_type == "ship":
+            # 艦艇の編集
+            dialog = ShipDialog(self)
+            dialog.name_edit.setText(data["name"])
+            dialog.exp_spin.setValue(data["exp"])
+            dialog.pride_check.setChecked(data["is_pride"])
+            if dialog.exec_():
+                name, exp, is_pride = dialog.get_data()
+                item.setText(0, f"艦艇: {name} (Exp: {exp:.2f}, Pride: {is_pride})")
+                item.setData(0, Qt.UserRole, {
+                    "type": "ship",
+                    "name": name,
+                    "exp": exp,
+                    "is_pride": is_pride,
+                    "design": data["design"]
+                })
 
     def on_design_double_clicked(self, item):
         """設計アイテムがダブルクリックされた時の処理"""
@@ -883,6 +1014,8 @@ class FleetView(QWidget):
                                 "is_pride": is_pride,
                                 "design": design_data
                             })
+                            # 任務部隊を展開
+                            selected.setExpanded(True)
                     else:
                         QMessageBox.warning(self, "警告", "任務部隊を選択してください。")
                 else:
@@ -1444,6 +1577,34 @@ class FleetView(QWidget):
             
             QMessageBox.information(self, "艦隊情報", details)
 
+    def on_fleet_item_clicked(self, item, column):
+        """艦隊ツリーのアイテムがクリックされた時の処理"""
+        data = item.data(0, Qt.UserRole)
+        if data and "province_id" in data:
+            # 地図を該当のプロビンスに移動
+            if MAP_VIEWER_AVAILABLE and self.map_widget:
+                self.map_widget.move_to_province(data["province_id"])
+
+    def on_port_item_clicked(self, item, column):
+        """港湾ツリーのアイテムがクリックされた時の処理"""
+        data = item.data(0, Qt.UserRole)
+        if data and "province_id" in data:
+            # 地図を該当のプロビンスに移動
+            if MAP_VIEWER_AVAILABLE and self.map_widget:
+                self.map_widget.move_to_province(data["province_id"])
+
+    def on_port_item_double_clicked(self, item, column):
+        """港湾ツリーのアイテムがダブルクリックされた時の処理"""
+        data = item.data(0, Qt.UserRole)
+        if data and "province_id" in data:
+            # 地図を該当のプロビンスに移動
+            if MAP_VIEWER_AVAILABLE and self.map_widget:
+                province_id = data["province_id"]
+                self.logger.info(f"港湾一覧からプロビンス {province_id} に移動")
+                self.map_widget.move_to_province(province_id)
+                # ズームイン
+                self.map_widget.scale(2.0, 2.0)
+
 
 # ダイアログクラス群
 class FleetDialog(QDialog):
@@ -1465,15 +1626,38 @@ class FleetDialog(QDialog):
         ok_button = QPushButton("OK")
         cancel_button = QPushButton("キャンセル")
 
-        ok_button.clicked.connect(self.accept)
+        ok_button.clicked.connect(self.validate_and_accept)
         cancel_button.clicked.connect(self.reject)
 
         buttons.addWidget(ok_button)
         buttons.addWidget(cancel_button)
         layout.addRow(buttons)
 
+    def validate_and_accept(self):
+        """入力値の検証を行い、問題がなければダイアログを閉じる"""
+        name = self.name_edit.text().strip()
+        province_id = self.province_edit.text().strip()
+
+        if not name:
+            QMessageBox.warning(self, "警告", "艦隊名を入力してください。")
+            return
+
+        if not province_id:
+            QMessageBox.warning(self, "警告", "Province IDを入力してください。")
+            return
+
+        try:
+            province_id = int(province_id)
+            if province_id <= 0:
+                raise ValueError
+        except ValueError:
+            QMessageBox.warning(self, "警告", "Province IDは正の整数で入力してください。")
+            return
+
+        self.accept()
+
     def get_data(self):
-        return self.name_edit.text(), self.province_edit.text()
+        return self.name_edit.text().strip(), self.province_edit.text().strip()
 
 
 class TaskForceDialog(QDialog):
@@ -1495,15 +1679,38 @@ class TaskForceDialog(QDialog):
         ok_button = QPushButton("OK")
         cancel_button = QPushButton("キャンセル")
 
-        ok_button.clicked.connect(self.accept)
+        ok_button.clicked.connect(self.validate_and_accept)
         cancel_button.clicked.connect(self.reject)
 
         buttons.addWidget(ok_button)
         buttons.addWidget(cancel_button)
         layout.addRow(buttons)
 
+    def validate_and_accept(self):
+        """入力値の検証を行い、問題がなければダイアログを閉じる"""
+        name = self.name_edit.text().strip()
+        province_id = self.province_edit.text().strip()
+
+        if not name:
+            QMessageBox.warning(self, "警告", "任務部隊名を入力してください。")
+            return
+
+        if not province_id:
+            QMessageBox.warning(self, "警告", "Province IDを入力してください。")
+            return
+
+        try:
+            province_id = int(province_id)
+            if province_id <= 0:
+                raise ValueError
+        except ValueError:
+            QMessageBox.warning(self, "警告", "Province IDは正の整数で入力してください。")
+            return
+
+        self.accept()
+
     def get_data(self):
-        return self.name_edit.text(), self.province_edit.text()
+        return self.name_edit.text().strip(), self.province_edit.text().strip()
 
 
 class ShipDialog(QDialog):
@@ -1530,12 +1737,22 @@ class ShipDialog(QDialog):
         ok_button = QPushButton("OK")
         cancel_button = QPushButton("キャンセル")
 
-        ok_button.clicked.connect(self.accept)
+        ok_button.clicked.connect(self.validate_and_accept)
         cancel_button.clicked.connect(self.reject)
 
         buttons.addWidget(ok_button)
         buttons.addWidget(cancel_button)
         layout.addRow(buttons)
 
+    def validate_and_accept(self):
+        """入力値の検証を行い、問題がなければダイアログを閉じる"""
+        name = self.name_edit.text().strip()
+
+        if not name:
+            QMessageBox.warning(self, "警告", "艦名を入力してください。")
+            return
+
+        self.accept()
+
     def get_data(self):
-        return self.name_edit.text(), self.exp_spin.value(), self.pride_check.isChecked()
+        return self.name_edit.text().strip(), self.exp_spin.value(), self.pride_check.isChecked()

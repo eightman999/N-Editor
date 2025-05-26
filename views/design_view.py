@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout,
                              QLabel, QLineEdit, QComboBox, QPushButton, QGroupBox,
                              QDialog, QListWidget, QTableWidget, QTableWidgetItem,
-                             QScrollArea, QMessageBox, QHeaderView, QListWidgetItem)
+                             QScrollArea, QMessageBox, QHeaderView, QListWidgetItem,
+                             QCheckBox)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QPalette
 from utils.path_utils import get_data_dir
@@ -1251,15 +1252,20 @@ class DesignView(QWidget):
             layout = QVBoxLayout()
 
             # 説明ラベル
-            description = QLabel("複数のカテゴリーを選択できます（Ctrlキーを押しながらクリック）")
+            description = QLabel("複数のカテゴリーを選択できます")
             layout.addWidget(description)
 
-            # カテゴリーリスト
-            category_list = QListWidget()
-            category_list.setSelectionMode(QListWidget.MultiSelection)
+            # スクロールエリアを作成
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+            scroll_widget = QWidget()
+            scroll_layout = QVBoxLayout(scroll_widget)
 
             # 現在選択されているカテゴリー（キー名）を取得
             current_categories = self.slot_category_selections.get(slot_type, [])
+
+            # カテゴリーのチェックボックスを格納する辞書
+            category_checkboxes = {}
 
             # カテゴリーを追加
             if self.app_controller:
@@ -1267,12 +1273,12 @@ class DesignView(QWidget):
                 type_mapping = self.app_controller.get_equipment_type_mapping()
 
                 for key, display_name in type_mapping.items():
-                    item = QListWidgetItem(display_name)
-                    item.setData(Qt.UserRole, key)  # キー名を内部データとして保存
-                    category_list.addItem(item)
-                    # 現在選択されているカテゴリー（キー名ベース）を選択状態にする
-                    if key in current_categories:
-                        item.setSelected(True)
+                    checkbox = QCheckBox(display_name)
+                    checkbox.setProperty("category_key", key)  # キー名をプロパティとして保存
+                    # 現在選択されているカテゴリーをチェック状態にする
+                    checkbox.setChecked(key in current_categories)
+                    scroll_layout.addWidget(checkbox)
+                    category_checkboxes[key] = checkbox
             else:
                 # デフォルトのカテゴリー
                 default_categories = [
@@ -1284,16 +1290,16 @@ class DesignView(QWidget):
                     "機関", "増設バルジ(中型艦)", "増設バルジ(大型艦)", "格納庫", "その他"
                 ]
 
-                # デフォルトの場合はキー名も表示名も同じとして扱う
                 for category in default_categories:
-                    item = QListWidgetItem(category)
-                    item.setData(Qt.UserRole, category)  # この場合はキー名も表示名と同じ
-                    category_list.addItem(item)
-                    # 現在選択されているカテゴリーを選択状態にする
-                    if category in current_categories:
-                        item.setSelected(True)
+                    checkbox = QCheckBox(category)
+                    checkbox.setProperty("category_key", category)
+                    checkbox.setChecked(category in current_categories)
+                    scroll_layout.addWidget(checkbox)
+                    category_checkboxes[category] = checkbox
 
-            layout.addWidget(category_list)
+            # スクロールエリアにウィジェットを設定
+            scroll_area.setWidget(scroll_widget)
+            layout.addWidget(scroll_area)
 
             # 選択状態の表示
             selection_info = QLabel("選択中のカテゴリー: 0")
@@ -1301,10 +1307,13 @@ class DesignView(QWidget):
 
             # 選択状態が変更されたときの処理
             def update_selection_info():
-                selected_count = len(category_list.selectedItems())
+                selected_count = sum(1 for cb in category_checkboxes.values() if cb.isChecked())
                 selection_info.setText(f"選択中のカテゴリー: {selected_count}")
 
-            category_list.itemSelectionChanged.connect(update_selection_info)
+            # 各チェックボックスの状態変更を監視
+            for checkbox in category_checkboxes.values():
+                checkbox.stateChanged.connect(update_selection_info)
+
             # 初期選択状態を反映
             update_selection_info()
 
@@ -1315,16 +1324,15 @@ class DesignView(QWidget):
 
             def on_ok():
                 # 選択されたカテゴリーのキー名を取得
-                selected_categories = []
-                for item in category_list.selectedItems():
-                    key = item.data(Qt.UserRole)
-                    if key:
-                        selected_categories.append(key)
+                selected_categories = [
+                    key for key, checkbox in category_checkboxes.items()
+                    if checkbox.isChecked()
+                ]
 
                 # self.slot_category_selectionsにキー名を保存
                 self.slot_category_selections[slot_type] = selected_categories
 
-                # カテゴリーボタンのテキストは表示名を使用して更新
+                # カテゴリーボタンのテキストを更新
                 if slot_type in self.slot_category_combos:
                     button = self.slot_category_combos[slot_type]
                     if len(selected_categories) == 0:

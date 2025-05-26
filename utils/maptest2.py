@@ -576,6 +576,11 @@ class MapViewer(QGraphicsView):
             print("マップデータが読み込まれていません")
             return
 
+        # 現在の表示位置を保存
+        current_center = self.map_image_item.pos() if self.map_image_item else None
+        current_scale = self.map_image_item.scale() if self.map_image_item else 1.0
+        current_rotation = self.map_image_item.rotation() if self.map_image_item else 0.0
+
         self.logger.debug(
             f"render_map called: current_filter={self.current_filter}, show_fleet_info={self.show_fleet_info}")
         self.logger.debug(f"艦隊データの状態: {self.fleet_data}")
@@ -656,13 +661,17 @@ class MapViewer(QGraphicsView):
         # シーンをクリアし、新しいマップアイテムを追加
         self.scene.clear()
         self.map_image_item = self.scene.addPixmap(current_pixmap)
-        # シーンの矩形をマップのサイズに設定
-        self.setSceneRect(QRectF(0, 0, self.original_width, self.original_height))
-        # ビューポートにマップ全体をフィットさせる
-        self.fitInView(self.sceneRect(), Qt.KeepAspectRatio)
-
-        # 初期ズームレベル
-        self.scale(4.0, 4.0)
+        
+        # 保存した表示位置を復元
+        if current_center is not None:
+            self.map_image_item.setPos(current_center)
+            self.map_image_item.setScale(current_scale)
+            self.map_image_item.setRotation(current_rotation)
+        else:
+            # 初回表示時は通常の初期化処理
+            self.setSceneRect(QRectF(0, 0, self.original_width, self.original_height))
+            self.fitInView(self.sceneRect(), Qt.KeepAspectRatio)
+            self.scale(4.0, 4.0)
 
         # マップアイテムの位置を更新してループ描画を適用
         self.update_map_item_position()
@@ -1285,6 +1294,40 @@ class MapViewer(QGraphicsView):
     def get_state_owner(self, state_id):
         """ステートの所有者を取得"""
         return self.state_owners.get(state_id)
+
+    def move_to_province(self, province_id):
+        """指定されたプロビンスIDの位置に地図を移動する"""
+        if province_id in self.province_centroids and self.province_centroids[province_id] is not None:
+            # プロビンスの中心座標を取得
+            center_x, center_y = self.province_centroids[province_id]
+            
+            # アニメーションを停止
+            if hasattr(self, '_animation') and self._animation.state() == QPropertyAnimation.Running:
+                self._animation.stop()
+            
+            # 現在のスケールを考慮してスクロール位置を計算
+            current_scale = self.transform().m11()  # 現在のスケールを取得
+            
+            # ビューポートの中心を計算
+            viewport_center_x = self.viewport().width() / 2
+            viewport_center_y = self.viewport().height() / 2
+            
+            # 中央の画像の位置に調整（画像幅を考慮）
+            adjusted_x = center_x + self.original_width  # 中央の画像の位置に調整
+            
+            # スケールを考慮したスクロール位置を計算
+            target_x = (adjusted_x * current_scale) - viewport_center_x
+            target_y = (center_y * current_scale) - viewport_center_y
+            
+            # スクロール位置を設定
+            self.scrollOffsetX = target_x
+            self.verticalScrollBar().setValue(int(target_y))
+            
+            self.logger.info(f"プロビンス {province_id} の中心 ({adjusted_x}, {center_y}) に移動 (スケール: {current_scale})")
+            return True
+        else:
+            self.logger.warning(f"プロビンス {province_id} の中心座標が見つかりません")
+            return False
 
     def toggle_mod_fleets(self):
         """MOD内の艦隊表示を切り替え"""

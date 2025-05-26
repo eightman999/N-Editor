@@ -140,11 +140,21 @@ class NavalDesignSystem(QMainWindow):
     def load_config(self):
         """設定ファイルを読み込む"""
         config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'config.json')
+        version_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'version.txt')
+
+        # バージョン情報の読み込み
+        version = "0.0.0"
+        try:
+            if os.path.exists(version_path):
+                with open(version_path, 'r', encoding='utf-8') as f:
+                    version = f.read().strip()
+        except Exception as e:
+            print(f"バージョンファイルの読み込みに失敗しました: {e}")
 
         # デフォルト設定
         self.config = {
             "app_name": "Naval Design System",
-            "version": "β0.0.1",
+            "version": f"β{version}",
             "display": {
                 "width": 1080,
                 "height": 720,
