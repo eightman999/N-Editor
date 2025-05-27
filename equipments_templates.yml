@@ -528,6 +528,7 @@ other_elements:
         tungsten: "integer"
         rubber: "integer"
     specific_elements:
+      is_large: "bool"
       max_capacity: "integer (機)"
   medium_bulge:
     display_name: "中型バルジ"

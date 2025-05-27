@@ -1,0 +1,21 @@
+id,japanese,english
+build_cost_ic,生産コスト,Production Cost
+manpower,人員,Manpower
+reliability,信頼性,Reliability
+naval_speed,最大速度,Max Speed
+lg_armor_piercing,軽砲装甲貫通,Light gun armor piercing
+lg_attack,軽砲攻撃力,Light gun attack
+hg_armor_piercing,重砲装甲貫通,Heavy gun armor piercing
+hg_attack,重砲攻撃力,Heavy gun attack
+torpedo_attack,魚雷攻撃力,Torpedo attack
+anti_air_attack,対空攻撃力,Anti-air
+surface_detection,水上探知,Surface detection
+sub_attack,対潜攻撃力,Anti-submarine attack
+sub_detection,潜水艦探知,Sub detection
+surface_visibility,水上視認性,Surface Visibility
+sub_visibility,潜水艦視認性,Sub Visibility
+naval_range,航続距離,Naval Range
+port_capacity_usage,港湾容量使用,Port capacity usage
+search_and_destroy_coordination,捜索撃滅協調,Search and Destroy Coordination
+convoy_raiding_coordination,通商破壊協調,Convoy Raiding Coordination
+carrier_size,空母サイズ,Carrier Size

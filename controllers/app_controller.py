@@ -6,6 +6,7 @@ import json
 import logging
 from pathlib import Path
 import concurrent.futures # 追加: マルチスレッド処理用
+from typing import List, Dict, Any
 
 from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QTableWidget, QHeaderView, QTableWidgetItem, QHBoxLayout, \
     QPushButton
@@ -28,6 +29,7 @@ from parser.StateParser import StateParser
 from parser.StrategicRegionParser import StrategicRegionParser
 from parser.EffectParser import EffectParser
 from parser.NavalOOBParser import NavalOOBParser
+from utils.data_loaders import load_status_definitions, get_default_status_definitions
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -44,6 +46,7 @@ class Worker(QRunnable):
         self.args = args
         self.kwargs = kwargs
         self.signals = WorkerSignals() # 処理結果を通知するためのシグナル
+        self.status_definitions = self._load_status_definitions()
 
     @pyqtSlot()
     def run(self):
@@ -61,6 +64,79 @@ class Worker(QRunnable):
             self.signals.error.emit(str(e))
         finally:
             self.signals.finished.emit() # 処理完了を通知
+
+    def _load_status_definitions(self) -> List[Dict[str, str]]:
+        """ステータス定義を読み込む"""
+        try:
+            # configディレクトリのパスを取得
+            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            config_dir = os.path.join(root_dir, 'config')
+            os.makedirs(config_dir, exist_ok=True)
+
+            csv_file = os.path.join(config_dir, 'status_definitions.csv')
+            return load_status_definitions(csv_file)
+
+        except (FileNotFoundError, ValueError) as e:
+            print(f"ステータス定義読み込みエラー: {e}")
+            print("デフォルト定義を使用します")
+            return get_default_status_definitions()
+
+    def get_all_status_definitions(self) -> List[Dict[str, str]]:
+        """全ステータス定義を取得"""
+        return self.status_definitions
+
+    def get_design_stats(self, design_data: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        設計データから実際のステータス値を取得
+
+        Args:
+            design_data: 設計データ辞書
+
+        Returns:
+            ステータスID -> 値の辞書
+        """
+        stats = {}
+
+        # 現時点では計算ロジックは未実装のため、ダミー値を返す
+        for stat_def in self.status_definitions:
+            stat_id = stat_def['id']
+            # 実装時は実際の計算ロジックに置き換える
+            stats[stat_id] = self._calculate_stat_value(design_data, stat_id)
+
+        return stats
+
+    def _calculate_stat_value(self, design_data: Dict[str, Any], stat_id: str) -> Any:
+        """
+        個別のステータス値を計算（将来実装予定）
+
+        現時点ではダミー値を返す
+        """
+        # ダミー値のマッピング
+        dummy_values = {
+            'build_cost_ic': 0.4,
+            'manpower': 300,
+            'reliability': 0.9,
+            'naval_speed': 28,
+            'lg_armor_piercing': 12,
+            'lg_attack': 18,
+            'hg_armor_piercing': 25,
+            'hg_attack': 12,
+            'torpedo_attack': 1,
+            'anti_air_attack': 5,
+            'surface_detection': 12,
+            'sub_attack': 10,
+            'sub_detection': 5,
+            'surface_visibility': 25,
+            'sub_visibility': 20,
+            'naval_range': 3000,
+            'port_capacity_usage': 1,
+            'search_and_destroy_coordination': 0.1,
+            'convoy_raiding_coordination': 0.1,
+            'carrier_size': 0
+        }
+
+        return dummy_values.get(stat_id, 0)
+
 
 class WorkerSignals(QObject):
     """
