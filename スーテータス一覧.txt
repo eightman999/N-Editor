@@ -19,3 +19,4 @@ naval_range = 3000                      # Naval Range
 port_capacity_usage = 1                 # Port capacity usage
 search_and_destroy_coordination = 0.1   # ?
 convoy_raiding_coordination = 0.1       # ?
+carrier_size = 0               # Carrier Size

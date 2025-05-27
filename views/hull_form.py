@@ -253,9 +253,9 @@ class HullForm(QWidget):
 
         # 船殻構造
         self.hull_structure_combo = QComboBox()
-        hull_structures = ["なし", "ライト", "ミディアム", "ヘビー", "スーパーヘビー", "ウルトラヘビー", "マキシマムヘビー"]
+        hull_structures = ["なし", "中世型", "近代型", "WWI型", "戦間期型", "WWII型", "戦後前期型", "現代型"]
         self.hull_structure_combo.addItems(hull_structures)
-        self.hull_structure_combo.setCurrentIndex(2)  # デフォルトはミディアム
+        self.hull_structure_combo.setCurrentIndex(2)  # デフォルトは近代型
         defense_layout.addRow("船殻構造:", self.hull_structure_combo)
 
         # 装甲種別
@@ -378,13 +378,14 @@ class HullForm(QWidget):
 
         # 船殻構造のマッピング
         hull_structure_mapping = {
-            0: 0.0,    # なし
-            1: 0.8,    # ライト
-            2: 1.0,    # ミディアム
-            3: 1.3,    # ヘビー
-            4: 1.5,    # スーパーヘビー
-            5: 1.75,   # ウルトラヘビー
-            6: 2.0     # マキシマムヘビー
+            0: 0,    # なし
+            1: 1,    # 中世型
+            2: 2,    # 近代型
+            3: 3,    # WWI型
+            4: 4,    # 戦間期型
+            5: 5,    # WWII型
+            6: 6,    # 戦後前期型
+            7: 7     # 現代型
         }
 
         # 装甲種別のマッピング
@@ -482,21 +483,22 @@ class HullForm(QWidget):
         self.armor_min_spin.setValue(float(data.get("armor_min", 0)))
 
         # 船殻構造
-        hull_structure = data.get("hull_structure", "ミディアム")
+        hull_structure = data.get("hull_structure", "近代型")
         hull_structure_index = self.hull_structure_combo.findText(hull_structure)
         if hull_structure_index >= 0:
             self.hull_structure_combo.setCurrentIndex(hull_structure_index)
         else:
             # 数値から対応するインデックスを探す
-            hull_id = float(data.get("hull_structure_id", 1.0))
+            hull_id = float(data.get("hull_structure_id", 2.0))
             hull_mapping_reverse = {
-                0.0: 0,  # なし
-                0.8: 1,  # ライト
-                1.0: 2,  # ミディアム
-                1.3: 3,  # ヘビー
-                1.5: 4,  # スーパーヘビー
-                1.75: 5, # ウルトラヘビー
-                2.0: 6   # マキシマムヘビー
+                0: 0,  # なし
+                1: 1,  # 中世型
+                2: 2,  # 近代型
+                3: 3,  # WWI型
+                4: 4,  # 戦間期型
+                5: 5,  # WWII型
+                6: 6,  # 戦後前期型
+                7: 7   # 現代型
             }
             self.hull_structure_combo.setCurrentIndex(hull_mapping_reverse.get(hull_id, 2))
 
@@ -554,7 +556,7 @@ class HullForm(QWidget):
 
         self.armor_max_spin.setValue(0)
         self.armor_min_spin.setValue(0)
-        self.hull_structure_combo.setCurrentIndex(2)  # ミディアム
+        self.hull_structure_combo.setCurrentIndex(2)  # 近代型
         self.armor_type_combo.setCurrentIndex(3)      # 標準装甲
 
         self.pa_combo.setCurrentIndex(0)
@@ -687,17 +689,18 @@ class HullForm(QWidget):
 
         # 船殻構造と装甲種別の変換
         # 数値IDから文字列表現へマッピング
-        hull_structure_id = float(hull_data.get('hull_structure_id', 1.0))
+        hull_structure_id = float(hull_data.get('hull_structure_id', 2.0))
         hull_structure_mapping = {
-            0.0: 'なし',
-            0.8: 'ライト',
-            1.0: 'ミディアム',
-            1.3: 'ヘビー',
-            1.5: 'スーパーヘビー',
-            1.75: 'ウルトラヘビー',
-            2.0: 'マキシマムヘビー'
+            0: 'なし',
+            1: '中世型',
+            2: '近代型',
+            3: 'WWI型',
+            4: '戦間期型',
+            5: 'WWII型',
+            6: '戦後前期型',
+            7: '現代型'
         }
-        hull_data['hull_structure'] = hull_structure_mapping.get(hull_structure_id, 'ミディアム')
+        hull_data['hull_structure'] = hull_structure_mapping.get(hull_structure_id, '近代型')
 
         armor_type_id = float(hull_data.get('armor_type_id', 1.4))
         armor_type_mapping = {

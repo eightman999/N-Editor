@@ -438,6 +438,9 @@ class ShipListView(QWidget):
 
     def _add_ships_to_tree(self, parent_item, ships):
         """艦艇をツリーに追加する共通メソッド"""
+        # 重複チェック用の辞書
+        duplicate_check = {}
+        
         for ship in ships:
             ship_name = ship.get('name', '')
             ship_item = QTreeWidgetItem(parent_item)
@@ -473,6 +476,15 @@ class ShipListView(QWidget):
                 'data': ship.get('data', {})
             }
             ship_item.setData(0, Qt.UserRole, ship_data)
+            
+            # 重複チェック
+            key = f"{ship.get('design', '')}_{ship_name}"
+            if key in duplicate_check:
+                # 重複が見つかった場合、両方のアイテムに赤背景を設定
+                duplicate_check[key].setBackground(0, Qt.red)
+                ship_item.setBackground(0, Qt.red)
+            else:
+                duplicate_check[key] = ship_item
 
     def on_nation_changed(self, index):
         """国家選択変更時の処理"""

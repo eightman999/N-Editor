@@ -639,6 +639,13 @@ class EquipmentForm(QWidget):
                 self.specific_layout.addRow(f"{field_name}:", field)
                 self.specific_fields[field_name] = field
 
+                # hunger装備の場合、max_capacityとcarrier_sizeを同期
+                if equipment_type == 'hunger':
+                    if field_name == 'carrier_size':
+                        field.valueChanged.connect(lambda value: self.sync_fields('carrier_size', value))
+                    elif field_name == 'max_capacity':
+                        field.valueChanged.connect(lambda value: self.sync_fields('max_capacity', value))
+
             # 固有フィールドが生成されたことを確認するためのログ
             print(f"装備タイプ '{equipment_type}' の固有フィールドを生成しました。フィールド数: {len(specific_fields)}")
 
@@ -646,6 +653,13 @@ class EquipmentForm(QWidget):
             print(f"固有フィールド生成エラー: {e}")
             import traceback
             traceback.print_exc()
+
+    def sync_fields(self, source_field, value):
+        """フィールド間の同期を行う"""
+        if source_field == 'carrier_size' and 'max_capacity' in self.specific_fields:
+            self.specific_fields['max_capacity'].setValue(value)
+        elif source_field == 'max_capacity' and 'carrier_size' in self.specific_fields:
+            self.specific_fields['carrier_size'].setValue(value)
 
     def generate_common_fields(self, equipment_type):
         """共通フィールドの生成"""
