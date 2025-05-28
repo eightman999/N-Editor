@@ -23,6 +23,7 @@ from models.equipment_model import EquipmentModel
 from models.hull_model import HullModel
 from views.nation_details_view import NationDetailsView
 from utils.path_utils import get_data_dir
+from utils.cache_manager import CacheManager  # 追加: キャッシュマネージャー
 
 # パーサーのインポート (コメントアウトを解除または追加)
 from parser.StateParser import StateParser
@@ -169,12 +170,14 @@ class AppController(QObject):
         self.main_window = None
         self.nation_details_view = None
 
+        # キャッシュマネージャーの初期化（初期はNone）
+        self.cache_manager = None
+
         # マップデータ格納用辞書を初期化
         self.states = {}
         self.strategic_regions = {}
 
         # QThreadPoolの初期化
-        # これにより、バックグラウンドでタスクを並行して実行できます。
         self.threadpool = QThreadPool()
         logger.info(f"QThreadPool initialized with max thread count: {self.threadpool.maxThreadCount()}")
 
@@ -194,6 +197,10 @@ class AppController(QObject):
         # 現在のMODを確認
         self.current_mod = self.app_settings.get_current_mod()
         print(f"AppController初期化: current_mod = {self.current_mod}")
+
+        # 現在のMODが設定されている場合、キャッシュマネージャーを初期化
+        if self.current_mod and self.current_mod.get("path"):
+            self._initialize_cache_manager()
 
     def load_equipment_templates(self):
         """装備テンプレートの読み込み"""
@@ -373,6 +380,9 @@ class AppController(QObject):
         self.app_settings.set_current_mod(mod_path, mod_name)
         self.current_mod = {"path": mod_path, "name": mod_name}
 
+        # キャッシュマネージャーを初期化
+        self._initialize_cache_manager()
+
         # MOD変更シグナルを発射
         self.mod_changed.emit(mod_path)
 
@@ -408,38 +418,60 @@ class AppController(QObject):
 
     def _parse_state_file_worker(self, file_path):
         """
-        個別のstateファイルを解析するワーカー関数。
-        StateParserはファイルパスを受け取り、解析結果の辞書を返すと仮定します。
+        個別のstateファイルを解析するワーカー関数（キャッシュ対応）
         """
         try:
+            # キャッシュからデータを読み込み試行
+            cached_data = None
+            if self.cache_manager:
+                cached_data = self.cache_manager.load("states", file_path)
+                if cached_data is not None:
+                    self.logger.debug(f"キャッシュからstateデータを読み込み: {file_path}")
+                    return cached_data
+
+            # キャッシュミスまたは古い場合は通常のパース処理を実行
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            parser = StateParser(content) # 修正: ファイル内容をコンストラクタに渡す
-            # StateParserのparse_fileメソッドが、そのファイル内の全ての州データを
-            # {state_id: state_data} の形式で返すことを想定 (または、コンストラクタでパースが完了し、
-            # ゲッターメソッドでデータが取得できることを想定)
-            # ここでは、StateParserがparse()メソッドを持ち、それが解析結果を返すと仮定
-            parsed_data = parser.parse() # 修正: parse() メソッドを呼び出す
+            parser = StateParser(content)
+            parsed_data = parser.parse()
+            
+            # パース成功後、キャッシュに保存
+            if parsed_data and self.cache_manager:
+                self.cache_manager.save("states", file_path, parsed_data)
+                self.logger.debug(f"stateデータをキャッシュに保存: {file_path}")
+            
             return parsed_data
+            
         except Exception as e:
             logger.error(f"Error parsing state file {file_path}: {e}", exc_info=True)
             return None
 
     def _parse_strategic_region_file_worker(self, file_path):
         """
-        個別のstrategic regionファイルを解析するワーカー関数。
-        StrategicRegionParserはファイルパスを受け取り、解析結果の辞書を返すと仮定します。
+        個別のstrategic regionファイルを解析するワーカー関数（キャッシュ対応）
         """
         try:
+            # キャッシュからデータを読み込み試行
+            cached_data = None
+            if self.cache_manager:
+                cached_data = self.cache_manager.load("strategic_regions", file_path)
+                if cached_data is not None:
+                    self.logger.debug(f"キャッシュからstrategic regionデータを読み込み: {file_path}")
+                    return cached_data
+
+            # キャッシュミスまたは古い場合は通常のパース処理を実行
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            parser = StrategicRegionParser(content) # 修正: ファイル内容をコンストラクタに渡す
-            # StrategicRegionParserのparse_fileメソッドが、そのファイル内の全ての戦略地域データを
-            # {region_id: region_data} の形式で返すことを想定 (または、コンストラクタでパースが完了し、
-            # ゲッターメソッドでデータが取得できることを想定)
-            # ここでは、StrategicRegionParserがparse()メソッドを持ち、それが解析結果を返すと仮定
-            parsed_data = parser.parse() # 修正: parse() メソッドを呼び出す
+            parser = StrategicRegionParser(content)
+            parsed_data = parser.parse()
+            
+            # パース成功後、キャッシュに保存
+            if parsed_data and self.cache_manager:
+                self.cache_manager.save("strategic_regions", file_path, parsed_data)
+                self.logger.debug(f"strategic regionデータをキャッシュに保存: {file_path}")
+            
             return parsed_data
+            
         except Exception as e:
             logger.error(f"Error parsing strategic region file {file_path}: {e}", exc_info=True)
             return None
@@ -956,64 +988,86 @@ class AppController(QObject):
 
     def get_nations(self, mod_path):
         """
-        MODから国家情報を取得
-
-        Args:
-            mod_path: MODのパス
-
-        Returns:
-            list: 国家情報のリスト（画像パス、TAG、国家名）
+        MODから国家情報を取得（キャッシュ対応）
         """
-        nations = []
-        logger.info(f"国家情報の取得を開始: MODパス={mod_path}")
+        try:
+            # キャッシュキーとしてmod_pathのハッシュまたは特定ファイルを使用
+            country_tags_dir = os.path.join(mod_path, "common", "country_tags")
+            
+            # キャッシュからデータを読み込み試行
+            cached_data = None
+            if self.cache_manager and os.path.exists(country_tags_dir):
+                # ディレクトリ全体のキャッシュキーを生成（代表的なファイルを使用）
+                cache_key_file = os.path.join(country_tags_dir, "00_countries.txt")
+                if not os.path.exists(cache_key_file):
+                    # 最初に見つかったファイルを使用
+                    for filename in os.listdir(country_tags_dir):
+                        if filename.endswith(".txt"):
+                            cache_key_file = os.path.join(country_tags_dir, filename)
+                            break
+                
+                if os.path.exists(cache_key_file):
+                    cached_data = self.cache_manager.load("country_tags", cache_key_file)
+                    if cached_data is not None:
+                        self.logger.debug(f"キャッシュから国家データを読み込み: {country_tags_dir}")
+                        return cached_data
 
-        # 国家タグファイルのディレクトリ
-        country_tags_dir = os.path.join(mod_path, "common", "country_tags")
-        # 国旗ディレクトリ
-        flags_dir = os.path.join(mod_path, "gfx", "flags")
+            # キャッシュミスまたは古い場合は通常の処理を実行
+            nations = []
+            logger.info(f"国家情報の取得を開始: MODパス={mod_path}")
 
-        # ディレクトリが存在しない場合は空リストを返す
-        if not os.path.exists(country_tags_dir):
-            logger.error(f"国家タグディレクトリが見つかりません: {country_tags_dir}")
+            # 国旗ディレクトリ
+            flags_dir = os.path.join(mod_path, "gfx", "flags")
+
+            # ディレクトリが存在しない場合は空リストを返す
+            if not os.path.exists(country_tags_dir):
+                logger.error(f"国家タグディレクトリが見つかりません: {country_tags_dir}")
+                return nations
+
+            # 国家タグファイルを探索
+            for filename in os.listdir(country_tags_dir):
+                if not filename.endswith(".txt"):
+                    continue
+
+                file_path = os.path.join(country_tags_dir, filename)
+
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    # 国家タグと参照ファイルのパターンを検索
+                    pattern = r'([A-Z]{3})\s*=\s*"([^"]+)"\s*#?\s*(.*)'
+                    matches = re.findall(pattern, content)
+
+                    for match in matches:
+                        tag = match[0]  # 国家TAG
+                        country_file = match[1]  # 参照ファイル
+                        display_name = match[2].strip() if match[2] else tag  # 表示名（コメントがあれば使用）
+
+                        # 国旗ファイルのパス
+                        flag_path = os.path.join(flags_dir, f"{tag}.tga")
+                        flag_exists = os.path.exists(flag_path)
+
+                        nations.append({
+                            "tag": tag,
+                            "name": display_name,
+                            "flag_path": flag_path if flag_exists else None
+                        })
+
+                except Exception as e:
+                    logger.error(f"国家タグファイル '{filename}' の解析エラー: {e}")
+
+            # パース成功後、キャッシュに保存
+            if nations and self.cache_manager and os.path.exists(cache_key_file):
+                self.cache_manager.save("country_tags", cache_key_file, nations)
+                self.logger.debug(f"国家データをキャッシュに保存: {country_tags_dir}")
+
+            logger.info(f"国家情報の取得完了: {len(nations)}件の国家を処理")
             return nations
-
-        # 国家タグファイルを探索
-        for filename in os.listdir(country_tags_dir):
-            if not filename.endswith(".txt"):
-                continue
-
-            file_path = os.path.join(country_tags_dir, filename)
-            # logger.info(f"国家タグファイルを処理中: {file_path}")
-
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-
-                # 国家タグと参照ファイルのパターンを検索
-                pattern = r'([A-Z]{3})\s*=\s*"([^"]+)"\s*#?\s*(.*)'
-                matches = re.findall(pattern, content)
-
-                for match in matches:
-                    tag = match[0]  # 国家TAG
-                    country_file = match[1]  # 参照ファイル
-                    display_name = match[2].strip() if match[2] else tag  # 表示名（コメントがあれば使用）
-
-                    # 国旗ファイルのパス
-                    flag_path = os.path.join(flags_dir, f"{tag}.tga")
-                    flag_exists = os.path.exists(flag_path)
-
-                    nations.append({
-                        "tag": tag,
-                        "name": display_name,
-                        "flag_path": flag_path if flag_exists else None
-                    })
-                    # logger.info(f"国家情報を追加: TAG={tag}, 名前={display_name}")
-
-            except Exception as e:
-                logger.error(f"国家タグファイル '{filename}' の解析エラー: {e}")
-
-        logger.info(f"国家情報の取得完了: {len(nations)}件の国家を処理")
-        return nations
+            
+        except Exception as e:
+            logger.error(f"国家情報取得中にエラーが発生しました: {e}")
+            return []
 
     # 設計関連機能（残りのメソッドも同様に実装...）
 
@@ -1711,3 +1765,58 @@ class AppController(QObject):
         except Exception as e:
             logger.error(f"MOD艦艇データ更新中にエラーが発生しました: {e}")
             return []
+
+    def _initialize_cache_manager(self):
+        """現在のMODに基づいてキャッシュマネージャーを初期化"""
+        try:
+            if self.current_mod and self.current_mod.get("path"):
+                # MOD名を取得（ディレクトリ名を使用）
+                mod_path = self.current_mod["path"]
+                mod_name = os.path.basename(mod_path)
+                
+                # バニラの場合は特別な識別子を使用
+                if not mod_name or mod_name.lower() == "hoi4" or "vanilla" in mod_name.lower():
+                    mod_name = "_vanilla_"
+                
+                self.cache_manager = CacheManager(mod_name)
+                self.logger.info(f"CacheManager初期化完了: {mod_name}")
+            else:
+                # バニラまたはMODが未選択の場合
+                self.cache_manager = CacheManager("_vanilla_")
+                self.logger.info("CacheManager初期化完了: バニラモード")
+                
+        except Exception as e:
+            self.logger.error(f"CacheManager初期化エラー: {e}")
+            self.cache_manager = None
+
+    def clear_cache(self, file_type=None):
+        """
+        キャッシュをクリアする
+        
+        Args:
+            file_type: 特定のファイル種別のキャッシュのみクリアする場合に指定
+        """
+        try:
+            if self.cache_manager:
+                self.cache_manager.clear_cache(file_type)
+                self.logger.info(f"キャッシュクリア完了: {file_type or '全種別'}")
+            else:
+                self.logger.warning("CacheManagerが初期化されていません")
+        except Exception as e:
+            self.logger.error(f"キャッシュクリアエラー: {e}")
+
+    def get_cache_info(self):
+        """
+        キャッシュ情報を取得する（デバッグ用）
+        
+        Returns:
+            キャッシュ情報の辞書
+        """
+        try:
+            if self.cache_manager:
+                return self.cache_manager.get_cache_info()
+            else:
+                return {"error": "CacheManagerが初期化されていません"}
+        except Exception as e:
+            self.logger.error(f"キャッシュ情報取得エラー: {e}")
+            return {"error": str(e)}
