@@ -33,17 +33,18 @@ class CacheManager:
 
         logger.info(f"CacheManager初期化: MOD={mod_name}, キャッシュディレクトリ={self.base_cache_dir}")
 
-    def _get_cache_file_path(self, file_type: str, original_file_path: str) -> str:
+    def _get_cache_file_path(self, file_type: str, original_file_path: str, country_tag: str = None) -> str:
         """
         対応するキャッシュファイルのフルパスを返す
 
         Args:
-            file_type: ファイル種別 (states, naval_oob, strategic_regions, country_colors, equipments など)
+            file_type: ファイル種別 (states, naval_oob, designs, strategic_regions, country_colors, equipments など)
             original_file_path: パース対象の元ファイルのフルパス
+            country_tag: 国家タグ（国別キャッシュが必要な場合）
 
         Returns:
             キャッシュファイルのフルパス
-            例: .../Documents/NavalDesignSystem/caches/MyMod/states/some_state_file.txt.pkl
+            例: .../Documents/NavalDesignSystem/caches/MyMod/naval_oob/USA/usa_naval_oob.txt.pkl
         """
         # 元ファイル名を取得
         original_filename = os.path.basename(original_file_path)
@@ -51,22 +52,32 @@ class CacheManager:
         # キャッシュファイル名を生成（元ファイル名 + .pkl）
         cache_filename = f"{original_filename}.pkl"
 
-        # キャッシュファイルのフルパスを生成
-        cache_file_path = os.path.join(
-            self.base_cache_dir,
-            file_type,
-            cache_filename
-        )
+        # 国別キャッシュが必要なファイル種別の場合
+        if file_type in ['naval_oob', 'designs'] and country_tag:
+            cache_file_path = os.path.join(
+                self.base_cache_dir,
+                file_type,
+                country_tag.upper(),  # 国家タグを大文字に統一
+                cache_filename
+            )
+        else:
+            # 通常のキャッシュパス
+            cache_file_path = os.path.join(
+                self.base_cache_dir,
+                file_type,
+                cache_filename
+            )
 
         return cache_file_path
 
-    def load(self, file_type: str, original_file_path: str) -> Optional[Any]:
+    def load(self, file_type: str, original_file_path: str, country_tag: str = None) -> Optional[Any]:
         """
         キャッシュからデータを読み込む
 
         Args:
             file_type: ファイル種別
             original_file_path: 元ファイルのフルパス
+            country_tag: 国家タグ（国別キャッシュが必要な場合）
 
         Returns:
             キャッシュされたデータ。キャッシュが存在しないか古い場合はNone
@@ -78,7 +89,7 @@ class CacheManager:
                 return None
 
             # キャッシュファイルパスを取得
-            cache_file_path = self._get_cache_file_path(file_type, original_file_path)
+            cache_file_path = self._get_cache_file_path(file_type, original_file_path, country_tag)
 
             # キャッシュファイルが存在しない場合はNoneを返す
             if not os.path.exists(cache_file_path):
@@ -108,7 +119,7 @@ class CacheManager:
             logger.error(f"予期しないキャッシュ読み込みエラー ({original_file_path}): {e}")
             return None
 
-    def save(self, file_type: str, original_file_path: str, data: Any) -> None:
+    def save(self, file_type: str, original_file_path: str, data: Any, country_tag: str = None) -> None:
         """
         データをキャッシュに保存する
 
@@ -116,10 +127,11 @@ class CacheManager:
             file_type: ファイル種別
             original_file_path: 元ファイルのフルパス
             data: 保存するデータ
+            country_tag: 国家タグ（国別キャッシュが必要な場合）
         """
         try:
             # キャッシュファイルパスを取得
-            cache_file_path = self._get_cache_file_path(file_type, original_file_path)
+            cache_file_path = self._get_cache_file_path(file_type, original_file_path, country_tag)
 
             # 保存先ディレクトリが存在しない場合は作成
             cache_dir = os.path.dirname(cache_file_path)

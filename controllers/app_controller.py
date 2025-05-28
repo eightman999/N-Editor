@@ -1361,6 +1361,16 @@ class AppController(QObject):
                 logger.info(f"設計ファイルを処理中: {file_path}")
 
                 try:
+                    # キャッシュからデータを読み込み試行
+                    cached_data = None
+                    if self.cache_manager:
+                        cached_data = self.cache_manager.load("designs", file_path, nation_tag)
+                        if cached_data is not None:
+                            logger.debug(f"キャッシュから設計データを読み込み: {file_path}")
+                            design_list.extend(cached_data)
+                            continue
+
+                    # キャッシュミスまたは古い場合は通常のパース処理を実行
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
 
@@ -1370,13 +1380,21 @@ class AppController(QObject):
 
                     # 指定された国家の設計データを取得
                     if nation_tag in designs_by_country:
+                        country_designs = []
                         for design_id, design_data in designs_by_country[nation_tag].items():
-                            design_list.append({
+                            design_info = {
                                 'id': design_id,
                                 'name': design_id,
                                 'data': design_data
-                            })
+                            }
+                            country_designs.append(design_info)
+                            design_list.append(design_info)
                             logger.info(f"設計データを追加: ID={design_id}")
+
+                        # パース成功後、キャッシュに保存
+                        if country_designs and self.cache_manager:
+                            self.cache_manager.save("designs", file_path, country_designs, nation_tag)
+                            logger.debug(f"設計データをキャッシュに保存: {file_path}")
 
                 except Exception as e:
                     logger.error(f"設計ファイル '{filename}' の読み込みエラー: {e}")
@@ -1422,6 +1440,16 @@ class AppController(QObject):
                 logger.info(f"編成ファイルを処理中: {file_path}")
 
                 try:
+                    # キャッシュからデータを読み込み試行
+                    cached_data = None
+                    if self.cache_manager:
+                        cached_data = self.cache_manager.load("naval_oob", file_path, nation_tag)
+                        if cached_data is not None:
+                            logger.debug(f"キャッシュから編成データを読み込み: {file_path}")
+                            formation_list.extend(cached_data)
+                            continue
+
+                    # キャッシュミスまたは古い場合は通常のパース処理を実行
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
 
@@ -1430,13 +1458,21 @@ class AppController(QObject):
                     fleets = parser.extract_fleets()
 
                     # 艦隊データを編成リストに変換
+                    country_formations = []
                     for fleet in fleets:
-                        formation_list.append({
+                        formation_info = {
                             'id': fleet.get('name', ''),
                             'name': fleet.get('name', ''),
                             'data': fleet
-                        })
+                        }
+                        country_formations.append(formation_info)
+                        formation_list.append(formation_info)
                         logger.info(f"編成データを追加: ID={fleet.get('name', '')}")
+
+                    # パース成功後、キャッシュに保存
+                    if country_formations and self.cache_manager:
+                        self.cache_manager.save("naval_oob", file_path, country_formations, nation_tag)
+                        logger.debug(f"編成データをキャッシュに保存: {file_path}")
 
                 except Exception as e:
                     logger.error(f"編成ファイル '{filename}' の読み込みエラー: {e}")

@@ -1,0 +1,8 @@
+numpy~=2.2.5
+PyQt5~=5.15.11
+pillow~=11.2.1
+opencv-python~=4.11.0.86
+psutil~=7.0.0
+PyYAML~=6.0.2
+ply~=3.11
+git+https://github.com/eightman999/useful_tools
