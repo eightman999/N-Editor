@@ -67,8 +67,8 @@ class AppSettings:
             documents = os.path.join(home, "Documents")
             return os.path.join(documents, self.app_name)
         elif system == "Darwin":
-            # macOS: ~/Library/Application Support/NavalDesignSystem
-            return os.path.join(home, "Library", "Application Support", self.app_name)
+            documents = os.path.join(home, "Documents")
+            return os.path.join(documents, self.app_name)
         else:
             # Linux: ~/.local/share/navaldesignsystem
             return os.path.join(home, ".local", "share", self.app_name.lower())
