@@ -444,7 +444,7 @@ class MapViewer(QGraphicsView):
                 pass
 
             # プロビンス重心の計算
-            self.calculate_province_centroids()
+            self._load_or_calculate_province_centroids(provinces_img_path, definition_csv_path)
 
             # ステートの境界線を計算
             self.calculate_state_boundaries()
@@ -480,12 +480,87 @@ class MapViewer(QGraphicsView):
             traceback.print_exc()
             return False
 
+    def _load_or_calculate_province_centroids(self, provinces_bmp_path, definition_csv_path):
+        """
+        プロヴィンス中心座標をキャッシュから読み込み、または計算して保存
+        
+        Args:
+            provinces_bmp_path: provinces.bmpファイルのパス
+            definition_csv_path: definition.csvファイルのパス
+        """
+        start_time = time.time()
+        
+        # キャッシュマネージャーが利用可能かチェック
+        if not self.app_controller or not self.app_controller.cache_manager:
+            self.logger.warning("キャッシュマネージャーが利用できません。直接計算を実行します。")
+            self.calculate_province_centroids()
+            return
+        
+        cache_manager = self.app_controller.cache_manager
+        
+        # 現在のファイルの更新時刻を取得
+        current_bmp_mtime = os.path.getmtime(provinces_bmp_path) if os.path.exists(provinces_bmp_path) else 0
+        current_csv_mtime = os.path.getmtime(definition_csv_path) if os.path.exists(definition_csv_path) else 0
+        
+        # キャッシュから読み込み試行
+        try:
+            cached_data = cache_manager.load("province_centroids", provinces_bmp_path)
+            
+            if cached_data is not None and isinstance(cached_data, dict):
+                cached_bmp_mtime = cached_data.get('bmp_mtime', 0)
+                cached_csv_mtime = cached_data.get('csv_mtime', 0)
+                cached_centroids = cached_data.get('centroids')
+                
+                # キャッシュの有効性チェック
+                if (cached_bmp_mtime >= current_bmp_mtime and 
+                    cached_csv_mtime >= current_csv_mtime and 
+                    cached_centroids is not None):
+                    
+                    # キャッシュが有効
+                    self.province_centroids = cached_centroids
+                    cache_load_time = time.time() - start_time
+                    self.logger.info(f"プロヴィンス中心座標をキャッシュから読み込み完了: {len(self.province_centroids)}個のプロヴィンス, 所要時間: {cache_load_time:.3f}秒")
+                    return
+                else:
+                    self.logger.info("キャッシュが古いため、再計算を実行します")
+            else:
+                self.logger.info("キャッシュが見つからないため、計算を実行します")
+                
+        except Exception as e:
+            self.logger.warning(f"キャッシュ読み込み中にエラーが発生: {e}")
+        
+        # キャッシュが無効または存在しない場合は計算を実行
+        calculation_start = time.time()
+        self.calculate_province_centroids()
+        calculation_time = time.time() - calculation_start
+        
+        # 計算結果をキャッシュに保存
+        cache_data = {
+            'centroids': self.province_centroids,
+            'bmp_mtime': current_bmp_mtime,
+            'csv_mtime': current_csv_mtime,
+            'calculation_time': calculation_time,
+            'timestamp': time.time()
+        }
+        
+        try:
+            cache_manager.save("province_centroids", provinces_bmp_path, cache_data)
+            total_time = time.time() - start_time
+            self.logger.info(f"プロヴィンス中心座標の計算とキャッシュ保存完了: {len(self.province_centroids)}個のプロヴィンス, 計算時間: {calculation_time:.3f}秒, 総時間: {total_time:.3f}秒")
+        except Exception as e:
+            self.logger.warning(f"プロヴィンス中心座標のキャッシュ保存に失敗: {e}")
+
     def calculate_province_centroids(self):
+        """
+        プロヴィンス中心座標を計算（既存メソッドの改良版）
+        """
         start_time = time.time()
         if self.original_map_image_data is None:
+            self.logger.warning("マップ画像データが読み込まれていません")
             return
 
         height, width, _ = self.original_map_image_data.shape
+        self.logger.info(f"プロヴィンス中心座標の計算を開始: マップサイズ {width}x{height}")
 
         # 全ピクセルのRGBハッシュを計算
         pixels_flat = self.original_map_image_data.reshape(-1, 3)
@@ -521,15 +596,135 @@ class MapViewer(QGraphicsView):
         count_per_prov = np.bincount(valid_prov_ids, minlength=max_prov_id + 1)
 
         self.province_centroids = {}
+        calculated_count = 0
+        missing_count = 0
+        
         for prov_id in self.provinces_data_by_id.keys():
             if prov_id <= max_prov_id and count_per_prov[prov_id] > 0:
                 center_x = sum_x_per_prov[prov_id] / count_per_prov[prov_id]
                 center_y = sum_y_per_prov[prov_id] / count_per_prov[prov_id]
                 self.province_centroids[prov_id] = (center_x, center_y)
+                calculated_count += 1
             else:
                 self.province_centroids[prov_id] = None  # プロビンスが存在しない、または画像中に見つからない場合
+                missing_count += 1
 
         end_time = time.time()
+        calculation_time = end_time - start_time
+        
+        self.logger.info(f"プロヴィンス中心座標の計算完了: {calculated_count}個成功, {missing_count}個見つからず, 所要時間: {calculation_time:.3f}秒")
+        
+        if missing_count > 0:
+            self.logger.warning(f"{missing_count}個のプロヴィンスの中心座標を計算できませんでした（definition.csvにあるがprovinces.bmpに色が見つからない）")
+
+    def get_province_center_coords(self, province_id):
+        """
+        指定されたプロヴィンスIDの中心座標を取得
+        
+        Args:
+            province_id: プロヴィンスID
+            
+        Returns:
+            tuple: (x, y) 座標のタプル、見つからない場合はNone
+        """
+        return self.province_centroids.get(province_id)
+
+    def get_all_province_centroids(self):
+        """
+        すべてのプロヴィンス中心座標を取得
+        
+        Returns:
+            dict: プロヴィンスID -> (x, y) 座標の辞書
+        """
+        return self.province_centroids.copy()
+
+    def clear_province_centroids_cache(self):
+        """
+        プロヴィンス中心座標のキャッシュをクリア
+        """
+        if self.app_controller and self.app_controller.cache_manager:
+            try:
+                self.app_controller.cache_manager.clear_cache("province_centroids")
+                self.logger.info("プロヴィンス中心座標のキャッシュをクリアしました")
+            except Exception as e:
+                self.logger.error(f"キャッシュクリア中にエラーが発生: {e}")
+
+    def draw_province_centroids_debug(self, target_pixmap: QPixmap):
+        """
+        デバッグ用: プロヴィンス中心座標をマップ上に描画
+        
+        Args:
+            target_pixmap: 描画対象のピクスマップ
+        """
+        if not self.province_centroids:
+            return
+            
+        painter = QPainter(target_pixmap)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        
+        # 中心点を赤い小さな円で描画
+        painter.setPen(QPen(QColor(255, 0, 0), 2))
+        painter.setBrush(QBrush(QColor(255, 0, 0, 128)))
+        
+        drawn_count = 0
+        for prov_id, coords in self.province_centroids.items():
+            if coords is not None:
+                x, y = coords
+                painter.drawEllipse(QPointF(x, y), 3, 3)
+                drawn_count += 1
+        
+        painter.end()
+        self.logger.info(f"デバッグ: {drawn_count}個のプロヴィンス中心点を描画しました")
+
+    def benchmark_province_centroids_calculation(self, iterations=3):
+        """
+        プロヴィンス中心座標計算のベンチマーク
+        
+        Args:
+            iterations: ベンチマーク実行回数
+            
+        Returns:
+            dict: ベンチマーク結果
+        """
+        if self.original_map_image_data is None:
+            self.logger.error("マップデータが読み込まれていません")
+            return None
+            
+        self.logger.info(f"プロヴィンス中心座標計算のベンチマークを開始: {iterations}回実行")
+        
+        times = []
+        for i in range(iterations):
+            # キャッシュを一時的にクリア
+            original_centroids = self.province_centroids.copy()
+            
+            start_time = time.time()
+            self.calculate_province_centroids()
+            end_time = time.time()
+            
+            calculation_time = end_time - start_time
+            times.append(calculation_time)
+            self.logger.info(f"ベンチマーク {i+1}/{iterations}: {calculation_time:.3f}秒")
+            
+            # 元の中心座標を復元
+            self.province_centroids = original_centroids
+        
+        avg_time = sum(times) / len(times)
+        min_time = min(times)
+        max_time = max(times)
+        
+        benchmark_result = {
+            'iterations': iterations,
+            'times': times,
+            'average_time': avg_time,
+            'min_time': min_time,
+            'max_time': max_time,
+            'total_provinces': len(self.provinces_data_by_id),
+            'calculated_provinces': len([c for c in self.province_centroids.values() if c is not None])
+        }
+        
+        self.logger.info(f"ベンチマーク結果: 平均 {avg_time:.3f}秒, 最短 {min_time:.3f}秒, 最長 {max_time:.3f}秒")
+        
+        return benchmark_result
 
     def calculate_state_boundaries(self):
         start_time = time.time()

@@ -1881,3 +1881,87 @@ class AppController(QObject):
         except Exception as e:
             self.logger.error(f"キャッシュ情報取得エラー: {e}")
             return {"error": str(e)}
+
+    def get_province_center_coords(self, province_id):
+        """
+        指定されたプロヴィンスIDの中心座標を取得
+        
+        Args:
+            province_id: プロヴィンスID
+            
+        Returns:
+            tuple: (x, y) 座標のタプル、見つからない場合はNone
+        """
+        # メインウィンドウのマップビューアーから中心座標を取得
+        if (hasattr(self, 'main_window') and 
+            self.main_window and 
+            hasattr(self.main_window, 'views') and 
+            'fleet' in self.main_window.views):
+            
+            fleet_view = self.main_window.views['fleet']
+            if hasattr(fleet_view, 'map_widget') and fleet_view.map_widget:
+                return fleet_view.map_widget.get_province_center_coords(province_id)
+        
+        return None
+
+    def get_all_province_centroids(self):
+        """
+        すべてのプロヴィンス中心座標を取得
+        
+        Returns:
+            dict: プロヴィンスID -> (x, y) 座標の辞書
+        """
+        # メインウィンドウのマップビューアーから全中心座標を取得
+        if (hasattr(self, 'main_window') and 
+            self.main_window and 
+            hasattr(self.main_window, 'views') and 
+            'fleet' in self.main_window.views):
+            
+            fleet_view = self.main_window.views['fleet']
+            if hasattr(fleet_view, 'map_widget') and fleet_view.map_widget:
+                return fleet_view.map_widget.get_all_province_centroids()
+        
+        return {}
+
+    def clear_province_centroids_cache(self):
+        """
+        プロヴィンス中心座標のキャッシュをクリア
+        """
+        try:
+            if self.cache_manager:
+                self.cache_manager.clear_cache("province_centroids")
+                self.logger.info("プロヴィンス中心座標のキャッシュをクリアしました")
+                
+                # マップビューアーのキャッシュもクリア
+                if (hasattr(self, 'main_window') and 
+                    self.main_window and 
+                    hasattr(self.main_window, 'views') and 
+                    'fleet' in self.main_window.views):
+                    
+                    fleet_view = self.main_window.views['fleet']
+                    if hasattr(fleet_view, 'map_widget') and fleet_view.map_widget:
+                        fleet_view.map_widget.clear_province_centroids_cache()
+        except Exception as e:
+            self.logger.error(f"キャッシュクリア中にエラーが発生: {e}")
+
+    def benchmark_province_centroids_calculation(self, iterations=3):
+        """
+        プロヴィンス中心座標計算のベンチマーク
+        
+        Args:
+            iterations: ベンチマーク実行回数
+            
+        Returns:
+            dict: ベンチマーク結果
+        """
+        # メインウィンドウのマップビューアーでベンチマークを実行
+        if (hasattr(self, 'main_window') and 
+            self.main_window and 
+            hasattr(self.main_window, 'views') and 
+            'fleet' in self.main_window.views):
+            
+            fleet_view = self.main_window.views['fleet']
+            if hasattr(fleet_view, 'map_widget') and fleet_view.map_widget:
+                return fleet_view.map_widget.benchmark_province_centroids_calculation(iterations)
+        
+        return None
