@@ -31,6 +31,7 @@ tokens = (
     'OVERRIDE',  # @override
     'COUNTRY',  # @COUNTRY
     'COUNTRIES',  # @COUNTRIES
+    'DESIGN_FILE',  # @DesignFile
     'LBRACKET',  # [
     'RBRACKET',  # ]
     'COMMA',  # ,
@@ -64,6 +65,11 @@ def t_COUNTRIES(t):
 
 def t_COUNTRY(t):
     r'\#@COUNTRY'
+    return t
+
+
+def t_DESIGN_FILE(t):
+    r'\#@DesignFile'
     return t
 
 
@@ -120,20 +126,15 @@ lexer = lex.lex()
 # --- パーサー (Parser) の定義 ---
 
 def p_effect_file(p):
-    '''effect_file : ID EQUALS LBRACE effect_content RBRACE
-                  | ID EQUALS LBRACE country_tag effect_content RBRACE
-                  | ID EQUALS LBRACE countries_tag effect_content RBRACE
+    '''effect_file : DESIGN_FILE ID EQUALS LBRACE effect_content RBRACE
                   | effect_file ID EQUALS LBRACE country_tag effect_content RBRACE
                   | effect_file ID EQUALS LBRACE countries_tag effect_content RBRACE'''
-    if len(p) == 6:
-        p[0] = {p[1]: {'content': p[4]}}
+    if len(p) == 7:  # DESIGN_FILEの場合
+        p[0] = {p[2]: {'content': p[5]}}
     elif len(p) == 7:
-        if isinstance(p[4], list):  # countries_tag case
-            p[0] = {p[1]: {'content': p[5], 'country_tags': p[4]}}
-        else:  # country_tag case
-            p[0] = {p[1]: {'content': p[5], 'country_tag': p[4]}}
+        p[0] = p[1]
+        p[0][p[2]] = {'content': p[5]}
     else:
-        # 複数のブロックの場合
         p[0] = p[1]
         if isinstance(p[5], list):  # countries_tag case
             p[0][p[2]] = {'content': p[6], 'country_tags': p[5]}
@@ -162,16 +163,36 @@ def p_country_list(p):
 
 def p_effect_content(p):
     '''effect_content : effect_statement
-                     | effect_content effect_statement'''
+                     | effect_content effect_statement
+                     | country_tag effect_statement
+                     | effect_content country_tag effect_statement'''
     if len(p) == 2:
         p[0] = p[1]
-    else:
+    elif len(p) == 3:
+        if isinstance(p[1], str):  # country_tagの場合
+            p[0] = {'country_tag': p[1], 'content': p[2]}
+        else:  # effect_content + effect_statementの場合
+            result = {}
+            if p[1]:
+                for key, value in p[1].items():
+                    result[key] = value
+            if p[2]:
+                for key, value in p[2].items():
+                    if key in result:
+                        if isinstance(result[key], list):
+                            result[key].append(value)
+                        else:
+                            result[key] = [result[key], value]
+                    else:
+                        result[key] = value
+            p[0] = result
+    else:  # effect_content + country_tag + effect_statementの場合
         result = {}
         if p[1]:
             for key, value in p[1].items():
                 result[key] = value
-        if p[2]:
-            for key, value in p[2].items():
+        if p[3]:
+            for key, value in p[3].items():
                 if key in result:
                     if isinstance(result[key], list):
                         result[key].append(value)
@@ -179,6 +200,7 @@ def p_effect_content(p):
                         result[key] = [result[key], value]
                 else:
                     result[key] = value
+        result['country_tag'] = p[2]
         p[0] = result
 
 
@@ -345,8 +367,16 @@ class EffectParser:
         self.content = content
         self.filename = filename
 
+    def _is_design_file(self):
+        """ファイルが設計ファイルかどうかをチェック"""
+        return '#@DesignFile' in self.content
+
     def parse(self):
         try:
+            # 設計ファイルでない場合は空の結果を返す
+            if not self._is_design_file():
+                return {}
+
             # レクサーにファイル名を設定
             lexer.filename = self.filename
             raw_parsed_data = parser.parse(self.content, lexer=lexer)
@@ -405,6 +435,10 @@ class EffectParser:
     def parse_designs(self):
         """設計データをパースして国家タグ別に集計する"""
         try:
+            # 設計ファイルでない場合は空の結果を返す
+            if not self._is_design_file():
+                return {}
+
             # レクサーにファイル名を設定
             lexer.filename = self.filename
             raw_parsed_data = parser.parse(self.content, lexer=lexer)

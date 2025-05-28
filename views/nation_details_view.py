@@ -405,57 +405,47 @@ class NationDetailsView(QWidget):
             QMessageBox.critical(self, "エラー", f"設計データの読み込み中にエラーが発生しました：\n{str(e)}")
 
     def load_mod_designs(self, nation_tag):
-        """mod内の設計データを読み込む（重複排除）"""
+        """mod内の設計データを読み込む（キャッシュ対応版）"""
         try:
             self.mod_design_list.clear()
             if not self.app_controller:
                 return
 
-            current_mod = self.app_controller.get_current_mod()
-            if not current_mod or "path" not in current_mod:
+            # AppController経由でキャッシュ機能付きの設計データを取得
+            design_list = self.app_controller.get_nation_mod_designs(nation_tag)
+            
+            if not design_list:
                 return
 
-            # 設計ファイルのパス
-            designs_path = os.path.join(current_mod["path"], "common", "scripted_effects", "NAVY_Designs.txt")
+            # 重複排除のため、表示名をキーとする辞書を使用
+            unique_designs = {}
 
-            # 設計データを読み込む
-            designs_data = {}
+            for design_info in design_list:
+                design_data = design_info.get('data', {})
+                
+                # 設計名の処理（新しいシンプル形式）
+                display_name = self.extract_display_name_simple(design_data)
+                design_type = design_data.get('type', '不明')
 
-            # 設計ファイルを読み込む
-            if os.path.exists(designs_path):
-                with open(designs_path, 'r', encoding='utf-8') as f:
-                    parser = EffectParser(f.read(), filename=designs_path)
-                    designs_data.update(parser.parse_designs())
+                # 一意キーを作成（表示名 + タイプ）
+                unique_key = f"{display_name}_{design_type}"
 
-            # 指定された国家の設計データを表示
-            if nation_tag in designs_data:
-                # 重複排除のため、表示名をキーとする辞書を使用
-                unique_designs = {}
+                # 重複していない場合のみ追加
+                if unique_key not in unique_designs:
+                    unique_designs[unique_key] = {
+                        'display_name': display_name,
+                        'design_type': design_type,
+                        'design_data': design_data
+                    }
 
-                for design_name, design_data in designs_data[nation_tag].items():
-                    # 設計名の処理（新しいシンプル形式）
-                    display_name = self.extract_display_name_simple(design_data)
-                    design_type = design_data.get('type', '不明')
+            # 一意化された設計データを表示
+            for unique_design in unique_designs.values():
+                list_item = QListWidgetItem()
 
-                    # 一意キーを作成（表示名 + タイプ）
-                    unique_key = f"{display_name}_{design_type}"
-
-                    # 重複していない場合のみ追加
-                    if unique_key not in unique_designs:
-                        unique_designs[unique_key] = {
-                            'display_name': display_name,
-                            'design_type': design_type,
-                            'design_data': design_data
-                        }
-
-                # 一意化された設計データを表示
-                for unique_design in unique_designs.values():
-                    list_item = QListWidgetItem()
-
-                    # 表示テキストの設定
-                    list_item.setText(f"{unique_design['display_name']} (タイプ: {unique_design['design_type']})")
-                    list_item.setData(Qt.UserRole, unique_design['design_data'])
-                    self.mod_design_list.addItem(list_item)
+                # 表示テキストの設定
+                list_item.setText(f"{unique_design['display_name']} (タイプ: {unique_design['design_type']})")
+                list_item.setData(Qt.UserRole, unique_design['design_data'])
+                self.mod_design_list.addItem(list_item)
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"mod内の設計データの読み込み中にエラーが発生しました：\n{str(e)}")
@@ -775,161 +765,147 @@ class NationDetailsView(QWidget):
             pass
 
     def load_mod_formations(self, nation_tag):
-        """mod内の編成データを読み込む（改良版）"""
+        """mod内の編成データを読み込む（キャッシュ対応版）"""
         try:
             self.mod_formation_tree.clear()
             if not self.app_controller:
                 return
 
-            current_mod = self.app_controller.get_current_mod()
-            if not current_mod or "path" not in current_mod:
+            # AppController経由でキャッシュ機能付きの編成データを取得
+            formation_list = self.app_controller.get_nation_mod_formations(nation_tag)
+            
+            if not formation_list:
                 return
 
-            # 編成ファイルのパス
-            units_path = os.path.join(current_mod["path"], "history", "units")
-            if not os.path.exists(units_path):
-                return
-
-            # 設計データを取得（艦艇名の参照用）
-            designs_path = os.path.join(current_mod["path"], "common", "scripted_effects", "NAVY_Designs.txt")
+            # 設計データも取得（艦艇名の参照用）
+            design_list = self.app_controller.get_nation_mod_designs(nation_tag)
             designs_data = {}
-            if os.path.exists(designs_path):
-                with open(designs_path, 'r', encoding='utf-8') as f:
-                    parser = EffectParser(f.read(), filename=designs_path)
-                    designs_data.update(parser.parse_designs())
+            
+            # 設計データを辞書形式に変換
+            for design_info in design_list:
+                design_id = design_info.get('id', '')
+                design_data = design_info.get('data', {})
+                if design_id:
+                    designs_data[design_id] = design_data
 
-            # ファイルパターンに一致するファイルを検索
-            import re
-            pattern = re.compile(f"{nation_tag}_\\d{{4}}_(?:naval|Naval|Navy|navy)(?:_mtg)?\\.txt$")
+            # 各編成データを処理
+            for formation_info in formation_list:
+                formation_data = formation_info.get('data', {})
+                formation_name = formation_info.get('name', '不明')
+                
+                # 艦隊アイテムを作成
+                fleet_item = QTreeWidgetItem(self.mod_formation_tree)
+                
+                # 艦隊の基本情報を取得
+                naval_base = formation_data.get('naval_base', '不明')
+                task_forces = formation_data.get('task_force', [])
+                if isinstance(task_forces, dict):
+                    task_forces = [task_forces]
 
-            for filename in os.listdir(units_path):
-                if pattern.match(filename):
-                    file_path = os.path.join(units_path, filename)
-                    try:
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            parser = NavalOOBParser(f.read())
-                            fleets = parser.extract_fleets()
+                total_ships = sum(len(tf.get('ship', [])) for tf in task_forces)
+                fleet_item.setText(0, f"{formation_name} - {naval_base} - {len(task_forces)}TF - {total_ships}隻")
+                fleet_item.setData(0, Qt.UserRole, {'type': 'fleet', 'data': formation_data})
 
-                            # ファイル名から日付を抽出
-                            date_match = re.search(r'(\d{4})', filename)
-                            date = date_match.group(1) if date_match else "不明"
+                # 艦隊レベルでpride_of_the_fleetをチェック
+                fleet_has_pride = self.check_pride_in_data(formation_data)
 
-                            for fleet in fleets:
-                                # 艦隊アイテムを作成
-                                fleet_item = QTreeWidgetItem(self.mod_formation_tree)
-                                fleet_name = fleet.get('name', '不明')
-                                naval_base = fleet.get('naval_base', '不明')
-                                task_forces = fleet.get('task_force', [])
-                                if isinstance(task_forces, dict):
-                                    task_forces = [task_forces]
+                # 任務部隊を追加
+                for task_force in task_forces:
+                    task_force_item = QTreeWidgetItem(fleet_item)
+                    task_force_name = task_force.get('name', '不明')
+                    location = task_force.get('location', '不明')
+                    ships = task_force.get('ship', [])
+                    if isinstance(ships, dict):
+                        ships = [ships]
 
-                                total_ships = sum(len(tf.get('ship', [])) for tf in task_forces)
-                                fleet_item.setText(0,
-                                                   f"{fleet_name} - {naval_base} - {len(task_forces)}TF - {total_ships}隻")
-                                fleet_item.setData(0, Qt.UserRole,
-                                                   {'type': 'fleet', 'data': fleet, 'date': date, 'file': filename})
+                    task_force_item.setText(0, f"{task_force_name} - {location} - {len(ships)}隻")
+                    task_force_item.setData(0, Qt.UserRole, {'type': 'task_force', 'data': task_force})
 
-                                # 艦隊レベルでpride_of_the_fleetをチェック
-                                fleet_has_pride = self.check_pride_in_data(fleet)
+                    # 任務部隊レベルでpride_of_the_fleetをチェック
+                    task_force_has_pride = self.check_pride_in_data(task_force)
 
-                                # 任務部隊を追加
-                                for task_force in task_forces:
-                                    task_force_item = QTreeWidgetItem(fleet_item)
-                                    task_force_name = task_force.get('name', '不明')
-                                    location = task_force.get('location', '不明')
-                                    ships = task_force.get('ship', [])
-                                    if isinstance(ships, dict):
-                                        ships = [ships]
+                    # 艦艇を追加
+                    for ship in ships:
+                        ship_item = QTreeWidgetItem(task_force_item)
+                        ship_name = ship.get('name', '不明')
+                        definition = ship.get('definition', '不明')
+                        exp_factor = ship.get('start_experience_factor', '不明')
 
-                                    task_force_item.setText(0, f"{task_force_name} - {location} - {len(ships)}隻")
-                                    task_force_item.setData(0, Qt.UserRole, {'type': 'task_force', 'data': task_force})
+                        # 設計データから表示名を取得
+                        version_name = self.get_display_name_from_design_cached(definition, designs_data, nation_tag, ship)
 
-                                    # 任務部隊レベルでpride_of_the_fleetをチェック
-                                    task_force_has_pride = self.check_pride_in_data(task_force)
+                        ship_item.setText(0, f"{ship_name} - {definition} - {version_name} - Exp:{exp_factor}")
+                        ship_item.setData(0, Qt.UserRole, {'type': 'ship', 'data': ship})
 
-                                    # 艦艇を追加
-                                    for ship in ships:
-                                        ship_item = QTreeWidgetItem(task_force_item)
-                                        ship_name = ship.get('name', '不明')
-                                        definition = ship.get('definition', '不明')
-                                        exp_factor = ship.get('start_experience_factor', '不明')
+                        # 艦艇レベルでpride_of_the_fleetをチェック
+                        ship_has_pride = self.check_pride_in_data(ship)
+                        if ship_has_pride:
+                            self.add_star_icon(ship_item)
+                            task_force_has_pride = True
+                            fleet_has_pride = True
 
-                                        # 設計データから表示名を取得（シンプル版）
-                                        version_name = self.get_display_name_from_design(definition, designs_data,
-                                                                                         nation_tag, ship)
+                    # 任務部隊にprideがある場合は星マークを追加
+                    if task_force_has_pride:
+                        self.add_star_icon(task_force_item)
 
-                                        ship_item.setText(0,
-                                                          f"{ship_name} - {definition} - {version_name} - Exp:{exp_factor}")
-                                        ship_item.setData(0, Qt.UserRole, {'type': 'ship', 'data': ship})
+                # 艦隊にprideがある場合は星マークを追加
+                if fleet_has_pride:
+                    self.add_star_icon(fleet_item)
 
-                                        # 艦艇レベルでpride_of_the_fleetをチェック
-                                        ship_has_pride = self.check_pride_in_data(ship)
-                                        if ship_has_pride:
-                                            self.add_star_icon(ship_item)
-                                            task_force_has_pride = True
-                                            fleet_has_pride = True
-
-                                    # 任務部隊にprideがある場合は星マークを追加
-                                    if task_force_has_pride:
-                                        self.add_star_icon(task_force_item)
-
-                                # 建造キューのヘッダーを追加
-                                queue_items = []
-                                instant_effects = fleet.get('instant_effect', [])
-                                if isinstance(instant_effects, dict):
-                                    instant_effects = [instant_effects]
-
-                                for effect in instant_effects:
-                                    if 'add_equipment_production' in effect:
-                                        production = effect['add_equipment_production']
-                                        if isinstance(production, dict):
-                                            production = [production]
-
-                                        for prod in production:
-                                            if prod.get('type') == 'ship':
-                                                queue_items.append(prod)
-
-                                # 建造キューが存在する場合のみヘッダーを追加
-                                if queue_items:
-                                    # 建造キューヘッダー
-                                    queue_header = QTreeWidgetItem(fleet_item)
-                                    queue_header.setText(0, f"建造キュー ({len(queue_items)}隻)")
-                                    queue_header.setData(0, Qt.UserRole, {'type': 'queue_header'})
-
-                                    # ヘッダーのフォントを太字にする
-                                    font = QFont()
-                                    font.setBold(True)
-                                    queue_header.setFont(0, font)
-
-                                    # 建造キューの艦艇を追加
-                                    for prod in queue_items:
-                                        queue_item = QTreeWidgetItem(queue_header)
-                                        ship_name = prod.get('name', '不明')
-                                        definition = prod.get('definition', '不明')
-                                        factories = prod.get('requested_factories', '不明')
-                                        progress = prod.get('progress', '不明')
-
-                                        # 建造キューからも表示名を取得
-                                        version_name = self.get_display_name_from_design(definition, designs_data,
-                                                                                         nation_tag, prod)
-
-                                        queue_item.setText(0,
-                                                           f"{ship_name} - {definition} - {version_name} - 工場:{factories} - 進捗:{progress}")
-                                        queue_item.setData(0, Qt.UserRole, {'type': 'queue', 'data': prod})
-
-                                # 艦隊にprideがある場合は星マークを追加
-                                if fleet_has_pride:
-                                    self.add_star_icon(fleet_item)
-
-                                # 艦隊アイテムを展開
-                                fleet_item.setExpanded(True)
-
-                    except Exception as e:
-                        print(f"ファイル {filename} のパース中にエラーが発生しました: {str(e)}")
-                        continue
+                # 艦隊アイテムを展開
+                fleet_item.setExpanded(True)
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"mod内の編成データの読み込み中にエラーが発生しました：\n{str(e)}")
+
+    def get_display_name_from_design_cached(self, definition, designs_data, nation_tag, ship_data):
+        """キャッシュされた設計データから表示名を取得"""
+        try:
+            # 1. 設計データから検索
+            design_display_name = None
+            ship_version_name = None
+
+            # 完全一致で検索
+            if definition in designs_data:
+                design_data = designs_data[definition]
+                design_display_name = self.extract_design_override_name(design_data)
+
+            # typeフィールドで検索（完全一致が見つからない場合）
+            if not design_display_name:
+                for design_key, design_data in designs_data.items():
+                    if design_data.get('type', '').strip('"') == definition:
+                        design_display_name = self.extract_design_override_name(design_data)
+                        break
+
+            # 2. 船体データからversion_nameを取得
+            equipment = ship_data.get('equipment', {})
+            for equipment_type, equipment_data in equipment.items():
+                if isinstance(equipment_data, dict):
+                    version_name = equipment_data.get('version_name', '')
+                    if version_name:
+                        ship_version_name = version_name.strip('"')
+                        break
+
+            # 3. 艦艇名のオーバーライドを確認
+            ship_name = ship_data.get('name', '')
+            if isinstance(ship_name, dict) and 'override' in ship_name:
+                ship_name = ship_name['override']
+            else:
+                ship_name = ship_name.strip('"')
+
+            # 4. 表示名を組み合わせ
+            if design_display_name and ship_version_name:
+                return f"{ship_name} - {design_display_name}({ship_version_name})"
+            elif design_display_name:
+                return f"{ship_name} - {design_display_name}"
+            elif ship_version_name:
+                return f"{ship_name} - {ship_version_name}"
+            else:
+                return f"{ship_name} - {definition}"
+
+        except Exception as e:
+            print(f"表示名取得エラー: {e}")
+            return definition
 
     def on_equipment_double_clicked(self, item):
         """装備アイテムがダブルクリックされた時の処理"""

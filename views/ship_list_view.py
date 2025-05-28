@@ -5,6 +5,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon, QPixmap
 import logging
 import os
+import time
 from parser.NavalOOBParser import NavalOOBParser
 
 # PIL のインポートを安全に行う
@@ -16,7 +17,7 @@ except ImportError:
     print("警告: PILがインストールされていません。国旗表示機能は無効になります。")
 
 class ShipListView(QWidget):
-    """艦艇一覧ビュー"""
+    """艦艇一覧ビュー（キャッシュ最適化版）"""
 
     def __init__(self, parent=None, app_controller=None):
         super().__init__(parent)
@@ -24,7 +25,38 @@ class ShipListView(QWidget):
         self.logger = logging.getLogger('ShipListView')
         self.all_nations = []  # 全国家データを保持
         self.filtered_nations = []  # フィルタリングされた国家データを保持
+        
+        # キャッシュ用の変数を追加
+        self.nations_ship_cache = {}  # 国家別の艦艇データキャッシュ
+        self.last_cache_update = {}  # 国家別の最終キャッシュ更新時刻
+        
         self.init_ui()
+
+    def has_nation_data(self, nation_tag):
+        """指定された国家にデータが存在するかチェック（キャッシュ活用版）"""
+        if not self.app_controller:
+            return False
+
+        try:
+            # キャッシュを確認
+            current_time = time.time()
+            if (nation_tag in self.nations_ship_cache and 
+                nation_tag in self.last_cache_update and
+                current_time - self.last_cache_update[nation_tag] < 300):  # 5分間キャッシュ
+                return len(self.nations_ship_cache[nation_tag]) > 0
+
+            # キャッシュが無効な場合は軽量チェック
+            ships = self.app_controller.refresh_mod_ships(nation_tag)
+            
+            # 結果をキャッシュ
+            self.nations_ship_cache[nation_tag] = ships
+            self.last_cache_update[nation_tag] = current_time
+            
+            return len(ships) > 0
+
+        except Exception as e:
+            print(f"国家データチェック中にエラー: {e}")
+            return False
 
     def init_ui(self):
         """UIの初期化"""
@@ -191,7 +223,7 @@ class ShipListView(QWidget):
             QMessageBox.critical(self, "エラー", f"国家リストの読み込み中にエラーが発生しました：\n{str(e)}")
 
     def update_nation_combo(self):
-        """コンボボックスを更新"""
+        """コンボボックスを更新（キャッシュ最適化版）"""
         try:
             # 現在選択されている国家タグを保存
             current_tag = self.nation_combo.currentData() if self.nation_combo.currentIndex() >= 0 else None
@@ -205,12 +237,11 @@ class ShipListView(QWidget):
             # 使用する国家リスト（フィルタリング済みまたは全体）
             nations_to_show = self.filtered_nations if hasattr(self, 'filtered_nations') else self.all_nations
 
-            # 艦艇データを持つ国家のみをフィルタリング
+            # 艦艇データを持つ国家のみをフィルタリング（キャッシュ活用）
             nations_with_ships = []
             for nation in nations_to_show:
                 try:
-                    ships = self.app_controller.refresh_mod_ships(nation['tag'])
-                    if ships:
+                    if self.has_nation_data(nation['tag']):
                         nations_with_ships.append(nation)
                 except Exception:
                     continue
@@ -291,7 +322,10 @@ class ShipListView(QWidget):
                 self.ship_type_combo.addItem(ship_type, ship_type)
 
     def refresh_ship_list(self):
-        """艦艇一覧を更新"""
+        """艦艇一覧を更新（キャッシュクリア付き）"""
+        # キャッシュをクリアして最新データを取得
+        self.clear_cache()
+        
         # 実装中の艦艇ツリーをクリア
         self.implemented_ships_tree.clear()
         
@@ -335,7 +369,7 @@ class ShipListView(QWidget):
             self.refresh_mod_ships()
 
     def refresh_mod_ships(self):
-        """MOD内の艦艇一覧を更新"""
+        """MOD内の艦艇一覧を更新（キャッシュ最適化版）"""
         self.mod_ships_tree.clear()
         
         if not self.app_controller or not self.app_controller.current_mod:
@@ -351,10 +385,17 @@ class ShipListView(QWidget):
             
             # 全国家が選択されている場合
             if nation_tag is None:
-                # 全国家の艦艇データを取得
+                # 全国家の艦艇データを取得（キャッシュ活用）
                 all_ships = []
                 for nation in self.all_nations:
-                    ships = self.app_controller.refresh_mod_ships(nation['tag'])
+                    # キャッシュから取得または新規取得
+                    if nation['tag'] in self.nations_ship_cache:
+                        ships = self.nations_ship_cache[nation['tag']]
+                    else:
+                        ships = self.app_controller.refresh_mod_ships(nation['tag'])
+                        self.nations_ship_cache[nation['tag']] = ships
+                        self.last_cache_update[nation['tag']] = time.time()
+                    
                     if ships:
                         # 各艦艇に国家情報を追加
                         for ship in ships:
@@ -362,8 +403,14 @@ class ShipListView(QWidget):
                         all_ships.extend(ships)
                 ships = all_ships
             else:
-                # 特定の国家の艦艇データを取得
-                ships = self.app_controller.refresh_mod_ships(nation_tag)
+                # 特定の国家の艦艇データを取得（キャッシュ活用）
+                if nation_tag in self.nations_ship_cache:
+                    ships = self.nations_ship_cache[nation_tag]
+                else:
+                    ships = self.app_controller.refresh_mod_ships(nation_tag)
+                    self.nations_ship_cache[nation_tag] = ships
+                    self.last_cache_update[nation_tag] = time.time()
+                
                 # 国家情報を追加
                 nation = next((n for n in self.all_nations if n['tag'] == nation_tag), None)
                 if nation:
@@ -532,4 +579,10 @@ class ShipListView(QWidget):
             return
             
         item = selected_items[0]
-        # TODO: 削除確認ダイアログを表示 
+        # TODO: 削除確認ダイアログを表示
+
+    def clear_cache(self):
+        """艦艇データキャッシュをクリア"""
+        self.nations_ship_cache.clear()
+        self.last_cache_update.clear()
+        self.logger.info("艦艇データキャッシュをクリアしました") 

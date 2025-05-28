@@ -1347,7 +1347,7 @@ class AppController(QObject):
                 return design_list
 
             # MODの設計データディレクトリ
-            design_dir = os.path.join(current_mod["path"], "common", "scripted_effect")
+            design_dir = os.path.join(current_mod["path"], "common", "scripted_effects")
 
             if not os.path.exists(design_dir):
                 logger.warning(f"設計データディレクトリが見つかりません: {design_dir}")
@@ -1739,7 +1739,7 @@ class AppController(QObject):
         ]
 
     def refresh_mod_ships(self, nation_tag):
-        """MODから国家の艦艇データを更新"""
+        """MODから国家の艦艇データを更新（キャッシュ対応版）"""
         try:
             ship_list = []
             current_mod = self.get_current_mod()
@@ -1765,13 +1765,30 @@ class AppController(QObject):
             ]
 
             for filename in os.listdir(naval_oob_dir):
-                if not any(re.match(pattern, filename) for pattern in patterns):
+                # パターンマッチング
+                matches_pattern = False
+                for pattern in patterns:
+                    if re.match(pattern, filename):
+                        matches_pattern = True
+                        break
+                
+                if not matches_pattern:
                     continue
 
                 file_path = os.path.join(naval_oob_dir, filename)
                 logger.info(f"艦艇ファイルを処理中: {file_path}")
 
                 try:
+                    # キャッシュからデータを読み込み試行
+                    cached_data = None
+                    if self.cache_manager:
+                        cached_data = self.cache_manager.load("ships", file_path, nation_tag)
+                        if cached_data is not None:
+                            logger.debug(f"キャッシュから艦艇データを読み込み: {file_path}")
+                            ship_list.extend(cached_data)
+                            continue
+
+                    # キャッシュミスまたは古い場合は通常のパース処理を実行
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
 
@@ -1780,8 +1797,9 @@ class AppController(QObject):
                     ships = parser.extract_ships()
 
                     # 艦艇データをリストに変換
+                    file_ships = []
                     for ship in ships:
-                        ship_list.append({
+                        ship_data = {
                             'id': ship.get('name', ''),
                             'name': ship.get('name', ''),
                             'type': ship.get('type', ''),
@@ -1789,8 +1807,15 @@ class AppController(QObject):
                             'fleet': ship.get('fleet', ''),
                             'task_force': ship.get('task_force', ''),
                             'data': ship
-                        })
+                        }
+                        file_ships.append(ship_data)
+                        ship_list.append(ship_data)
                         logger.info(f"艦艇データを追加: ID={ship.get('name', '')}, 設計={ship.get('design', '')}, 所属艦隊={ship.get('fleet', '')}")
+
+                    # パース成功後、キャッシュに保存
+                    if file_ships and self.cache_manager:
+                        self.cache_manager.save("ships", file_path, file_ships, nation_tag)
+                        logger.debug(f"艦艇データをキャッシュに保存: {file_path}")
 
                 except Exception as e:
                     logger.error(f"艦艇ファイル '{filename}' の読み込みエラー: {e}")
