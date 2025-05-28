@@ -15,3 +15,4 @@ logs/
 config.yaml
 # Ignore
 EXAMPLE/
+app.log

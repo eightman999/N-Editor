@@ -105,6 +105,17 @@ class MapViewer(QGraphicsView):
         # app_controllerを追加
         self.app_controller = parent.app_controller if parent else None
 
+        # デバウンス処理用のタイマー追加
+        self._move_timer = QTimer(self)
+        self._move_timer.setSingleShot(True)
+        self._move_timer.timeout.connect(self._execute_pending_move)
+        self._pending_move_data = None
+        
+        # ズーム制限の設定
+        self._min_zoom = 0.5
+        self._max_zoom = 10.0
+        self._default_zoom = 3.0
+
         # マウスオーバー時のツールチップ用
         self.setMouseTracking(True)
         self.hovered_province = None
@@ -1103,6 +1114,7 @@ class MapViewer(QGraphicsView):
             QMessageBox.information(self, "艦隊情報", details)
 
     def search_province(self):
+        """検索機能の修正版"""
         search_text = self.search_input.text().strip()
         if not search_text:
             self.search_result_label.setText("")
@@ -1114,17 +1126,10 @@ class MapViewer(QGraphicsView):
                 province = self.provinces_data_by_id[search_id]
                 self.search_result_label.setText(f"プロビンス {search_id}: {province.name}")
 
-                # プロビンスの中心座標を取得
-                if search_id in self.province_centroids and self.province_centroids[search_id] is not None:
-                    center_x, center_y = self.province_centroids[search_id]
-                    # その位置に移動
-                    # アニメーションを停止し、直接スクロールオフセットを設定
-                    if self._animation.state() == QPropertyAnimation.Running:
-                        self._animation.stop()
-                    self.scrollOffsetX = center_x - self.viewport().width() / 2  # ビューポートの中心に移動
-                    self.verticalScrollBar().setValue(int(center_y - self.viewport().height() / 2))  # Y軸は通常のスクロールバーで
-                    # ズームイン
-                    self.scale(2.0, 2.0)
+                # 修正: 固定ズームレベルでプロビンスに移動
+                success = self.move_to_province_with_zoom(search_id, zoom_level=4.0)
+                if not success:
+                    self.search_result_label.setText(f"プロビンス {search_id} への移動に失敗しました")
             else:
                 self.search_result_label.setText(f"プロビンス {search_id} は見つかりませんでした")
         except ValueError:
@@ -1491,7 +1496,7 @@ class MapViewer(QGraphicsView):
         return self.state_owners.get(state_id)
 
     def move_to_province(self, province_id):
-        """指定されたプロビンスIDの位置に地図を移動する"""
+        """指定されたプロビンスIDの位置に地図を移動する（型エラー修正版）"""
         if province_id in self.province_centroids and self.province_centroids[province_id] is not None:
             # プロビンスの中心座標を取得
             center_x, center_y = self.province_centroids[province_id]
@@ -1500,34 +1505,308 @@ class MapViewer(QGraphicsView):
             if hasattr(self, '_animation') and self._animation.state() == QPropertyAnimation.Running:
                 self._animation.stop()
             
-            # 現在のスケールを考慮してスクロール位置を計算
-            current_scale = self.transform().m11()  # 現在のスケールを取得
+            # 現在のスケールを取得
+            current_scale = self.transform().m11()
             
             # ビューポートの中心を計算
             viewport_center_x = self.viewport().width() / 2
             viewport_center_y = self.viewport().height() / 2
             
-            # 中央の画像の位置に調整（画像幅を考慮）
-            adjusted_x = center_x + self.original_width  # 中央の画像の位置に調整
-            
-            # スケールを考慮したスクロール位置を計算
-            target_x = (adjusted_x * current_scale) - viewport_center_x
+            # Y軸の計算（既存実装を維持）
             target_y = (center_y * current_scale) - viewport_center_y
             
+            # X軸の計算（original_widthの加算を削除し、正確な計算に変更）
+            base_target_x = (center_x * current_scale) - viewport_center_x
+            
+            # ループを考慮して、現在の表示位置に最も近いプロビンス位置を選択
+            # 修正: int型でmapToSceneを呼び出し
+            try:
+                current_center_scene = self.mapToScene(int(viewport_center_x), int(viewport_center_y))
+                current_center_x = current_center_scene.x()
+            except Exception as e:
+                # フォールバック: エラー時は基本計算を使用
+                self.logger.warning(f"mapToScene エラー: {e}, フォールバック計算を使用")
+                current_center_x = center_x
+            
+            # プロビンスの可能な表示位置（ループ考慮）
+            possible_positions = []
+            for i in range(-5, 6):  # -5から+5までのループ位置を考慮
+                pos_x = center_x + (i * self.original_width)
+                target_scroll = (pos_x * current_scale) - viewport_center_x
+                distance = abs(pos_x - current_center_x)
+                possible_positions.append((target_scroll, distance))
+            
+            # 現在位置に最も近い位置を選択
+            best_target_x = min(possible_positions, key=lambda x: x[1])[0]
+            
             # スクロール位置を設定
-            self.scrollOffsetX = target_x
+            self.scrollOffsetX = best_target_x
             self.verticalScrollBar().setValue(int(target_y))
             
-            self.logger.info(f"プロビンス {province_id} の中心 ({adjusted_x}, {center_y}) に移動 (スケール: {current_scale})")
+            self.logger.info(f"プロビンス {province_id} の中心 ({center_x}, {center_y}) に移動 (スケール: {current_scale})")
+            self.logger.debug(f"計算結果: target_x={best_target_x}, target_y={target_y}")
             return True
         else:
             self.logger.warning(f"プロビンス {province_id} の中心座標が見つかりません")
             return False
 
+    def move_to_province_with_zoom(self, province_id, zoom_level=3.0):
+        """指定されたプロビンスIDの位置に地図を移動し、指定されたズームレベルに設定する"""
+        if province_id not in self.province_centroids or self.province_centroids[province_id] is None:
+            self.logger.warning(f"プロビンス {province_id} の中心座標が見つかりません")
+            return False
+        
+        # 現在のズームレベルを取得
+        current_scale = self.transform().m11()
+        
+        # 目標ズームレベルに設定（絶対値指定）
+        if abs(current_scale - zoom_level) > 0.1:  # 現在と異なる場合のみ変更
+            self.set_absolute_zoom_level(zoom_level)
+        
+        # プロビンスに移動
+        return self.move_to_province(province_id)
+
+    def set_absolute_zoom_level(self, target_zoom_level):
+        """指定されたズームレベルに絶対値で設定する"""
+        try:
+            # 現在のズームレベルを取得
+            current_scale = self.transform().m11()
+            
+            # ズームレベルの制限（1.0〜10.0）
+            target_zoom_level = max(1.0, min(10.0, target_zoom_level))
+            
+            # 目標ズームレベルとの比率を計算
+            scale_factor = target_zoom_level / current_scale
+            
+            # 現在のビューポート中心のシーン座標を取得
+            viewport_center = QPointF(self.viewport().width() / 2, self.viewport().height() / 2)
+            scene_center = self.mapToScene(viewport_center.toPoint())
+            
+            # 中心を維持しながらスケールを適用
+            self.setTransformationAnchor(QGraphicsView.AnchorViewCenter)
+            self.scale(scale_factor, scale_factor)
+            
+            # スケール変更後、必要に応じてマップアイテムの位置を更新
+            self.update_map_item_position()
+            
+            self.logger.info(f"ズームレベルを {current_scale:.2f} から {target_zoom_level:.2f} に設定")
+            
+        except Exception as e:
+            self.logger.error(f"ズームレベル設定中にエラーが発生: {e}")
+
+    def move_to_province_debounced(self, province_id, zoom_level=None, delay_ms=150):
+        """デバウンス処理付きプロビンス移動"""
+        # 前の移動処理をキャンセル
+        if self._move_timer.isActive():
+            self._move_timer.stop()
+        
+        # 移動データを保存
+        self._pending_move_data = {
+            'province_id': province_id,
+            'zoom_level': zoom_level,
+            'timestamp': time.time()
+        }
+        
+        # 指定された遅延後に実行
+        self._move_timer.start(delay_ms)
+
+    def _execute_pending_move(self):
+        """デバウンス処理により遅延実行される移動処理"""
+        if self._pending_move_data is None:
+            return
+        
+        try:
+            province_id = self._pending_move_data['province_id']
+            zoom_level = self._pending_move_data['zoom_level']
+            
+            if zoom_level is not None:
+                success = self.move_to_province_with_zoom(province_id, zoom_level)
+            else:
+                success = self.move_to_province(province_id)
+                
+            if success:
+                self.logger.info(f"デバウンス処理によりプロビンス {province_id} への移動を実行")
+            else:
+                self.logger.warning(f"プロビンス {province_id} への移動に失敗")
+                
+        except Exception as e:
+            self.logger.error(f"デバウンス移動処理中にエラー: {e}")
+        finally:
+            self._pending_move_data = None
+
+    def get_current_zoom_level(self):
+        """現在のズームレベルを取得"""
+        return self.transform().m11()
+
+    def is_valid_zoom_level(self, zoom_level):
+        """ズームレベルが有効範囲内かチェック"""
+        return self._min_zoom <= zoom_level <= self._max_zoom
+
+    def clamp_zoom_level(self, zoom_level):
+        """ズームレベルを有効範囲内に制限"""
+        return max(self._min_zoom, min(self._max_zoom, zoom_level))
+
+    def calculate_optimal_scroll_position(self, center_x, center_y, target_scale=None):
+        """最適なスクロール位置を計算する（型エラー修正版）"""
+        if target_scale is None:
+            target_scale = self.transform().m11()
+        
+        # ビューポートサイズを取得
+        viewport_width = self.viewport().width()
+        viewport_height = self.viewport().height()
+        
+        # Y軸の計算（既存の実装を基準）
+        target_y = (center_y * target_scale) - (viewport_height / 2)
+        
+        # X軸の計算（ループ考慮版）
+        base_target_x = (center_x * target_scale) - (viewport_width / 2)
+        
+        # 現在の表示中心を取得（修正: QPoint使用）
+        try:
+            viewport_center_point = QPoint(int(viewport_width // 2), int(viewport_height // 2))
+            current_center = self.mapToScene(viewport_center_point)
+            current_x = current_center.x()
+        except Exception as e:
+            self.logger.warning(f"mapToScene エラー: {e}, フォールバック使用")
+            current_x = center_x  # フォールバック
+        
+        # ループを考慮した最適位置の計算
+        optimal_positions = []
+        
+        for i in range(-3, 4):  # -3から+3のループ位置
+            loop_x = center_x + (i * self.original_width)
+            scroll_x = (loop_x * target_scale) - (viewport_width / 2)
+            distance = abs(loop_x - current_x)
+            optimal_positions.append((scroll_x, distance))
+        
+        # 最も近い位置を選択
+        best_scroll_x = min(optimal_positions, key=lambda x: x[1])[0]
+        
+        return best_scroll_x, target_y
+
+    def safe_move_to_province(self, province_id, zoom_level=None, max_retries=3):
+        """エラー処理を強化したプロビンス移動"""
+        for attempt in range(max_retries):
+            try:
+                if zoom_level is not None:
+                    success = self.move_to_province_with_zoom(province_id, zoom_level)
+                else:
+                    success = self.move_to_province(province_id)
+                
+                if success:
+                    return True
+                else:
+                    self.logger.warning(f"プロビンス移動失敗 (試行 {attempt + 1}/{max_retries})")
+                    
+            except Exception as e:
+                self.logger.error(f"プロビンス移動エラー (試行 {attempt + 1}/{max_retries}): {e}")
+                
+            # 失敗時は少し待機
+            if attempt < max_retries - 1:
+                QTimer.singleShot(100, lambda: None)  # 100ms待機
+        
+        return False
+
     def toggle_mod_fleets(self):
         """MOD内の艦隊表示を切り替え"""
         self.show_mod_fleets = not self.show_mod_fleets
         self.render_map()  # マップを再描画
+
+    def test_coordinate_calculation(self, test_provinces=None):
+        """座標計算のテスト用メソッド"""
+        if test_provinces is None:
+            # デフォルトのテスト用プロビンスID
+            test_provinces = [1, 100, 500, 1000]
+        
+        self.logger.info("=== 座標計算テスト開始 ===")
+        
+        for province_id in test_provinces:
+            if province_id in self.province_centroids:
+                center_x, center_y = self.province_centroids[province_id]
+                
+                # 各ズームレベルでの計算結果をテスト
+                for zoom_level in [1.0, 2.0, 3.0, 5.0]:
+                    scroll_x, scroll_y = self.calculate_optimal_scroll_position(
+                        center_x, center_y, zoom_level
+                    )
+                    
+                    self.logger.info(
+                        f"プロビンス {province_id}: "
+                        f"座標({center_x:.1f}, {center_y:.1f}), "
+                        f"ズーム{zoom_level}, "
+                        f"スクロール({scroll_x:.1f}, {scroll_y:.1f})"
+                    )
+        
+        self.logger.info("=== 座標計算テスト完了 ===")
+
+    def validate_move_accuracy(self, province_id, tolerance=50):
+        """移動精度の検証（型エラー修正版）"""
+        if province_id not in self.province_centroids:
+            return False
+        
+        # プロビンスに移動
+        success = self.move_to_province(province_id)
+        if not success:
+            return False
+        
+        # 現在の表示中心を取得（修正: int型でQPointを作成）
+        try:
+            viewport_center = QPoint(int(self.viewport().width() // 2), int(self.viewport().height() // 2))
+            current_center = self.mapToScene(viewport_center)
+            
+            # プロビンスの座標を取得
+            target_x, target_y = self.province_centroids[province_id]
+            
+            # 誤差を計算
+            error_x = abs(current_center.x() - target_x)
+            error_y = abs(current_center.y() - target_y)
+            
+            # 許容誤差内かチェック
+            is_accurate = error_x <= tolerance and error_y <= tolerance
+            
+            self.logger.info(
+                f"移動精度検証 - プロビンス {province_id}: "
+                f"誤差X={error_x:.1f}, 誤差Y={error_y:.1f}, "
+                f"精度OK={is_accurate} (許容誤差={tolerance})"
+            )
+            
+            return is_accurate
+        
+        except Exception as e:
+            self.logger.error(f"移動精度検証中にエラー: {e}")
+            return False
+
+    def benchmark_move_performance(self, test_provinces, iterations=5):
+        """移動パフォーマンスのベンチマーク"""
+        import time
+        
+        self.logger.info("=== 移動パフォーマンステスト開始 ===")
+        
+        total_times = []
+        
+        for province_id in test_provinces:
+            if province_id not in self.province_centroids:
+                continue
+            
+            times = []
+            for i in range(iterations):
+                start_time = time.time()
+                success = self.move_to_province(province_id)
+                end_time = time.time()
+                
+                if success:
+                    times.append(end_time - start_time)
+            
+            if times:
+                avg_time = sum(times) / len(times)
+                total_times.extend(times)
+                self.logger.info(f"プロビンス {province_id}: 平均 {avg_time*1000:.1f}ms")
+        
+        if total_times:
+            overall_avg = sum(total_times) / len(total_times)
+            self.logger.info(f"全体平均: {overall_avg*1000:.1f}ms")
+        
+        self.logger.info("=== パフォーマンステスト完了 ===")
 
 
 class MainWindow(QMainWindow):
@@ -1577,6 +1856,38 @@ class MainWindow(QMainWindow):
                 pass
         else:
             QMessageBox.information(self, "キャンセル", "Modディレクトリの選択がキャンセルされました。")
+
+
+class MapViewerSettings:
+    """MapViewer用の設定管理クラス"""
+    
+    def __init__(self):
+        self.default_zoom_level = 3.0
+        self.max_zoom_level = 10.0
+        self.min_zoom_level = 0.5
+        self.move_debounce_delay = 150  # ms
+        self.coordinate_tolerance = 50  # pixels
+        self.performance_mode = False
+        
+    def load_from_config(self, config_dict):
+        """設定辞書から読み込み"""
+        self.default_zoom_level = config_dict.get('default_zoom_level', self.default_zoom_level)
+        self.max_zoom_level = config_dict.get('max_zoom_level', self.max_zoom_level)
+        self.min_zoom_level = config_dict.get('min_zoom_level', self.min_zoom_level)
+        self.move_debounce_delay = config_dict.get('move_debounce_delay', self.move_debounce_delay)
+        self.coordinate_tolerance = config_dict.get('coordinate_tolerance', self.coordinate_tolerance)
+        self.performance_mode = config_dict.get('performance_mode', self.performance_mode)
+    
+    def to_dict(self):
+        """設定を辞書として出力"""
+        return {
+            'default_zoom_level': self.default_zoom_level,
+            'max_zoom_level': self.max_zoom_level,
+            'min_zoom_level': self.min_zoom_level,
+            'move_debounce_delay': self.move_debounce_delay,
+            'coordinate_tolerance': self.coordinate_tolerance,
+            'performance_mode': self.performance_mode
+        }
 
 
 if __name__ == '__main__':

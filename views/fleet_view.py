@@ -1583,6 +1583,7 @@ class FleetView(QWidget):
         if data and "province_id" in data:
             # 地図を該当のプロビンスに移動
             if MAP_VIEWER_AVAILABLE and self.map_widget:
+                # 修正: クリック時は移動のみ、ズームは変更しない
                 self.map_widget.move_to_province(data["province_id"])
 
     def on_port_item_clicked(self, item, column):
@@ -1591,6 +1592,7 @@ class FleetView(QWidget):
         if data and "province_id" in data:
             # 地図を該当のプロビンスに移動
             if MAP_VIEWER_AVAILABLE and self.map_widget:
+                # 修正: クリック時は移動のみ、ズームは変更しない
                 self.map_widget.move_to_province(data["province_id"])
 
     def on_port_item_double_clicked(self, item, column):
@@ -1601,9 +1603,81 @@ class FleetView(QWidget):
             if MAP_VIEWER_AVAILABLE and self.map_widget:
                 province_id = data["province_id"]
                 self.logger.info(f"港湾一覧からプロビンス {province_id} に移動")
-                self.map_widget.move_to_province(province_id)
-                # ズームイン
-                self.map_widget.scale(2.0, 2.0)
+                # 修正: 固定ズームレベルでプロビンスに移動（相対的なscaleを削除）
+                self.map_widget.move_to_province_with_zoom(province_id, zoom_level=3.0)
+
+    def search_province(self):
+        """検索機能の修正版"""
+        search_text = self.search_input.text().strip()
+        if not search_text:
+            self.search_result_label.setText("")
+            return
+
+        try:
+            search_id = int(search_text)
+            if MAP_VIEWER_AVAILABLE and self.map_widget:
+                # 修正: 検索時も固定ズームレベルを使用
+                success = self.map_widget.move_to_province_with_zoom(search_id, zoom_level=4.0)
+                if success:
+                    self.search_result_label.setText(f"プロビンス {search_id} に移動しました")
+                else:
+                    self.search_result_label.setText(f"プロビンス {search_id} は見つかりませんでした")
+            else:
+                self.search_result_label.setText("マップが利用できません")
+        except ValueError:
+            self.search_result_label.setText("有効なIDを入力してください")
+
+    def on_port_item_double_clicked_improved(self, item, column):
+        """改善版: 港湾ツリーのダブルクリック処理"""
+        data = item.data(0, Qt.UserRole)
+        if data and "province_id" in data:
+            if MAP_VIEWER_AVAILABLE and self.map_widget:
+                province_id = data["province_id"]
+                self.logger.info(f"港湾一覧からプロビンス {province_id} に移動")
+                
+                # デバウンス処理付きで移動
+                self.map_widget.move_to_province_debounced(
+                    province_id, 
+                    zoom_level=3.0, 
+                    delay_ms=150
+                )
+
+    def update_port_list_with_enhanced_info(self):
+        """港湾一覧の表示を改善（座標情報付き）"""
+        if not self.current_country or not self.app_controller:
+            return
+
+        try:
+            self.port_tree.clear()
+            
+            # 現在のMODを取得
+            current_mod = self.app_controller.get_current_mod()
+            if not current_mod or "path" not in current_mod:
+                return
+
+            # 港湾情報を座標付きで表示
+            for prov_id, level in self.map_widget.naval_base_locations.items():
+                if prov_id in self.province_centroids and self.province_centroids[prov_id] is not None:
+                    # プロビンスが所属するステートを確認
+                    province = self.provinces_data_by_id.get(prov_id)
+                    if province and province.state_id:
+                        state_data = self.states_data.get(province.state_id)
+                        if state_data and state_data['raw_data'].get('owner') == self.current_country:
+                            center_x, center_y = self.province_centroids[prov_id]
+                            
+                            port_item = QTreeWidgetItem(self.port_tree)
+                            port_name = f"{prov_id}-Lv{level} (座標: {int(center_x)}, {int(center_y)})"
+                            port_item.setText(0, port_name)
+                            port_item.setData(0, Qt.UserRole, {
+                                "province_id": prov_id,
+                                "level": level,
+                                "coordinates": (center_x, center_y)
+                            })
+
+            self.logger.info(f"座標情報付き港湾一覧を更新: {self.current_country}")
+
+        except Exception as e:
+            self.logger.error(f"港湾一覧の更新中にエラー: {e}")
 
 
 # ダイアログクラス群
