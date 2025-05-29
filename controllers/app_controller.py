@@ -25,6 +25,7 @@ from models.hull_model import HullModel
 from views.nation_details_view import NationDetailsView
 from utils.path_utils import get_data_dir
 from utils.cache_manager import CacheManager  # 追加: キャッシュマネージャー
+from utils.sync_manager import SyncManager  # 追加: 同期マネージャー
 
 # パーサーのインポート (コメントアウトを解除または追加)
 from parser.StateParser import StateParser
@@ -209,6 +210,10 @@ class AppController(QObject):
 
         # キャッシュマネージャーの初期化（初期はNone）
         self.cache_manager = None
+
+        # 同期マネージャーの初期化
+        self.sync_manager = SyncManager(self.app_settings)
+        self.sync_manager.sync_completed.connect(self.on_sync_completed)
 
         # マップデータ格納用辞書を初期化
         self.states = {}
@@ -496,9 +501,15 @@ class AppController(QObject):
             self.app_settings.set_setting("window_position", [pos.x(), pos.y()])
 
     def on_quit(self):
-        """アプリケーション終了時の処理"""
+        """アプリケーション終了時の処理（同期機能追加）"""
+        # 既存の終了処理
         self.save_app_state()
-        # その他の必要な終了処理があればここに追加
+        
+        # 終了時同期実行
+        if self.sync_manager.sync_on_exit and self.sync_manager.is_configured():
+            print("終了時データ同期を実行中...")
+            self.sync_manager.sync_on_exit()
+        
         print("アプリケーションを終了します。")
 
     # MOD関連機能
@@ -777,7 +788,7 @@ class AppController(QObject):
 
     def save_equipment(self, equipment_data):
         """
-        装備データの保存
+        装備データの保存（同期機能付き）
 
         Args:
             equipment_data (dict): 保存する装備データ
@@ -794,6 +805,9 @@ class AppController(QObject):
                 equipment_id = equipment_data.get('common', {}).get('ID', '不明')
                 equipment_name = equipment_data.get('common', {}).get('名前', '不明')
                 print(f"装備「{equipment_name}」(ID: {equipment_id})を保存しました。")
+                
+                # 自動同期実行
+                self.sync_manager.auto_sync_on_save()
             else:
                 print("装備データの保存に失敗しました。")
 
@@ -942,7 +956,7 @@ class AppController(QObject):
 
     def save_hull(self, hull_data):
         """
-        船体データの保存
+        船体データの保存（同期機能付き）
 
         Args:
             hull_data: 船体データ辞書
@@ -959,6 +973,9 @@ class AppController(QObject):
                 hull_id = hull_data.get('id', '不明')
                 hull_name = hull_data.get('name', '不明')
                 print(f"船体「{hull_name}」(ID: {hull_id})を保存しました。")
+                
+                # 自動同期実行
+                self.sync_manager.auto_sync_on_save()
             else:
                 print("船体データの保存に失敗しました。")
 
@@ -1216,7 +1233,7 @@ class AppController(QObject):
     # 設計関連機能（残りのメソッドも同様に実装...）
 
     def save_design(self, design_data):
-        """設計データを保存する"""
+        """設計データを保存する（同期機能付き）"""
         try:
             # 設計ID（未設定の場合は生成）
             design_id = design_data.get("id", "")
@@ -1238,7 +1255,11 @@ class AppController(QObject):
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(design_data, f, ensure_ascii=False, indent=2)
 
-            # print(f"設計データ '{design_id}' を保存しました。")
+            print(f"設計データ '{design_id}' を保存しました。")
+            
+            # 自動同期実行
+            self.sync_manager.auto_sync_on_save()
+            
             return True
 
         except Exception as e:
@@ -1630,7 +1651,7 @@ class AppController(QObject):
 
     def save_fleet_data(self, fleet_data):
         """
-        艦隊データを保存
+        艦隊データを保存（同期機能付き）
 
         Args:
             fleet_data (dict): 保存する艦隊データ
@@ -1658,6 +1679,10 @@ class AppController(QObject):
                 json.dump(fleet_data, f, ensure_ascii=False, indent=2)
 
             print(f"艦隊データを保存しました: {file_path}")
+            
+            # 自動同期実行
+            self.sync_manager.auto_sync_on_save()
+            
             return True
 
         except Exception as e:
@@ -2545,3 +2570,38 @@ class AppController(QObject):
             return {}
 
         return stats
+
+    def on_sync_completed(self, success, message):
+        """同期完了時の処理"""
+        if success:
+            print(f"同期成功: {message}")
+            if hasattr(self, 'main_window') and self.main_window:
+                self.main_window.statusBar().showMessage(f"同期完了: {message}", 3000)
+        else:
+            print(f"同期失敗: {message}")
+            if hasattr(self, 'main_window') and self.main_window:
+                QMessageBox.warning(self.main_window, "同期エラー", f"データ同期に失敗しました:\n{message}")
+
+    def sync_data_manually(self, operation='full_sync'):
+        """手動でデータ同期を実行"""
+        if not self.sync_manager.is_configured():
+            if hasattr(self, 'main_window') and self.main_window:
+                reply = QMessageBox.question(
+                    self.main_window, 
+                    "同期設定",
+                    "同期設定が完了していません。設定画面を開きますか？",
+                    QMessageBox.Yes | QMessageBox.No
+                )
+                if reply == QMessageBox.Yes:
+                    self.show_sync_settings()
+            return False
+        
+        self.sync_manager.sync_data_async(operation)
+        return True
+
+    def show_sync_settings(self):
+        """同期設定画面を表示"""
+        if hasattr(self, 'main_window') and self.main_window:
+            result = self.sync_manager.show_sync_settings_dialog(self.main_window)
+            return result == QDialog.Accepted
+        return False

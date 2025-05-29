@@ -295,7 +295,7 @@ class DesignView(QWidget):
             if design_data and 'hull' in design_data:
                 all_crew = design_data['hull'].get('crew', 0)
                 stats_values['crew'] = all_crew
-  
+
 
             # UI要素を動的に生成
             for i, stat_def in enumerate(status_definitions):

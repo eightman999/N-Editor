@@ -5,10 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e49128cf-ccc2-46fc-97ad-f395874b0dab" name="変更" comment="">
+      <change afterPath="$PROJECT_DIR$/utils/sync_manager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app.log" beforeDir="false" afterPath="$PROJECT_DIR$/app.log" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/controllers/app_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/controllers/app_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/equipments_templates.yml" beforeDir="false" afterPath="$PROJECT_DIR$/equipments_templates.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/views/design_view.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/design_view.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -248,7 +248,7 @@
       <workItem from="1748302724245" duration="185000" />
       <workItem from="1748347471634" duration="3254000" />
       <workItem from="1748408797329" duration="7311000" />
-      <workItem from="1748479312655" duration="8141000" />
+      <workItem from="1748479312655" duration="9537000" />
     </task>
     <servers />
   </component>
@@ -260,7 +260,7 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/controllers/app_controller.py</url>
-          <line>1761</line>
+          <line>1786</line>
           <option name="timeStamp" value="14" />
         </line-breakpoint>
       </breakpoints>

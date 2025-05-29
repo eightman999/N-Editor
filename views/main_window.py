@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QStatusBar, \
-    QListWidget, QSizePolicy, QProgressDialog, QMessageBox
+    QListWidget, QSizePolicy, QProgressDialog, QMessageBox, QToolBar, QAction, QProgressBar, QDialog, QTextEdit, QPushButton
 from PyQt5.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer
-from PyQt5.QtGui import QFont, QCloseEvent, QImage, QPixmap
+from PyQt5.QtGui import QFont, QCloseEvent, QImage, QPixmap, QIcon
 
 import os
 import json
@@ -11,6 +11,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 import psutil
 import time
+import subprocess
 
 from views.home_view import HomeView
 from views.equipment_view import EquipmentView
@@ -99,6 +100,10 @@ class NavalDesignSystem(QMainWindow):
         self.app_controller = app_controller
         self.app_settings = app_settings
 
+        # 同期関連UI要素
+        self.sync_progress_bar = None
+        self.sync_status_label = None
+        
         # アプリケーションコントローラーの状態を確認
         print(f"NavalDesignSystem.__init__: app_controller = {self.app_controller}")
 
@@ -170,7 +175,7 @@ class NavalDesignSystem(QMainWindow):
             print(f"設定ファイルの読み込みに失敗しました: {e}")
 
     def init_ui(self):
-        """UIの初期化"""
+        """UIの初期化（同期機能追加版）"""
         # ウィンドウの基本設定
         self.setWindowTitle(self.config.get("app_name", "Naval Design System"))
 
@@ -185,14 +190,17 @@ class NavalDesignSystem(QMainWindow):
         main_layout = QHBoxLayout()
         central_widget.setLayout(main_layout)
 
+        # ツールバーの追加
+        self.create_toolbar()
+        
         # サイドバーメニュー
         self.create_sidebar(main_layout)
 
         # メインビュー
         self.create_main_view(main_layout)
 
-        # ステータスバー
-        self.statusBar().showMessage("準備完了")
+        # ステータスバーの拡張
+        self.create_status_bar()
 
         # ウィンドウサイズの設定
         if not is_fullscreen:
@@ -204,6 +212,146 @@ class NavalDesignSystem(QMainWindow):
             # 全画面表示は後で設定
             self.showNormal()  # まず通常表示で初期化
             QTimer.singleShot(100, self.showFullScreen)  # 少し遅延させて全画面表示
+
+        # 同期関連のシグナル接続
+        if self.app_controller and hasattr(self.app_controller, 'sync_manager'):
+            self.app_controller.sync_manager.sync_started.connect(self.on_sync_started)
+            self.app_controller.sync_manager.sync_progress.connect(self.on_sync_progress)
+            self.app_controller.sync_manager.sync_completed.connect(self.on_sync_completed)
+
+    def create_toolbar(self):
+        """ツールバーの作成"""
+        toolbar = QToolBar("メインツールバー")
+        self.addToolBar(toolbar)
+        
+        # 同期ボタン
+        sync_action = QAction("🔄 同期", self)
+        sync_action.setStatusTip("データをオンラインと同期")
+        sync_action.triggered.connect(self.sync_data)
+        toolbar.addAction(sync_action)
+        
+        # プッシュボタン
+        push_action = QAction("⬆️ プッシュ", self)
+        push_action.setStatusTip("ローカルデータをリモートにアップロード")
+        push_action.triggered.connect(self.push_data)
+        toolbar.addAction(push_action)
+        
+        # プルボタン
+        pull_action = QAction("⬇️ プル", self)
+        pull_action.setStatusTip("リモートデータをダウンロード")
+        pull_action.triggered.connect(self.pull_data)
+        toolbar.addAction(pull_action)
+        
+        toolbar.addSeparator()
+        
+        # 同期設定ボタン
+        sync_settings_action = QAction("⚙️ 同期設定", self)
+        sync_settings_action.setStatusTip("データ同期の設定")
+        sync_settings_action.triggered.connect(self.show_sync_settings)
+        toolbar.addAction(sync_settings_action)
+
+    def create_status_bar(self):
+        """ステータスバーの拡張"""
+        status_bar = self.statusBar()
+        
+        # 同期ステータス表示
+        self.sync_status_label = QLabel("同期未設定")
+        self.sync_status_label.setMinimumWidth(150)
+        status_bar.addPermanentWidget(self.sync_status_label)
+        
+        # 同期プログレスバー
+        self.sync_progress_bar = QProgressBar()
+        self.sync_progress_bar.setVisible(False)
+        self.sync_progress_bar.setMaximumWidth(200)
+        status_bar.addPermanentWidget(self.sync_progress_bar)
+        
+        # 初期状態の更新
+        self.update_sync_status()
+
+    def update_sync_status(self):
+        """同期ステータスの更新"""
+        if (self.app_controller and 
+            hasattr(self.app_controller, 'sync_manager') and 
+            self.sync_status_label):
+            
+            sync_manager = self.app_controller.sync_manager
+            if sync_manager.is_configured():
+                repo_name = sync_manager.repo_url.split('/')[-1].replace('.git', '') if sync_manager.repo_url else "不明"
+                self.sync_status_label.setText(f"同期先: {repo_name}")
+                self.sync_status_label.setStyleSheet("QLabel { color: green; }")
+            else:
+                self.sync_status_label.setText("同期未設定")
+                self.sync_status_label.setStyleSheet("QLabel { color: red; }")
+
+    def sync_data(self):
+        """データ同期実行"""
+        if self.app_controller:
+            self.app_controller.sync_data_manually('full_sync')
+
+    def push_data(self):
+        """データプッシュ実行"""
+        if self.app_controller:
+            self.app_controller.sync_data_manually('push')
+
+    def pull_data(self):
+        """データプル実行"""
+        if self.app_controller:
+            self.app_controller.sync_data_manually('pull')
+
+    def show_sync_settings(self):
+        """同期設定画面を表示"""
+        if self.app_controller:
+            if self.app_controller.show_sync_settings():
+                self.update_sync_status()
+
+    def on_sync_started(self, operation):
+        """同期開始時の処理"""
+        if self.sync_progress_bar:
+            self.sync_progress_bar.setVisible(True)
+            self.sync_progress_bar.setRange(0, 0)  # 不定プログレス
+        
+        self.statusBar().showMessage(f"同期実行中: {operation}")
+        
+        # UIを一時的に無効化（オプション）
+        self.setEnabled(True)  # 必要に応じてFalseに変更
+
+    def on_sync_progress(self, message):
+        """同期進捗更新時の処理"""
+        self.statusBar().showMessage(message)
+
+    def on_sync_completed(self, success, message):
+        """同期完了時の処理"""
+        if self.sync_progress_bar:
+            self.sync_progress_bar.setVisible(False)
+        
+        # UIを有効化
+        self.setEnabled(True)
+        
+        if success:
+            self.statusBar().showMessage(f"同期完了: {message}", 5000)
+            # 成功時の視覚効果（オプション）
+            self.flash_sync_status("green")
+        else:
+            self.statusBar().showMessage(f"同期失敗: {message}", 10000)
+            # エラー時の視覚効果
+            self.flash_sync_status("red")
+            
+            # エラーダイアログ表示
+            QMessageBox.warning(self, "同期エラー", f"データ同期でエラーが発生しました:\n\n{message}")
+
+    def flash_sync_status(self, color):
+        """同期ステータスの点滅効果"""
+        if not self.sync_status_label:
+            return
+            
+        original_style = self.sync_status_label.styleSheet()
+        flash_style = f"QLabel {{ color: {color}; font-weight: bold; }}"
+        
+        # 点滅効果
+        self.sync_status_label.setStyleSheet(flash_style)
+        
+        # 2秒後に元に戻す
+        QTimer.singleShot(2000, lambda: self.sync_status_label.setStyleSheet(original_style))
 
     def create_sidebar(self, parent_layout):
         """サイドバーメニューの作成"""
@@ -593,12 +741,13 @@ class NavalDesignSystem(QMainWindow):
             self.statusBar().showMessage("全画面表示の切り替えに失敗しました")
 
     def add_debug_menu(self):
-        """デバッグ用メニューを追加（キャッシュ機能を含む）"""
-        from PyQt5.QtWidgets import QMenuBar, QMenu, QAction
-
-        # メニューバーの作成
-        menubar = QMenuBar(self)
-        self.setMenuBar(menubar)
+        """デバッグ用メニューを追加（同期機能を含む）"""
+        if hasattr(self, 'menuBar'):
+            menubar = self.menuBar()
+        else:
+            from PyQt5.QtWidgets import QMenuBar, QMenu, QAction
+            menubar = QMenuBar(self)
+            self.setMenuBar(menubar)
 
         # デバッグメニュー
         debug_menu = QMenu("デバッグ", self)
@@ -638,6 +787,25 @@ class NavalDesignSystem(QMainWindow):
         test_cache_action = QAction("キャッシュ機能テスト", self)
         test_cache_action.triggered.connect(self.test_cache_functionality)
         debug_menu.addAction(test_cache_action)
+
+        # 同期メニューを追加
+        sync_menu = QMenu("同期", self)
+        menubar.addMenu(sync_menu)
+
+        # 同期状態確認
+        check_sync_action = QAction("同期状態確認", self)
+        check_sync_action.triggered.connect(self.check_sync_status)
+        sync_menu.addAction(check_sync_action)
+
+        # 強制同期
+        force_sync_action = QAction("強制同期", self)
+        force_sync_action.triggered.connect(self.force_sync)
+        sync_menu.addAction(force_sync_action)
+
+        # 同期履歴
+        sync_history_action = QAction("同期履歴", self)
+        sync_history_action.triggered.connect(self.show_sync_history)
+        sync_menu.addAction(sync_history_action)
 
     def check_app_controller(self):
         """AppControllerの状態を確認"""
@@ -912,6 +1080,76 @@ class NavalDesignSystem(QMainWindow):
         layout.addWidget(test_button)
         
         # 閉じるボタン
+        close_button = QPushButton("閉じる")
+        close_button.clicked.connect(dialog.accept)
+        layout.addWidget(close_button)
+        
+        dialog.setLayout(layout)
+        dialog.exec_()
+
+    def check_sync_status(self):
+        """同期状態確認（デバッグ用）"""
+        if not self.app_controller or not hasattr(self.app_controller, 'sync_manager'):
+            QMessageBox.information(self, "同期状態", "同期マネージャーが利用できません")
+            return
+
+        sync_manager = self.app_controller.sync_manager
+        
+        info = f"同期設定状況: {'完了' if sync_manager.is_configured() else '未完了'}\n"
+        info += f"リポジトリURL: {sync_manager.repo_url}\n"
+        info += f"自動同期: {'有効' if sync_manager.auto_sync_enabled else '無効'}\n"
+        info += f"終了時同期: {'有効' if sync_manager.sync_on_exit else '無効'}\n"
+        info += f"Gitユーザー: {sync_manager.git_user_name}\n"
+        info += f"Gitメール: {sync_manager.git_user_email}"
+
+        QMessageBox.information(self, "同期状態確認", info)
+
+    def force_sync(self):
+        """強制同期（デバッグ用）"""
+        reply = QMessageBox.question(
+            self, "強制同期確認",
+            "強制的にデータ同期を実行しますか？\n競合が発生する可能性があります。",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            self.sync_data()
+
+    def show_sync_history(self):
+        """同期履歴表示（デバッグ用）"""
+        if not self.app_controller or not hasattr(self.app_controller, 'sync_manager'):
+            QMessageBox.information(self, "同期履歴", "同期マネージャーが利用できません")
+            return
+
+        try:
+            # Gitログを取得
+            result = subprocess.run(
+                ['git', 'log', '--oneline', '-10'], 
+                cwd=self.app_controller.sync_manager.data_dir,
+                capture_output=True, text=True
+            )
+            
+            if result.returncode == 0:
+                history = result.stdout if result.stdout else "履歴がありません"
+            else:
+                history = "履歴の取得に失敗しました"
+                
+        except Exception as e:
+            history = f"履歴取得中にエラーが発生: {e}"
+
+        # 履歴表示ダイアログ
+        dialog = QDialog(self)
+        dialog.setWindowTitle("同期履歴")
+        dialog.setMinimumWidth(600)
+        dialog.setMinimumHeight(400)
+        
+        layout = QVBoxLayout()
+        
+        text_edit = QTextEdit()
+        text_edit.setPlainText(history)
+        text_edit.setReadOnly(True)
+        layout.addWidget(text_edit)
+        
         close_button = QPushButton("閉じる")
         close_button.clicked.connect(dialog.accept)
         layout.addWidget(close_button)
