@@ -5,10 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e49128cf-ccc2-46fc-97ad-f395874b0dab" name="変更" comment="">
+      <change afterPath="$PROJECT_DIR$/scripts/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/utils/ship_type_mapping.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.log" beforeDir="false" afterPath="$PROJECT_DIR$/app.log" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/maptest2.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/maptest2.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/views/fleet_view.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/fleet_view.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/views/design_view.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/design_view.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -31,12 +33,12 @@
     &quot;assignee&quot;: &quot;eightman999&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/eightman999/N-Editor.git",
-    "accountId": "ceb60469-2f0b-4631-ae07-8c1f0523c721"
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/eightman999/N-Editor.git&quot;,
+    &quot;accountId&quot;: &quot;ceb60469-2f0b-4631-ae07-8c1f0523c721&quot;
   }
-}]]></component>
+}</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 6
 }</component>
@@ -48,33 +50,33 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.MapTestApp.executor": "Run",
-    "Python.cache_debug.executor": "Run",
-    "Python.design_view.executor": "Run",
-    "Python.discord_reader.executor": "Run",
-    "Python.equipment_form.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.maptest2.executor": "Run",
-    "Python.n.executor": "Run",
-    "Python.parse_hoi4_state_file.executor": "Run",
-    "Python.setup.executor": "Run",
-    "Python.test.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "dart.analysis.tool.window.visible": "false",
-    "git-widget-placeholder": "master",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "D:/趣味/N-Editor",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.MapTestApp.executor&quot;: &quot;Run&quot;,
+    &quot;Python.cache_debug.executor&quot;: &quot;Run&quot;,
+    &quot;Python.design_view.executor&quot;: &quot;Run&quot;,
+    &quot;Python.discord_reader.executor&quot;: &quot;Run&quot;,
+    &quot;Python.equipment_form.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.maptest2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.n.executor&quot;: &quot;Run&quot;,
+    &quot;Python.parse_hoi4_state_file.executor&quot;: &quot;Run&quot;,
+    &quot;Python.setup.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/趣味/N-Editor&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="D:\趣味\N-Editor\assets" />
@@ -247,6 +249,7 @@
       <workItem from="1748302724245" duration="185000" />
       <workItem from="1748347471634" duration="3254000" />
       <workItem from="1748408797329" duration="7311000" />
+      <workItem from="1748479312655" duration="767000" />
     </task>
     <servers />
   </component>
