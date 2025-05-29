@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QStatusBar, \
     QListWidget, QSizePolicy, QProgressDialog, QMessageBox, QToolBar, QAction, QProgressBar, QDialog, QTextEdit, \
-    QPushButton, QMenuBar, QMenu
+    QPushButton, QMenuBar
+from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QFont, QCloseEvent, QImage, QPixmap, QIcon
 
@@ -776,10 +777,12 @@ class NavalDesignSystem(QMainWindow):
 
     def add_debug_menu(self):
         """デバッグ用メニューを追加（コンフリクト機能を含む）"""
+        # インポートを条件分岐の外に移動
+        from PyQt5.QtWidgets import QMenuBar, QMenu, QAction
+        
         if hasattr(self, 'menuBar'):
             menubar = self.menuBar()
         else:
-            from PyQt5.QtWidgets import QMenuBar, QMenu, QAction
             menubar = QMenuBar(self)
             self.setMenuBar(menubar)
 

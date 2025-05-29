@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QTextEdit, QTabWidget, QWidget,
                              QTreeWidget, QTreeWidgetItem, QSplitter,
                              QScrollArea, QFrame)
+
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QPalette
 
