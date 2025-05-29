@@ -2110,309 +2110,6 @@ class AppController(QObject):
         
         return None
 
-    # controllers/app_controller.py への追加
-
-    def _apply_stats_modes(self, equipment_list: List[Dict[str, Any]], base_stats: Dict[str, float]) -> Dict[str, float]:
-        """
-        装備のステータスを3つのモード（add_stats、multiply_stats、add_average_stats）で統合
-
-        Args:
-            equipment_list: 装備データのリスト
-            base_stats: 基本ステータス（船体から）
-
-        Returns:
-            統合されたステータス辞書
-        """
-        final_stats = base_stats.copy()
-
-        # 各モードのステータスを分離して集計
-        add_stats_total = {}
-        multiply_stats_total = {}
-        add_average_stats_list = {}
-
-        for equipment_data in equipment_list:
-            stats_data = equipment_data.get('stats', {})
-
-            # add_stats（単純加算）
-            add_stats = stats_data.get('add_stats', {})
-            for stat_id, value in add_stats.items():
-                if stat_id not in add_stats_total:
-                    add_stats_total[stat_id] = 0.0
-                add_stats_total[stat_id] += float(value)
-
-            # multiply_stats（%調整）
-            multiply_stats = stats_data.get('multiply_stats', {})
-            for stat_id, value in multiply_stats.items():
-                if stat_id not in multiply_stats_total:
-                    multiply_stats_total[stat_id] = 0.0
-                multiply_stats_total[stat_id] += float(value)
-
-            # add_average_stats（全装備平均）
-            add_average_stats = stats_data.get('add_average_stats', {})
-            for stat_id, value in add_average_stats.items():
-                if stat_id not in add_average_stats_list:
-                    add_average_stats_list[stat_id] = []
-                add_average_stats_list[stat_id].append(float(value))
-
-        # 各モードを適用
-
-        # 1. add_stats（単純加算）
-        for stat_id, value in add_stats_total.items():
-            if stat_id in final_stats:
-                final_stats[stat_id] += value
-            else:
-                final_stats[stat_id] = value
-
-        # 2. multiply_stats（%調整）
-        for stat_id, percentage in multiply_stats_total.items():
-            if stat_id in final_stats:
-                # %調整を適用（例: +10% = 1.1倍）
-                multiplier = 1.0 + (percentage / 100.0)
-                final_stats[stat_id] *= multiplier
-
-        # 3. add_average_stats（全装備平均）
-        for stat_id, values_list in add_average_stats_list.items():
-            if values_list:
-                average_value = sum(values_list) / len(values_list)
-                if stat_id in final_stats:
-                    final_stats[stat_id] += average_value
-                else:
-                    final_stats[stat_id] = average_value
-
-        return final_stats
-
-    def get_design_stats(self, design_data: Dict[str, Any] = None) -> Dict[str, Any]:
-        """
-        設計データから実際のステータス値を取得
-
-        Args:
-            design_data: 設計データ辞書
-
-        Returns:
-            ステータスID -> 値の辞書
-        """
-        stats = {}
-
-        # 初期値を設定
-        for stat_def in self.status_definitions:
-            stat_id = stat_def['id']
-            stats[stat_id] = 0.0
-
-        if not design_data:
-            return stats
-
-        # 船体データを取得
-        hull_data = design_data.get('hull', {})
-        hull_weight = hull_data.get('weight', 0)
-
-        # 船体の基本ステータス
-        base_stats = {
-            'naval_speed': float(hull_data.get('speed', 0)),
-            'naval_range': float(hull_data.get('range', 0)),
-            'reliability': float(hull_data.get('reliability', 0.9)),
-        }
-
-        # 装備リストを収集
-        equipment_list = []
-
-        # メインスロットから装備を収集
-        main_slots = design_data.get('main_slots', {})
-        for slot_type, equipment_id in main_slots.items():
-            if equipment_id:
-                equipment_data = self.load_equipment(equipment_id)
-                if equipment_data:
-                    equipment_list.append(equipment_data)
-
-        # 内部スロットから装備を収集
-        internal_slots = design_data.get('internal_slots', [])
-        for slot_data in internal_slots:
-            equipment_id = slot_data.get('equipment_id')
-            if equipment_id:
-                equipment_data = self.load_equipment(equipment_id)
-                if equipment_data:
-                    equipment_list.append(equipment_data)
-
-        # 装備ごとに計算されたステータスを収集
-        calculated_equipment_stats = []
-        total_equipment_weight = 0.0
-        total_manpower = 0.0
-
-        for equipment_data in equipment_list:
-            # 計算ステータス（砲系統など）を取得
-            calculated_stats = self._calculate_equipment_stats(equipment_data)
-
-            # 計算ステータスをJSONデータ形式に変換
-            equipment_stats_data = {
-                'add_stats': {},
-                'multiply_stats': {},
-                'add_average_stats': {}
-            }
-
-            # 計算されたステータスをadd_statsに分類
-            for stat_id, value in calculated_stats.items():
-                equipment_stats_data['add_stats'][stat_id] = value
-
-            # 装備のJSONデータからstatsセクションがあれば統合
-            if 'stats' in equipment_data:
-                json_stats = equipment_data['stats']
-                for mode in ['add_stats', 'multiply_stats', 'add_average_stats']:
-                    if mode in json_stats:
-                        equipment_stats_data[mode].update(json_stats[mode])
-
-            # 変換されたデータを装備データに追加
-            equipment_with_stats = equipment_data.copy()
-            equipment_with_stats['stats'] = equipment_stats_data
-            calculated_equipment_stats.append(equipment_with_stats)
-
-            # 重量と人員を集計（manpowerのみ単純加算）
-            equipment_weight = equipment_data.get('common', {}).get('重量', 0)
-            equipment_manpower = equipment_data.get('common', {}).get('人員', 0)
-
-            total_equipment_weight += float(equipment_weight) if equipment_weight else 0.0
-            total_manpower += float(equipment_manpower) if equipment_manpower else 0.0
-
-        # 統計モードを適用
-        final_stats = self._apply_stats_modes(calculated_equipment_stats, base_stats)
-
-        # 重量関連の計算
-        final_stats['equipment_weight'] = total_equipment_weight
-        final_stats['manpower'] = total_manpower
-
-        # 重量比率を計算（船体重量に対する装備重量の割合）
-        if hull_weight > 0:
-            final_stats['weight_ratio'] = (total_equipment_weight / hull_weight) * 100.0
-        else:
-            final_stats['weight_ratio'] = 0.0
-
-        # 初期値からfinal_statsに値をコピー
-        for stat_id in stats.keys():
-            if stat_id in final_stats:
-                stats[stat_id] = final_stats[stat_id]
-
-        return stats
-
-    def _calculate_equipment_stats(self, equipment_data: Dict[str, Any]) -> Dict[str, float]:
-        """
-        個別装備のステータスを計算
-
-        Args:
-            equipment_data: 装備データ辞書
-
-        Returns:
-            ステータスID -> 値の辞書
-        """
-        stats = {}
-        equipment_type = equipment_data.get('equipment_type', '')
-
-        # 砲系統かどうかを判定
-        gun_types = [
-            'small_caliber_gun', 'medium_caliber_gun', 'large_caliber_gun',
-            'super_large_caliber_gun', 'anti_aircraft_gun'
-        ]
-
-        # 日本語表示名でも判定
-        gun_display_names = [
-            '小口径砲', '中口径砲', '大口径砲', '超大口径砲', '対空砲'
-        ]
-
-        is_gun = equipment_type in gun_types or equipment_type in gun_display_names
-
-        if is_gun:
-            # 砲系統の計算
-            gun_stats = self._calculate_gun_stats(equipment_data)
-            stats.update(gun_stats)
-
-        return stats
-
-    def _calculate_gun_stats(self, equipment_data: Dict[str, Any]) -> Dict[str, float]:
-        """
-        砲系統装備のステータスを計算
-
-        Args:
-            equipment_data: 砲装備データ
-
-        Returns:
-            計算されたステータス辞書
-        """
-        stats = {}
-
-        try:
-            # specificデータから必要な値を取得
-            specific_data = equipment_data.get('specific', {})
-
-            # 必要なパラメータを取得（デフォルト値を設定）
-            caliber_cm = float(specific_data.get('caliber_cm', 0))
-            shell_weight_kg = float(specific_data.get('shell_weight_kg', 0))
-            initial_velocity_mps = float(specific_data.get('initial_velocity_mps', 0))
-            rounds_per_minute = float(specific_data.get('rounds_per_minute', 0))
-            barrel_length = float(specific_data.get('barrel_length', 0))
-            barrel_count = float(specific_data.get('barrel_count', 1))
-            turret_count = float(specific_data.get('turret_count', 1))
-            max_elevation = specific_data.get('max_elevation', '+85/-10 度')
-
-            # max_elevationから数値を抽出
-            max_elevation_value = 85.0  # デフォルト値
-            if isinstance(max_elevation, str):
-                import re
-                elevation_match = re.search(r'\+?(\d+)', max_elevation)
-                if elevation_match:
-                    max_elevation_value = float(elevation_match.group(1))
-
-            # パラメータが不正な場合は計算をスキップ
-            if caliber_cm <= 0 or shell_weight_kg <= 0 or initial_velocity_mps <= 0:
-                return stats
-
-            # 口径に基づいてmagic_numberと傾斜係数を決定
-            magic_number, l_inclination, h_inclination = self._get_gun_parameters(caliber_cm)
-
-            # Attack値を計算
-            if magic_number > 0:
-                attack = (initial_velocity_mps * shell_weight_kg * caliber_cm *
-                          barrel_length * barrel_count / magic_number *
-                          rounds_per_minute * turret_count)
-
-                # 軽砲・重砲攻撃力を計算
-                stats['lg_attack'] = attack * l_inclination
-                stats['hg_attack'] = attack * h_inclination
-
-            # 装甲貫通力を計算
-            if caliber_cm > 0 and barrel_length > 0:
-                import math
-                armor_piercing = ((2.54e-10 * 2 / math.pi) *
-                                  (shell_weight_kg * 1000 * initial_velocity_mps**2 / caliber_cm**2) *
-                                  barrel_length**0.5 * 132)
-
-                # 軽砲・重砲装甲貫通を計算
-                stats['lg_armor_piercing'] = armor_piercing * l_inclination
-                stats['hg_armor_piercing'] = armor_piercing * h_inclination
-
-            # 対空攻撃力を計算
-            if shell_weight_kg > 0 and rounds_per_minute > 0:
-                try:
-                    # 指数計算の安全性チェック
-                    exponent = l_inclination + 0.2
-                    if exponent > 0 and rounds_per_minute > 0:
-                        base_power = min(shell_weight_kg * 1000, 1000)  # 値を制限
-                        rpm_power = min(rounds_per_minute, 1000)  # 値を制限
-
-                        if exponent <= 10:  # 指数を制限
-                            anti_air_base = base_power * (rpm_power ** exponent) * max_elevation_value
-                            lg_attack_contribution = stats.get('lg_attack', 0) / 10
-                            stats['anti_air_attack'] = anti_air_base + lg_attack_contribution
-                        else:
-                            stats['anti_air_attack'] = 0.0
-                    else:
-                        stats['anti_air_attack'] = 0.0
-                except (OverflowError, ValueError):
-                    stats['anti_air_attack'] = 0.0
-
-        except Exception as e:
-            print(f"砲ステータス計算エラー: {e}")
-            # エラーが発生した場合は空の辞書を返す
-            return {}
-
-        return stats
-
     def _get_gun_parameters(self, caliber_cm: float) -> tuple:
         """
         口径に基づいてmagic_numberと傾斜係数を取得
@@ -2426,22 +2123,425 @@ class AppController(QObject):
         if caliber_cm > 29:
             return 90000000, 0, 1
         elif caliber_cm > 25:
-            return 85000000, 0.01, 0.99
+            return 80000000, 0.01, 0.99
         elif caliber_cm > 23:
-            return 82500000, 0.1, 0.9
+            return 70000000, 0.1, 0.9
         elif caliber_cm > 20:
-            return 76000000, 0.2, 0.8
+            return 65000000, 0.2, 0.8
         elif caliber_cm > 16:
-            return 75000000, 0.4, 0.6
+            return 50000000, 0.4, 0.6
         elif caliber_cm > 13:
-            return 72500000, 0.6, 0.4
+            return 40000000, 0.6, 0.4
         elif caliber_cm > 11:
-            return 70000000, 0.8, 0.2
+            return 30000000, 0.8, 0.2
         elif caliber_cm > 9:
-            return 67000000, 1, 0
+            return 20000000, 1, 0
         elif caliber_cm > 7:
-            return 65000000, 1, 0
+            return 10000000, 1, 0
         elif caliber_cm > 5:
-            return 63000000, 1, 0
+            return 5000000, 1, 0
         else:
-            return 60000000, 1, 0  # 極小口径用のデフォルト値
+            return 1000000, 1, 0  # 極小口径用のデフォルト値
+
+
+    def get_design_stats(self, design_data: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        設計データから実際のステータス値を取得（統合ロジック修正版）
+        """
+        print(f"=== get_design_stats 開始 ===")
+        print(f"design_data: {design_data is not None}")
+
+        stats = {}
+
+        # 初期値を設定
+        for stat_def in self.status_definitions:
+            stat_id = stat_def['id']
+            stats[stat_id] = 0.0
+
+        print(f"初期ステータス定義数: {len(stats)}")
+
+        if not design_data:
+            print("design_dataがNoneのため、デフォルト値を返します")
+            return stats
+
+        # 船体データを取得
+        hull_data = design_data.get('hull', {})
+        hull_weight = hull_data.get('weight', 0)
+        print(f"船体重量: {hull_weight}")
+
+        # 船体の基本ステータス
+        base_stats = {
+            'naval_speed': float(hull_data.get('speed', 0)),
+            'naval_range': float(hull_data.get('range', 0)),
+            'reliability': float(hull_data.get('reliability', 0.9)),
+        }
+        print(f"基本ステータス: {base_stats}")
+
+        # 装備リストを収集
+        equipment_list = []
+
+        # メインスロットから装備を収集
+        main_slots = design_data.get('main_slots', {})
+        print(f"メインスロット: {main_slots}")
+
+        for slot_type, equipment_id in main_slots.items():
+            if equipment_id:
+                print(f"装備読み込み: {slot_type} -> {equipment_id}")
+                equipment_data = self.load_equipment(equipment_id)
+                if equipment_data:
+                    print(f"装備データ取得成功: {equipment_data.get('common', {}).get('名前', 'Unknown')}")
+                    equipment_list.append(equipment_data)
+                else:
+                    print(f"装備データ取得失敗: {equipment_id}")
+
+        # 内部スロットから装備を収集
+        internal_slots = design_data.get('internal_slots', [])
+        print(f"内部スロット数: {len(internal_slots)}")
+
+        for slot_data in internal_slots:
+            equipment_id = slot_data.get('equipment_id')
+            if equipment_id:
+                print(f"内部スロット装備読み込み: {equipment_id}")
+                equipment_data = self.load_equipment(equipment_id)
+                if equipment_data:
+                    equipment_list.append(equipment_data)
+
+        print(f"総装備数: {len(equipment_list)}")
+
+        # 装備ごとに計算されたステータスを収集
+        calculated_equipment_stats = []
+        total_equipment_weight = 0.0
+        total_manpower = 0.0
+
+        for i, equipment_data in enumerate(equipment_list):
+            print(f"\n--- 装備 {i+1}: {equipment_data.get('common', {}).get('名前', 'Unknown')} ---")
+            print(f"装備タイプ: {equipment_data.get('equipment_type', 'Unknown')}")
+
+            # 計算ステータス（砲系統など）を取得
+            calculated_stats = self._calculate_equipment_stats(equipment_data)
+            print(f"計算されたステータス: {calculated_stats}")
+
+            # 装備のJSONデータからstatsセクションを取得
+            json_stats = equipment_data.get('stats', {})
+            print(f"JSON内ステータス: {json_stats}")
+
+            # ステータス統合：計算値とJSON値を適切にマージ
+            equipment_stats_data = {
+                'add_stats': {},
+                'multiply_stats': {},
+                'add_average_stats': {}
+            }
+
+            # 1. まずJSONデータから値を設定（基本値として）
+            for mode in ['add_stats', 'multiply_stats', 'add_average_stats']:
+                if mode in json_stats:
+                    equipment_stats_data[mode] = json_stats[mode].copy()
+
+            # 2. 計算された値で上書き（計算値を優先）
+            for stat_id, calc_value in calculated_stats.items():
+                # 計算値が0でない場合のみ上書き
+                if calc_value != 0:
+                    equipment_stats_data['add_stats'][stat_id] = calc_value
+                    print(f"計算値で上書き: {stat_id} = {calc_value}")
+
+            # 3. JSONの値で0でないものは加算（手動補正値として扱う）
+            if 'add_stats' in json_stats:
+                for stat_id, json_value in json_stats['add_stats'].items():
+                    if json_value != 0 and stat_id in calculated_stats:
+                        # 計算値がある場合は加算
+                        equipment_stats_data['add_stats'][stat_id] = calculated_stats.get(stat_id, 0) + json_value
+                        print(f"JSON補正値を加算: {stat_id} = {calculated_stats.get(stat_id, 0)} + {json_value} = {equipment_stats_data['add_stats'][stat_id]}")
+                    elif json_value != 0:
+                        # 計算値がない場合はJSONの値をそのまま使用
+                        equipment_stats_data['add_stats'][stat_id] = json_value
+                        print(f"JSON値を使用: {stat_id} = {json_value}")
+
+            print(f"統合後ステータス: {equipment_stats_data}")
+
+            # 変換されたデータを装備データに追加
+            equipment_with_stats = equipment_data.copy()
+            equipment_with_stats['stats'] = equipment_stats_data
+            calculated_equipment_stats.append(equipment_with_stats)
+
+            # 重量と人員を集計
+            equipment_weight = equipment_data.get('common', {}).get('重量', 0)
+            equipment_manpower = equipment_data.get('common', {}).get('人員', 0)
+
+            total_equipment_weight += float(equipment_weight) if equipment_weight else 0.0
+            total_manpower += float(equipment_manpower) if equipment_manpower else 0.0
+
+        print(f"\n=== ステータス統合処理 ===")
+        print(f"装備重量合計: {total_equipment_weight}")
+        print(f"人員合計: {total_manpower}")
+
+        # 統計モードを適用
+        final_stats = self._apply_stats_modes(calculated_equipment_stats, base_stats)
+        print(f"統合後最終ステータス: {final_stats}")
+
+        # 重量関連の計算
+        final_stats['equipment_weight'] = total_equipment_weight
+        final_stats['manpower'] = total_manpower
+
+        # 重量比率を計算
+        if hull_weight > 0:
+            final_stats['weight_ratio'] = (total_equipment_weight / hull_weight) * 100.0
+        else:
+            final_stats['weight_ratio'] = 0.0
+
+        # 初期値からfinal_statsに値をコピー
+        for stat_id in stats.keys():
+            if stat_id in final_stats:
+                stats[stat_id] = final_stats[stat_id]
+                if final_stats[stat_id] != 0:
+                    print(f"ステータス設定: {stat_id} = {final_stats[stat_id]}")
+
+        print(f"=== 最終結果 ===")
+        # 0以外の値のみ表示
+        non_zero_stats = {k: v for k, v in stats.items() if v != 0}
+        print(f"0以外のステータス: {non_zero_stats}")
+
+        return stats
+
+    # _apply_stats_modes メソッドもデバッグ出力を追加
+    def _apply_stats_modes(self, equipment_list: List[Dict[str, Any]], base_stats: Dict[str, float]) -> Dict[str, float]:
+        """
+        装備のステータスを3つのモード（add_stats、multiply_stats、add_average_stats）で統合（デバッグ版）
+        """
+        print("=== _apply_stats_modes 開始 ===")
+        final_stats = base_stats.copy()
+
+        # 各モードのステータスを分離して集計
+        add_stats_total = {}
+        multiply_stats_total = {}
+        add_average_stats_list = {}
+
+        for i, equipment_data in enumerate(equipment_list):
+            equipment_name = equipment_data.get('common', {}).get('名前', f'装備{i+1}')
+            print(f"装備 {equipment_name} のステータス処理")
+
+            stats_data = equipment_data.get('stats', {})
+
+            # add_stats（単純加算）
+            add_stats = stats_data.get('add_stats', {})
+            print(f"  add_stats: {add_stats}")
+
+            for stat_id, value in add_stats.items():
+                if value != 0:  # 0でない値のみ処理
+                    if stat_id not in add_stats_total:
+                        add_stats_total[stat_id] = 0.0
+                    add_stats_total[stat_id] += float(value)
+                    print(f"    {stat_id}: {value} -> 合計 {add_stats_total[stat_id]}")
+
+            # multiply_stats（%調整）
+            multiply_stats = stats_data.get('multiply_stats', {})
+            for stat_id, value in multiply_stats.items():
+                if value != 0:
+                    if stat_id not in multiply_stats_total:
+                        multiply_stats_total[stat_id] = 0.0
+                    multiply_stats_total[stat_id] += float(value)
+
+            # add_average_stats（全装備平均）
+            add_average_stats = stats_data.get('add_average_stats', {})
+            for stat_id, value in add_average_stats.items():
+                if value != 0:
+                    if stat_id not in add_average_stats_list:
+                        add_average_stats_list[stat_id] = []
+                    add_average_stats_list[stat_id].append(float(value))
+
+        print(f"加算ステータス合計: {add_stats_total}")
+        print(f"乗算ステータス合計: {multiply_stats_total}")
+        print(f"平均ステータス: {add_average_stats_list}")
+
+        # 各モードを適用
+
+        # 1. add_stats（単純加算）
+        for stat_id, value in add_stats_total.items():
+            if stat_id in final_stats:
+                final_stats[stat_id] += value
+            else:
+                final_stats[stat_id] = value
+            print(f"加算適用: {stat_id} = {final_stats[stat_id]}")
+
+        # 2. multiply_stats（%調整）
+        for stat_id, percentage in multiply_stats_total.items():
+            if stat_id in final_stats:
+                multiplier = 1.0 + (percentage / 100.0)
+                old_value = final_stats[stat_id]
+                final_stats[stat_id] *= multiplier
+                print(f"乗算適用: {stat_id} = {old_value} * {multiplier} = {final_stats[stat_id]}")
+
+        # 3. add_average_stats（全装備平均）
+        for stat_id, values_list in add_average_stats_list.items():
+            if values_list:
+                average_value = sum(values_list) / len(values_list)
+                if stat_id in final_stats:
+                    final_stats[stat_id] += average_value
+                else:
+                    final_stats[stat_id] = average_value
+                print(f"平均適用: {stat_id} += {average_value} = {final_stats[stat_id]}")
+
+        print("=== _apply_stats_modes 完了 ===")
+        return final_stats
+
+    def _calculate_equipment_stats(self, equipment_data: Dict[str, Any]) -> Dict[str, float]:
+        """
+        個別装備のステータスを計算（デバッグ版）
+        """
+        stats = {}
+        equipment_type = equipment_data.get('equipment_type', '')
+
+        print(f"装備ステータス計算開始: タイプ={equipment_type}")
+
+        # 砲系統かどうかを判定
+        gun_types = [
+            'small_caliber_gun', 'medium_caliber_gun', 'large_caliber_gun',
+            'super_large_caliber_gun', 'anti_aircraft_gun'
+        ]
+
+        # 日本語表示名でも判定
+        gun_display_names = [
+            '小口径砲', '中口径砲', '大口径砲', '超大口径砲', '対空砲'
+        ]
+
+        is_gun = equipment_type in gun_types or equipment_type in gun_display_names
+        print(f"砲系統判定: {is_gun}")
+
+        if is_gun:
+            # 砲系統の計算
+            gun_stats = self._calculate_gun_stats(equipment_data)
+            print(f"砲系統計算結果: {gun_stats}")
+            stats.update(gun_stats)
+
+        print(f"最終計算結果: {stats}")
+        return stats
+
+    def _calculate_gun_stats(self, equipment_data: Dict[str, Any]) -> Dict[str, float]:
+        """
+        砲系統装備のステータスを計算（デバッグ版）
+        """
+        stats = {}
+
+        try:
+            print("砲系統ステータス計算開始")
+            #commonデータから必要な値を取得
+            common_data = equipment_data.get('common', {})
+            print(f"common_data: {common_data}")
+            # 重量
+            weight = float(common_data.get('重量', 0))
+            crew = float(common_data.get('人員', 0))
+            print(f"重量: {weight}, 人員: {crew}")
+            dev_year = common_data.get('開発年', 1900)
+
+
+            # specificデータから必要な値を取得
+            specific_data = equipment_data.get('specific', {})
+            print(f"specific_data: {specific_data}")
+
+            # 必要なパラメータを取得
+            caliber_cm = float(specific_data.get('caliber_cm', 0))
+            shell_weight_kg = float(specific_data.get('shell_weight_kg', 0))
+            initial_velocity_mps = float(specific_data.get('initial_velocity_mps', 0))
+            rounds_per_minute = float(specific_data.get('rounds_per_minute', 0))
+            barrel_length = float(specific_data.get('barrel_length', 0))
+            barrel_count = float(specific_data.get('barrel_count', 1))
+            turret_count = float(specific_data.get('turret_count', 1))
+            max_elevation = specific_data.get('max_elevation', '+85/-10 度')
+
+            print(f"パラメータ:")
+            print(f"  口径: {caliber_cm}cm")
+            print(f"  砲弾重量: {shell_weight_kg}kg")
+            print(f"  初速: {initial_velocity_mps}m/s")
+            print(f"  発射速度: {rounds_per_minute}rpm")
+            print(f"  砲身長: {barrel_length}")
+            print(f"  砲身数: {barrel_count}")
+            print(f"  砲塔数: {turret_count}")
+
+            # パラメータが不正な場合は計算をスキップ
+            if caliber_cm <= 0 or shell_weight_kg <= 0 or initial_velocity_mps <= 0:
+                print("パラメータが不正のため計算をスキップ")
+                return stats
+
+            # 口径に基づいてmagic_numberと傾斜係数を決定
+            magic_number, l_inclination, h_inclination = self._get_gun_parameters(caliber_cm)
+            print(f"砲パラメータ: magic={magic_number}, l={l_inclination}, h={h_inclination}")
+
+            # Attack値を計算
+            if magic_number > 0:
+                attack = (initial_velocity_mps * shell_weight_kg * caliber_cm *
+                          barrel_length * barrel_count / magic_number *
+                          rounds_per_minute * turret_count)
+
+                print(f"基本攻撃力: {attack}")
+
+                # 軽砲・重砲攻撃力を計算
+                stats['lg_attack'] = attack * l_inclination
+                stats['hg_attack'] = attack * h_inclination
+
+                print(f"軽砲攻撃力: {stats['lg_attack']}")
+                print(f"重砲攻撃力: {stats['hg_attack']}")
+
+            #コスト計算
+            if weight > 0 and crew > 0:
+                cost = (weight * 1000 + crew * 10) / 1000000.0* dev_year
+                stats['build_cost_ic'] = cost
+                print(f"コスト: {stats['cost']}")
+
+
+
+            # 装甲貫通力を計算
+            if caliber_cm > 0 and barrel_length > 0:
+                import math
+                armor_piercing = ((2.54e-10 * 2 / math.pi) *
+                                  (shell_weight_kg * 1000 * initial_velocity_mps**2 / caliber_cm**2) *
+                                  barrel_length**0.5 * 132)
+
+                # 軽砲・重砲装甲貫通を計算
+                stats['lg_armor_piercing'] = armor_piercing * l_inclination
+                stats['hg_armor_piercing'] = armor_piercing * h_inclination
+
+                print(f"軽砲装甲貫通: {stats['lg_armor_piercing']}")
+                print(f"重砲装甲貫通: {stats['hg_armor_piercing']}")
+
+            # 対空攻撃力を計算
+            if shell_weight_kg > 0 and rounds_per_minute > 0:
+                try:
+                    # max_elevationから数値を抽出
+                    max_elevation_value = 85.0
+                    if isinstance(max_elevation, str):
+                        import re
+                        elevation_match = re.search(r'\+?(\d+)', max_elevation)
+                        if elevation_match:
+                            max_elevation_value = float(elevation_match.group(1))
+
+                    print(f"最大仰角: {max_elevation_value}")
+
+                    # 指数計算の安全性チェック
+                    exponent = l_inclination + 0.2
+                    if exponent > 0 and rounds_per_minute > 0:
+                        base_power = min(shell_weight_kg * 1000, 1000)
+                        rpm_power = min(rounds_per_minute, 1000)
+
+                        if exponent <= 10:
+                            anti_air_base = base_power * (rpm_power ** exponent) * max_elevation_value / 1000000  # スケール調整
+                            lg_attack_contribution = stats.get('lg_attack', 0) / 10
+                            stats['anti_air_attack'] = anti_air_base + lg_attack_contribution
+
+                            print(f"対空攻撃力: {stats['anti_air_attack']}")
+                        else:
+                            stats['anti_air_attack'] = 0.0
+                    else:
+                        stats['anti_air_attack'] = 0.0
+
+                except (OverflowError, ValueError) as e:
+                    print(f"対空攻撃力計算エラー: {e}")
+                    stats['anti_air_attack'] = 0.0
+
+            print(f"砲系統計算完了: {stats}")
+
+        except Exception as e:
+            print(f"砲ステータス計算エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return {}
+
+        return stats

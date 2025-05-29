@@ -260,6 +260,7 @@ class DesignView(QWidget):
         Args:
             design_data: 現在の設計データ
         """
+        global all_crew
         try:
             # 既存のウィジェットをクリア
             while self.stats_layout.count():
@@ -290,15 +291,20 @@ class DesignView(QWidget):
                 hull_weight = float(design_data['hull'].get('weight', 0))
                 #hull_weightは[t]なので[kg]に変換
                 hull_weight *= 1000.0  # トンからキログラムに変換
+            # 人員数を取得
+            if design_data and 'hull' in design_data:
+                all_crew = design_data['hull'].get('crew', 0)
+                stats_values['crew'] = all_crew
+  
 
             # UI要素を動的に生成
             for i, stat_def in enumerate(status_definitions):
                 stat_id = stat_def['id']
                 japanese_name = stat_def['japanese']
-                english_name = stat_def['english']
+                # english_name = stat_def['english']
 
-                # ラベルの作成（新しい形式: 日本語名 (English / ID)）
-                label_text = f"{japanese_name} ({english_name} / {stat_id})"
+                # ラベルの作成（新しい形式: 日本語名 (--English-- / ID)）
+                label_text = f"{japanese_name} ( {stat_id})"
                 label = QLabel(label_text + ":")
                 label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
@@ -310,21 +316,26 @@ class DesignView(QWidget):
                     # 重量比率の特別表示
                     equipment_weight = stats_values.get('equipment_weight', 0)
                     if hull_weight > 0:
-                        value_text = f"{equipment_weight:.1f}kg / {hull_weight/1000:.0f}t ({hull_weight/equipment_weight*100}%)"
+                        value_text = f"{equipment_weight/1000:.1f}t / {hull_weight/1000:.0f}t ({equipment_weight/hull_weight*100}%)"
                     else:
-                        value_text = f"{equipment_weight:.1f}kg / 0kg (0.0%)"
+                        value_text = f"{equipment_weight/1000:.1f}t / 0t (0.0%)"
                     value_widget = QLabel(value_text)
                 elif stat_id == 'equipment_weight':
                     # 装備重量の表示
                     value_text = f"{value:.1f}kg"
                     value_widget = QLabel(value_text)
                 elif stat_id == 'manpower':
+                    # 総人員数
                     # 人員の表示
-                    value_text = f"{int(value)}名"
+                    value_text = f"{int(value)}名({int(value/all_crew*100)}%)"
                     value_widget = QLabel(value_text)
                 elif stat_id in ['lg_attack', 'hg_attack', 'lg_armor_piercing', 'hg_armor_piercing', 'anti_air_attack']:
                     # 砲系統ステータスの表示（小数点1位まで）
                     value_text = f"{value:.1f}"
+                    value_widget = QLabel(value_text)
+                elif stat_id == 'build_cost_ic':
+                    # 建造コストの表示（整数）
+                    value_text = f"{int(value)} IC"
                     value_widget = QLabel(value_text)
                 elif isinstance(value, float):
                     # その他の数値（小数点2位まで）
