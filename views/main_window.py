@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QStatusBar, \
-    QListWidget, QSizePolicy, QProgressDialog, QMessageBox, QToolBar, QAction, QProgressBar, QDialog, QTextEdit, QPushButton
+    QListWidget, QSizePolicy, QProgressDialog, QMessageBox, QToolBar, QAction, QProgressBar, QDialog, QTextEdit, \
+    QPushButton, QMenuBar, QMenu
 from PyQt5.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QFont, QCloseEvent, QImage, QPixmap, QIcon
 
@@ -23,6 +24,7 @@ from views.settings_view import SettingsView
 from views.nation_view import NationView
 from views.nation_details_view import NationDetailsView
 from views.ship_list_view import ShipListView
+from utils.conflict_resolution_dialog import ConflictResolutionDialog
 
 class MenuLoadingWorker(QThread):
     """メニュー読み込み用のワーカースレッド"""
@@ -91,7 +93,7 @@ class ImageProcessingWorker(QThread):
             self.logger.error(f"画像処理中にエラーが発生: {str(e)}")
 
 class NavalDesignSystem(QMainWindow):
-    """Naval Design Systemのメインウィンドウ"""
+    """Naval Design Systemのメインウィンドウ（コンフリクト対応版）"""
 
     def __init__(self, app_controller=None, app_settings=None):
         super().__init__()
@@ -141,6 +143,18 @@ class NavalDesignSystem(QMainWindow):
 
             # デバッグ用メニューの追加
             self.add_debug_menu()
+
+        # コンフリクト解決関連のシグナル接続
+        if self.app_controller and hasattr(self.app_controller, 'sync_manager'):
+            sync_manager = self.app_controller.sync_manager
+            # 既存のシグナル接続
+            sync_manager.sync_started.connect(self.on_sync_started)
+            sync_manager.sync_progress.connect(self.on_sync_progress)
+            sync_manager.sync_completed.connect(self.on_sync_completed)
+            
+            # 新しいコンフリクト検出シグナル接続
+            if hasattr(sync_manager, 'conflict_detected'):
+                sync_manager.conflict_detected.connect(self.on_conflict_detected)
 
     def load_config(self):
         """設定ファイルを読み込む"""
@@ -333,7 +347,7 @@ class NavalDesignSystem(QMainWindow):
         self.statusBar().showMessage(message)
 
     def on_sync_completed(self, success, message):
-        """同期完了時の処理"""
+        """同期完了時の処理（拡張版）"""
         if self.sync_progress_bar:
             self.sync_progress_bar.setVisible(False)
         
@@ -342,15 +356,22 @@ class NavalDesignSystem(QMainWindow):
         
         if success:
             self.statusBar().showMessage(f"同期完了: {message}", 5000)
-            # 成功時の視覚効果（オプション）
+            # 成功時の視覚効果
             self.flash_sync_status("green")
+            
+            # 成功メッセージダイアログ（重要な場合のみ）
+            if "コンフリクト" in message or "強制" in message:
+                QMessageBox.information(
+                    self, "同期完了", 
+                    f"データ同期が正常に完了しました。\n\n詳細: {message}"
+                )
         else:
             self.statusBar().showMessage(f"同期失敗: {message}", 10000)
             # エラー時の視覚効果
             self.flash_sync_status("red")
             
-            # エラーダイアログ表示
-            QMessageBox.warning(self, "同期エラー", f"データ同期でエラーが発生しました:\n\n{message}")
+            # エラーダイアログ表示（詳細情報付き）
+            self.show_sync_error_dialog(message)
 
     def flash_sync_status(self, color):
         """同期ステータスの点滅効果"""
@@ -754,7 +775,7 @@ class NavalDesignSystem(QMainWindow):
             self.statusBar().showMessage("全画面表示の切り替えに失敗しました")
 
     def add_debug_menu(self):
-        """デバッグ用メニューを追加（同期機能を含む）"""
+        """デバッグ用メニューを追加（コンフリクト機能を含む）"""
         if hasattr(self, 'menuBar'):
             menubar = self.menuBar()
         else:
@@ -819,6 +840,19 @@ class NavalDesignSystem(QMainWindow):
         sync_history_action = QAction("同期履歴", self)
         sync_history_action.triggered.connect(self.show_sync_history)
         sync_menu.addAction(sync_history_action)
+
+        # コンフリクト関連のデバッグアクション
+        debug_menu.addSeparator()
+        
+        # コンフリクトダイアログのテスト
+        test_conflict_action = QAction("コンフリクトダイアログテスト", self)
+        test_conflict_action.triggered.connect(self.test_conflict_dialog)
+        debug_menu.addAction(test_conflict_action)
+        
+        # 同期ヘルプ表示
+        sync_help_action = QAction("同期コンフリクトヘルプ", self)
+        sync_help_action.triggered.connect(self.show_sync_conflict_help)
+        debug_menu.addAction(sync_help_action)
 
     def check_app_controller(self):
         """AppControllerの状態を確認"""
@@ -1169,3 +1203,228 @@ class NavalDesignSystem(QMainWindow):
         
         dialog.setLayout(layout)
         dialog.exec_()
+
+    def on_conflict_detected(self, conflict_info: dict, backup_path: str):
+        """コンフリクト検出時の処理"""
+        try:
+            # 進行中の同期UIを一時停止
+            if self.sync_progress_bar:
+                self.sync_progress_bar.setVisible(False)
+            
+            self.statusBar().showMessage("同期コンフリクトが検出されました...")
+            
+            # コンフリクト解決ダイアログを表示
+            dialog = ConflictResolutionDialog(conflict_info, self)
+            
+            # ダイアログの結果を処理
+            if dialog.exec_() == QDialog.Accepted:
+                resolution = dialog.resolution_choice
+                
+                # 選択された解決方法をログに記録
+                self.logger.info(f"ユーザーがコンフリクト解決方法を選択: {resolution}")
+                
+                # 解決処理を実行
+                self.execute_conflict_resolution(resolution, backup_path, conflict_info)
+            else:
+                # キャンセルされた場合
+                self.logger.info("ユーザーがコンフリクト解決をキャンセルしました")
+                self.on_sync_completed(False, "同期がキャンセルされました")
+                
+        except Exception as e:
+            self.logger.error(f"コンフリクト検出処理中にエラー: {e}")
+            self.on_sync_completed(False, f"コンフリクト処理中にエラーが発生: {e}")
+
+    def execute_conflict_resolution(self, resolution: str, backup_path: str, conflict_info: dict):
+        """コンフリクト解決を実行"""
+        try:
+            # 進行状況を表示
+            if self.sync_progress_bar:
+                self.sync_progress_bar.setVisible(True)
+                self.sync_progress_bar.setRange(0, 0)  # 不定プログレス
+            
+            self.statusBar().showMessage(f"コンフリクト解決中: {self.get_resolution_display_name(resolution)}")
+            
+            # SyncManagerの解決メソッドを呼び出し
+            if hasattr(self.app_controller.sync_manager, '_execute_resolution'):
+                result = self.app_controller.sync_manager._execute_resolution(
+                    resolution, backup_path, conflict_info
+                )
+                
+                # 結果を処理
+                self.on_sync_completed(result[0], result[1])
+            else:
+                self.on_sync_completed(False, "コンフリクト解決機能が利用できません")
+                
+        except Exception as e:
+            self.logger.error(f"コンフリクト解決実行中にエラー: {e}")
+            self.on_sync_completed(False, f"解決処理中にエラーが発生: {e}")
+
+    def get_resolution_display_name(self, resolution: str) -> str:
+        """解決方法の表示名を取得"""
+        display_names = {
+            'merge': 'マージ',
+            'rebase': 'リベース',
+            'force_local': 'ローカル強制適用',
+            'force_remote': 'リモート強制適用'
+        }
+        return display_names.get(resolution, resolution)
+
+    def show_sync_error_dialog(self, error_message: str):
+        """同期エラーの詳細ダイアログを表示"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("同期エラー")
+        dialog.setMinimumSize(500, 300)
+        
+        layout = QVBoxLayout()
+        
+        # エラーアイコンとメッセージ
+        header_layout = QHBoxLayout()
+        
+        error_icon = QLabel("❌")
+        error_icon.setStyleSheet("font-size: 24px;")
+        header_layout.addWidget(error_icon)
+        
+        error_title = QLabel("データ同期でエラーが発生しました")
+        error_title.setStyleSheet("font-weight: bold; font-size: 14px; color: #d9534f;")
+        header_layout.addWidget(error_title)
+        header_layout.addStretch()
+        
+        layout.addLayout(header_layout)
+        
+        # エラー詳細
+        error_detail = QTextEdit()
+        error_detail.setReadOnly(True)
+        error_detail.setPlainText(error_message)
+        error_detail.setMaximumHeight(150)
+        layout.addWidget(error_detail)
+        
+        # 対処方法の提案
+        help_text = QLabel(
+            "💡 <b>対処方法:</b><br>"
+            "• 同期設定を確認してください<br>"
+            "• ネットワーク接続を確認してください<br>"
+            "• 手動でGitコマンドを実行して状況を確認してください<br>"
+            "• 問題が続く場合は管理者に連絡してください"
+        )
+        help_text.setWordWrap(True)
+        help_text.setStyleSheet(
+            "padding: 8px; background-color: #f9f9f9; "
+            "border: 1px solid #ddd; margin-top: 10px;"
+        )
+        layout.addWidget(help_text)
+        
+        # ボタン
+        button_layout = QHBoxLayout()
+        
+        # 設定を開くボタン
+        settings_button = QPushButton("同期設定を開く")
+        settings_button.clicked.connect(lambda: (dialog.accept(), self.show_sync_settings()))
+        button_layout.addWidget(settings_button)
+        
+        button_layout.addStretch()
+        
+        # 閉じるボタン
+        close_button = QPushButton("閉じる")
+        close_button.clicked.connect(dialog.accept)
+        button_layout.addWidget(close_button)
+        
+        layout.addLayout(button_layout)
+        dialog.setLayout(layout)
+        
+        dialog.exec_()
+
+    def show_sync_conflict_help(self):
+        """同期コンフリクトのヘルプを表示"""
+        help_dialog = QDialog(self)
+        help_dialog.setWindowTitle("同期コンフリクトについて")
+        help_dialog.setMinimumSize(600, 400)
+        
+        layout = QVBoxLayout()
+        
+        # ヘルプ内容
+        help_text = QTextEdit()
+        help_text.setReadOnly(True)
+        help_content = """
+        <h2>🔄 同期コンフリクトとは</h2>
+        
+        <p>同期コンフリクトは、ローカル（あなたのPC）とリモート（GitHub等）で
+        異なる変更が行われた場合に発生します。</p>
+        
+        <h3>📝 解決方法の詳細</h3>
+        
+        <p><b>🔗 マージ（推奨）</b><br>
+        両方の変更を統合します。最も安全で一般的な方法です。
+        コンフリクトが発生した場合は、手動で解決する必要があります。</p>
+        
+        <p><b>📐 リベース</b><br>
+        ローカルの変更をリモートの変更の上に再適用します。
+        履歴がより直線的になりますが、コンフリクトが発生する可能性があります。</p>
+        
+        <p><b>⬆️ ローカルを強制適用</b><br>
+        リモートの変更を無視して、ローカルの変更を強制的に適用します。
+        他の人の変更が失われる可能性があるため注意が必要です。</p>
+        
+        <p><b>⬇️ リモートを強制適用</b><br>
+        ローカルの変更を破棄して、リモートの変更に合わせます。
+        あなたの変更が失われるため注意が必要です。</p>
+        
+        <h3>⚠️ 注意事項</h3>
+        
+        <p>• 強制適用オプションは変更が失われる可能性があります<br>
+        • 重要なデータは事前にバックアップが作成されます<br>
+        • 不明な場合は「マージ」を選択することを推奨します</p>
+        """
+        
+        help_text.setHtml(help_content)
+        layout.addWidget(help_text)
+        
+        # 閉じるボタン
+        close_button = QPushButton("閉じる")
+        close_button.clicked.connect(help_dialog.accept)
+        layout.addWidget(close_button)
+        
+        help_dialog.setLayout(layout)
+        help_dialog.exec_()
+
+    def test_conflict_dialog(self):
+        """コンフリクトダイアログのテスト表示"""
+        # テスト用のコンフリクト情報
+        test_conflict_info = {
+            'has_divergence': True,
+            'current_branch': 'main',
+            'remote_branch': 'origin/main',
+            'local_commits': [
+                {'hash': 'abc1234', 'message': 'ローカル変更: 装備データ追加'},
+                {'hash': 'def5678', 'message': 'ローカル変更: UI改善'}
+            ],
+            'remote_commits': [
+                {'hash': '123abcd', 'message': 'リモート変更: バグ修正'},
+                {'hash': '456efgh', 'message': 'リモート変更: 新機能追加'}
+            ],
+            'changed_files': [
+                {'status': '変更', 'path': 'data/equipments/gun_001.json'},
+                {'status': '追加', 'path': 'views/new_feature.py'},
+                {'status': '削除', 'path': 'old_file.txt'}
+            ],
+            'diff_content': '''--- a/data/equipments/gun_001.json
++++ b/data/equipments/gun_001.json
+@@ -1,5 +1,6 @@
+ {
+   "name": "5inch Gun",
+-  "damage": 100
++  "damage": 120,
++  "range": 15000
+ }'''
+        }
+        
+        # テスト用ダイアログを表示
+        dialog = ConflictResolutionDialog(test_conflict_info, self)
+        result = dialog.exec_()
+        
+        if result == QDialog.Accepted:
+            QMessageBox.information(
+                self, "テスト結果", 
+                f"選択された解決方法: {dialog.resolution_choice}"
+            )
+        else:
+            QMessageBox.information(self, "テスト結果", "キャンセルされました")

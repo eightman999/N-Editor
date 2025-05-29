@@ -1997,37 +1997,56 @@ class AppController(QObject):
             return []
 
     def _initialize_cache_manager(self):
-        """現在のMODに基づいてキャッシュマネージャーを初期化"""
+        """現在のMODに基づいてキャッシュマネージャーを初期化（重複初期化防止版）"""
         try:
             if self.current_mod and self.current_mod.get("path"):
-                # MOD名を取得（ディレクトリ名を使用）
                 mod_path = self.current_mod["path"]
                 mod_name = os.path.basename(mod_path)
                 
-                # バニラの場合は特別な識別子を使用
                 if not mod_name or mod_name.lower() == "hoi4" or "vanilla" in mod_name.lower():
                     mod_name = "_vanilla_"
                 
+                # 既に同じMODのキャッシュマネージャーが存在する場合は再利用
+                if (hasattr(self, 'cache_manager') and 
+                    self.cache_manager is not None and
+                    hasattr(self.cache_manager, 'mod_name') and
+                    self.cache_manager.mod_name == mod_name):
+                    self.logger.info(f"既存のCacheManagerを再利用: {mod_name}")
+                    return
+                
+                # 古いキャッシュマネージャーがある場合の情報保存
+                old_cache_info = None
+                if hasattr(self, 'cache_manager') and self.cache_manager is not None:
+                    old_cache_info = self.cache_manager.get_cache_info()
+                    self.logger.info(f"CacheManager切り替え: {old_cache_info.get('mod_name', 'Unknown')} -> {mod_name}")
+                
                 self.cache_manager = CacheManager(mod_name)
                 self.logger.info(f"CacheManager初期化完了: {mod_name}")
+                
             else:
                 # バニラまたはMODが未選択の場合
-                self.cache_manager = CacheManager("_vanilla_")
-                self.logger.info("CacheManager初期化完了: バニラモード")
+                if not hasattr(self, 'cache_manager') or self.cache_manager is None:
+                    self.cache_manager = CacheManager("_vanilla_")
+                    self.logger.info("CacheManager初期化完了: バニラモード")
                 
         except Exception as e:
             self.logger.error(f"CacheManager初期化エラー: {e}")
             self.cache_manager = None
 
-    def clear_cache(self, file_type=None):
+    def clear_cache(self, file_type=None, confirm=True):
         """
-        キャッシュをクリアする
+        キャッシュをクリアする（安全版）
         
         Args:
             file_type: 特定のファイル種別のキャッシュのみクリアする場合に指定
+            confirm: 確認ログを出力するかどうか
         """
         try:
             if self.cache_manager:
+                if confirm:
+                    cache_info = self.cache_manager.get_cache_info()
+                    self.logger.warning(f"キャッシュクリア要求: MOD={cache_info.get('mod_name', 'Unknown')}, タイプ={file_type or '全種別'}")
+                
                 self.cache_manager.clear_cache(file_type)
                 self.logger.info(f"キャッシュクリア完了: {file_type or '全種別'}")
             else:
@@ -2037,7 +2056,7 @@ class AppController(QObject):
 
     def get_cache_info(self):
         """
-        キャッシュ情報を取得する（デバッグ用）
+        キャッシュ情報を取得する（デバッグ用・エラーハンドリング強化版）
         
         Returns:
             キャッシュ情報の辞書
@@ -2046,10 +2065,41 @@ class AppController(QObject):
             if self.cache_manager:
                 return self.cache_manager.get_cache_info()
             else:
-                return {"error": "CacheManagerが初期化されていません"}
+                return {
+                    "error": "CacheManagerが初期化されていません",
+                    "mod_name": "N/A",
+                    "base_cache_dir": "N/A",
+                    "cache_exists": False
+                }
         except Exception as e:
             self.logger.error(f"キャッシュ情報取得エラー: {e}")
             return {"error": str(e)}
+
+    def safe_cache_operation(self, operation_name, operation_func, *args, **kwargs):
+        """
+        キャッシュ操作を安全に実行するヘルパーメソッド
+        
+        Args:
+            operation_name: 操作名（ログ用）
+            operation_func: 実行する関数
+            *args, **kwargs: 関数に渡す引数
+            
+        Returns:
+            操作結果（失敗時はNone）
+        """
+        try:
+            if not self.cache_manager:
+                self.logger.warning(f"{operation_name}: CacheManagerが初期化されていません")
+                return None
+                
+            self.logger.debug(f"{operation_name}: 開始")
+            result = operation_func(*args, **kwargs)
+            self.logger.debug(f"{operation_name}: 完了")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"{operation_name}: エラー - {e}")
+            return None
 
     def get_province_center_coords(self, province_id):
         """

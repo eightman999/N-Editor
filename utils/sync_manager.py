@@ -4,10 +4,11 @@ import subprocess
 import requests
 import base64
 import logging
+import shutil
 from datetime import datetime
 from typing import Optional, Dict, List
 from PyQt5.QtCore import QObject, pyqtSignal, QThread, QTimer
-from PyQt5.QtWidgets import QMessageBox, QProgressDialog, QInputDialog
+from PyQt5.QtWidgets import QMessageBox, QProgressDialog, QInputDialog, QApplication
 
 logger = logging.getLogger(__name__)
 
@@ -39,25 +40,28 @@ class SyncWorker(QThread):
             self.error.emit(str(e))
 
 class SyncManager(QObject):
-    """データ同期管理クラス"""
+    """データ同期管理クラス（コンフリクト対応版）"""
 
     # シグナル定義
     sync_started = pyqtSignal(str)  # 同期開始
     sync_progress = pyqtSignal(str)  # 進捗更新
     sync_completed = pyqtSignal(bool, str)  # 完了（成功/失敗, メッセージ）
+    conflict_detected = pyqtSignal(dict, str)  # conflict_info, backup_path
 
     def __init__(self, app_settings):
         super().__init__()
         self.app_settings = app_settings
         self.data_dir = app_settings.data_dir
-
+        
+        # バックアップディレクトリの設定
+        self.backup_dir = os.path.join(self.data_dir, '.sync_backups')
+        os.makedirs(self.backup_dir, exist_ok=True)
+        
         # 設定の初期化
         self.repo_url = self.app_settings.get_setting("sync_repo_url", "")
         self.github_token = self.app_settings.get_setting("sync_github_token", "")
         self.auto_sync_enabled = self.app_settings.get_setting("auto_sync_enabled", False)
         self.sync_on_exit = self.app_settings.get_setting("sync_on_exit", True)
-
-        # Git設定
         self.git_user_name = self.app_settings.get_setting("git_user_name", "")
         self.git_user_email = self.app_settings.get_setting("git_user_email", "")
 
@@ -67,6 +71,9 @@ class SyncManager(QObject):
 
         # ワーカースレッド
         self.worker = None
+        
+        # コンフリクト解決用のシグナル接続
+        self.conflict_detected.connect(self._show_conflict_dialog)
 
     def is_configured(self) -> bool:
         """同期設定が完了しているかチェック"""
@@ -276,7 +283,7 @@ generated_images/
 
 # Emacs
 *~
-\#*\#
+\\#*\\#
 /.emacs.desktop
 /.emacs.desktop.lock
 *.elc
@@ -424,29 +431,44 @@ local_settings.json
             return (False, f"完全同期エラー: {e}")
 
     def _pull_data(self) -> tuple:
-        """リモートからデータを取得"""
+        """リモートからデータを取得（改善版）"""
         try:
             self.sync_progress.emit("リモートデータを取得中...")
-
-            # Git pullを実行
-            result = subprocess.run(['git', 'pull', 'origin', 'main'],
-                                    cwd=self.data_dir, capture_output=True, text=True)
-
-            if result.returncode != 0:
-                # mainブランチが存在しない場合はmasterを試行
-                result = subprocess.run(['git', 'pull', 'origin', 'master'],
-                                        cwd=self.data_dir, capture_output=True, text=True)
-
-            if result.returncode == 0:
-                return (True, "リモートデータの取得が完了しました")
+            
+            # バックアップを作成
+            backup_path = self._create_backup()
+            logger.info(f"バックアップを作成しました: {backup_path}")
+            
+            # フェッチを実行
+            fetch_result = subprocess.run(
+                ['git', 'fetch', 'origin'], 
+                cwd=self.data_dir, capture_output=True, text=True
+            )
+            
+            if fetch_result.returncode != 0:
+                return (False, f"リモートデータの取得に失敗: {fetch_result.stderr}")
+            
+            # ブランチの状態を分析
+            conflict_info = self._analyze_branch_status()
+            
+            if conflict_info.get('has_divergence', False):
+                logger.warning("ブランチの分散を検出しました")
+                
+                # UIスレッドでコンフリクト解決ダイアログを表示
+                self.conflict_detected.emit(conflict_info, backup_path)
+                
+                # ダイアログの結果を待つ（同期処理として扱う）
+                return (False, "コンフリクト解決が必要です。ダイアログで選択してください。")
             else:
-                return (False, f"データ取得エラー: {result.stderr}")
-
+                # 通常のpullを実行
+                return self._execute_simple_pull()
+                
         except Exception as e:
-            return (False, f"プルエラー: {e}")
+            logger.error(f"プル処理中にエラー: {e}")
+            return (False, f"データ取得エラー: {e}")
 
     def _push_data(self) -> tuple:
-        """ローカルデータをリモートにプッシュ"""
+        """ローカルデータをリモートにプッシュ（競合対応版）"""
         try:
             self.sync_progress.emit("変更をコミット中...")
 
@@ -467,22 +489,90 @@ local_settings.json
 
             self.sync_progress.emit("リモートにプッシュ中...")
 
-            # プッシュ
+            # まずプッシュを試行
             result = subprocess.run(['git', 'push', 'origin', 'main'],
                                     cwd=self.data_dir, capture_output=True, text=True)
 
-            if result.returncode != 0:
-                # mainブランチが存在しない場合はmasterを試行
-                result = subprocess.run(['git', 'push', 'origin', 'master'],
-                                        cwd=self.data_dir, capture_output=True, text=True)
-
             if result.returncode == 0:
                 return (True, "データのプッシュが完了しました")
-            else:
-                return (False, f"プッシュエラー: {result.stderr}")
+            
+            # プッシュが失敗した場合（競合の可能性）
+            if "rejected" in result.stderr or "non-fast-forward" in result.stderr:
+                self.sync_progress.emit("競合を解決中...")
+                
+                # リモートの変更を取得してリベース
+                pull_result = subprocess.run(['git', 'pull', '--rebase', 'origin', 'main'],
+                                             cwd=self.data_dir, capture_output=True, text=True)
+                
+                if pull_result.returncode != 0:
+                    # masterブランチも試行
+                    pull_result = subprocess.run(['git', 'pull', '--rebase', 'origin', 'master'],
+                                                 cwd=self.data_dir, capture_output=True, text=True)
+                
+                if pull_result.returncode == 0:
+                    # リベース成功後、再度プッシュ
+                    retry_result = subprocess.run(['git', 'push', 'origin', 'main'],
+                                                  cwd=self.data_dir, capture_output=True, text=True)
+                    
+                    if retry_result.returncode != 0:
+                        # masterブランチも試行
+                        retry_result = subprocess.run(['git', 'push', 'origin', 'master'],
+                                                      cwd=self.data_dir, capture_output=True, text=True)
+                    
+                    if retry_result.returncode == 0:
+                        return (True, "競合解決後、データのプッシュが完了しました")
+                    else:
+                        return (False, f"競合解決後のプッシュエラー: {retry_result.stderr}")
+                else:
+                    return (False, f"リベースエラー: {pull_result.stderr}")
+            
+            # その他のエラー
+            return (False, f"プッシュエラー: {result.stderr}")
 
         except subprocess.CalledProcessError as e:
-            return (False, f"コミットエラー: {e}")
+            return (False, f"コマンド実行エラー: {e}")
+        except Exception as e:
+            return (False, f"予期しないエラー: {e}")
+
+    def handle_git_conflict(self) -> tuple:
+        """Git競合の自動解決を試行"""
+        try:
+            # リベース中の競合チェック
+            rebase_status = subprocess.run(['git', 'status', '--porcelain'],
+                                           cwd=self.data_dir, capture_output=True, text=True)
+            
+            if 'UU' in rebase_status.stdout:  # マージ競合
+                # 自動解決を試行（Naval Design Systemの場合、通常は自分の変更を優先）
+                subprocess.run(['git', 'checkout', '--ours', '.'],
+                               cwd=self.data_dir, check=True)
+                
+                subprocess.run(['git', 'add', '.'],
+                               cwd=self.data_dir, check=True)
+                
+                subprocess.run(['git', 'rebase', '--continue'],
+                               cwd=self.data_dir, check=True)
+                
+                return (True, "競合を自動解決しました")
+            
+            return (True, "競合はありませんでした")
+            
+        except subprocess.CalledProcessError as e:
+            return (False, f"競合解決エラー: {e}")
+
+    def sync_data_with_conflict_resolution(self) -> tuple:
+        """競合対応付きの完全同期"""
+        try:
+            # まずリモートの変更を取得
+            pull_result = self._pull_data()
+            if not pull_result[0]:
+                return pull_result
+
+            # ローカルの変更をプッシュ
+            push_result = self._push_data()
+            return push_result
+
+        except Exception as e:
+            return (False, f"同期エラー: {e}")
 
     def auto_sync_on_save(self):
         """保存時の自動同期"""
@@ -534,3 +624,358 @@ local_settings.json
         self.sync_on_exit = self.app_settings.get_setting("sync_on_exit", True)
         self.git_user_name = self.app_settings.get_setting("git_user_name", "")
         self.git_user_email = self.app_settings.get_setting("git_user_email", "")
+
+    def _analyze_branch_status(self) -> dict:
+        """ブランチの状態を分析"""
+        try:
+            conflict_info = {
+                'has_divergence': False,
+                'current_branch': '',
+                'remote_branch': '',
+                'local_commits': [],
+                'remote_commits': [],
+                'changed_files': [],
+                'diff_content': ''
+            }
+            
+            # 現在のブランチを取得
+            branch_result = subprocess.run(
+                ['git', 'branch', '--show-current'], 
+                cwd=self.data_dir, capture_output=True, text=True
+            )
+            
+            if branch_result.returncode == 0:
+                conflict_info['current_branch'] = branch_result.stdout.strip() or 'main'
+            else:
+                conflict_info['current_branch'] = 'main'
+            
+            # リモートブランチ名を設定
+            remote_branch = f"origin/{conflict_info['current_branch']}"
+            conflict_info['remote_branch'] = remote_branch
+            
+            # 分散の確認
+            try:
+                divergence_result = subprocess.run(
+                    ['git', 'rev-list', '--left-right', '--count', f'HEAD...{remote_branch}'], 
+                    cwd=self.data_dir, capture_output=True, text=True
+                )
+                
+                if divergence_result.returncode == 0:
+                    counts = divergence_result.stdout.strip().split('\t')
+                    if len(counts) >= 2:
+                        local_ahead = int(counts[0])
+                        remote_ahead = int(counts[1])
+                        
+                        conflict_info['has_divergence'] = local_ahead > 0 and remote_ahead > 0
+                        
+                        # 詳細情報を取得（分散がある場合のみ）
+                        if conflict_info['has_divergence']:
+                            self._get_commit_details(conflict_info, remote_branch)
+                            
+            except (subprocess.SubprocessError, ValueError, IndexError) as e:
+                logger.warning(f"分散状態の確認に失敗: {e}")
+                # 安全のため、分散ありとして扱う
+                conflict_info['has_divergence'] = True
+            
+            return conflict_info
+            
+        except Exception as e:
+            logger.error(f"ブランチ状態分析エラー: {e}")
+            return {
+                'has_divergence': True,  # エラー時は安全のため分散ありとする
+                'error': str(e)
+            }
+
+    def _create_backup(self) -> str:
+        """現在の状態をバックアップ"""
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_name = f"backup_{timestamp}"
+            backup_path = os.path.join(self.backup_dir, backup_name)
+            
+            # データディレクトリをコピー（.gitディレクトリも含む）
+            shutil.copytree(self.data_dir, backup_path, 
+                          ignore=shutil.ignore_patterns('.sync_backups'))
+            
+            logger.info(f"バックアップを作成: {backup_path}")
+            return backup_path
+            
+        except Exception as e:
+            logger.error(f"バックアップ作成エラー: {e}")
+            raise Exception(f"バックアップ作成に失敗: {e}")
+
+    def _restore_backup(self, backup_path: str) -> bool:
+        """バックアップから復元"""
+        try:
+            if not os.path.exists(backup_path):
+                logger.error(f"バックアップが存在しません: {backup_path}")
+                return False
+            
+            # 現在のデータディレクトリを一時移動
+            temp_dir = f"{self.data_dir}_temp_{int(datetime.now().timestamp())}"
+            shutil.move(self.data_dir, temp_dir)
+            
+            try:
+                # バックアップから復元
+                shutil.copytree(backup_path, self.data_dir)
+                
+                # 一時ディレクトリを削除
+                shutil.rmtree(temp_dir)
+                
+                logger.info(f"バックアップから復元完了: {backup_path}")
+                return True
+                
+            except Exception as e:
+                # 復元に失敗した場合は元に戻す
+                if os.path.exists(self.data_dir):
+                    shutil.rmtree(self.data_dir)
+                shutil.move(temp_dir, self.data_dir)
+                raise e
+                
+        except Exception as e:
+            logger.error(f"バックアップ復元エラー: {e}")
+            return False
+
+    def _cleanup_old_backups(self, keep_count: int = 5):
+        """古いバックアップを削除"""
+        try:
+            if not os.path.exists(self.backup_dir):
+                return
+            
+            backups = []
+            for item in os.listdir(self.backup_dir):
+                item_path = os.path.join(self.backup_dir, item)
+                if os.path.isdir(item_path) and item.startswith('backup_'):
+                    backups.append((item_path, os.path.getmtime(item_path)))
+            
+            # 作成日時でソート（新しい順）
+            backups.sort(key=lambda x: x[1], reverse=True)
+            
+            # 指定数を超えるバックアップを削除
+            for backup_path, _ in backups[keep_count:]:
+                shutil.rmtree(backup_path)
+                logger.info(f"古いバックアップを削除: {backup_path}")
+                
+        except Exception as e:
+            logger.warning(f"バックアップクリーンアップエラー: {e}")
+
+    def _show_conflict_dialog(self, conflict_info: dict, backup_path: str):
+        """コンフリクト解決ダイアログを表示（UIスレッド）"""
+        from .conflict_resolution_dialog import ConflictResolutionDialog
+        
+        try:
+            # メインウィンドウを取得
+            app = QApplication.instance()
+            main_window = None
+            for widget in app.topLevelWidgets():
+                if hasattr(widget, 'app_controller'):
+                    main_window = widget
+                    break
+            
+            # ダイアログを表示
+            dialog = ConflictResolutionDialog(conflict_info, main_window)
+            if dialog.exec_() == dialog.Accepted:
+                resolution = dialog.resolution_choice
+                
+                # 選択された解決方法を実行
+                result = self._execute_resolution(resolution, backup_path, conflict_info)
+                
+                # 結果をメインウィンドウに通知
+                if main_window and hasattr(main_window, 'on_sync_completed'):
+                    main_window.on_sync_completed(result[0], result[1])
+            else:
+                # キャンセルされた場合
+                if main_window and hasattr(main_window, 'on_sync_completed'):
+                    main_window.on_sync_completed(False, "同期がキャンセルされました")
+                    
+        except Exception as e:
+            logger.error(f"コンフリクトダイアログ表示エラー: {e}")
+
+    def _get_commit_details(self, conflict_info: dict, remote_branch: str):
+        """コミットの詳細情報を取得"""
+        try:
+            # ローカルコミットを取得
+            local_commits_result = subprocess.run(
+                ['git', 'log', '--oneline', f'{remote_branch}..HEAD'], 
+                cwd=self.data_dir, capture_output=True, text=True
+            )
+            
+            if local_commits_result.returncode == 0:
+                for line in local_commits_result.stdout.strip().split('\n'):
+                    if line:
+                        parts = line.split(' ', 1)
+                        conflict_info['local_commits'].append({
+                            'hash': parts[0],
+                            'message': parts[1] if len(parts) > 1 else ''
+                        })
+            
+            # リモートコミットを取得
+            remote_commits_result = subprocess.run(
+                ['git', 'log', '--oneline', f'HEAD..{remote_branch}'], 
+                cwd=self.data_dir, capture_output=True, text=True
+            )
+            
+            if remote_commits_result.returncode == 0:
+                for line in remote_commits_result.stdout.strip().split('\n'):
+                    if line:
+                        parts = line.split(' ', 1)
+                        conflict_info['remote_commits'].append({
+                            'hash': parts[0],
+                            'message': parts[1] if len(parts) > 1 else ''
+                        })
+            
+            # 差分を取得
+            diff_result = subprocess.run(
+                ['git', 'diff', f'HEAD...{remote_branch}'], 
+                cwd=self.data_dir, capture_output=True, text=True
+            )
+            
+            if diff_result.returncode == 0:
+                conflict_info['diff_content'] = diff_result.stdout
+            
+            # 変更ファイル一覧を取得
+            files_result = subprocess.run(
+                ['git', 'diff', '--name-status', f'HEAD...{remote_branch}'], 
+                cwd=self.data_dir, capture_output=True, text=True
+            )
+            
+            if files_result.returncode == 0:
+                for line in files_result.stdout.strip().split('\n'):
+                    if line:
+                        parts = line.split('\t')
+                        if len(parts) >= 2:
+                            conflict_info['changed_files'].append({
+                                'status': self._translate_git_status(parts[0]),
+                                'path': parts[1],
+                                'additions': 0,
+                                'deletions': 0
+                            })
+                            
+        except Exception as e:
+            logger.warning(f"コミット詳細取得エラー: {e}")
+
+    def _translate_git_status(self, status: str) -> str:
+        """Gitステータスを日本語に変換"""
+        status_map = {
+            'A': '追加',
+            'M': '変更',
+            'D': '削除',
+            'R': '名前変更',
+            'C': 'コピー',
+            'U': '未マージ'
+        }
+        return status_map.get(status, status)
+
+    def _execute_resolution(self, resolution: str, backup_path: str, conflict_info: dict) -> tuple:
+        """コンフリクト解決を実行"""
+        try:
+            current_branch = conflict_info.get('current_branch', 'main')
+            remote_branch = f"origin/{current_branch}"
+            
+            if resolution == 'merge':
+                return self._execute_merge(remote_branch)
+            elif resolution == 'rebase':
+                return self._execute_rebase(remote_branch)
+            elif resolution == 'force_local':
+                return self._execute_force_push(current_branch)
+            elif resolution == 'force_remote':
+                return self._execute_reset_to_remote(remote_branch)
+            else:
+                return (False, "不明な解決方法が選択されました")
+                
+        except Exception as e:
+            # エラー時はバックアップから復元
+            if self._restore_backup(backup_path):
+                return (False, f"解決処理中にエラーが発生しました。バックアップから復元しました: {e}")
+            else:
+                return (False, f"解決処理中にエラーが発生し、復元にも失敗しました: {e}")
+
+    def _execute_merge(self, remote_branch: str) -> tuple:
+        """マージ実行"""
+        try:
+            result = subprocess.run(
+                ['git', 'merge', '--no-ff', remote_branch], 
+                cwd=self.data_dir, capture_output=True, text=True
+            )
+            
+            if result.returncode == 0:
+                self._cleanup_old_backups()
+                return (True, "マージによる同期が完了しました")
+            else:
+                if "CONFLICT" in result.stdout:
+                    return (False, f"マージコンフリクトが発生しました。\n"
+                                 f"手動で解決後、以下のコマンドを実行してください:\n"
+                                 f"git add .\n"
+                                 f"git commit\n\n"
+                                 f"詳細: {result.stdout}")
+                else:
+                    return (False, f"マージに失敗しました: {result.stderr}")
+                    
+        except Exception as e:
+            return (False, f"マージ実行エラー: {e}")
+
+    def _execute_rebase(self, remote_branch: str) -> tuple:
+        """リベース実行"""
+        try:
+            result = subprocess.run(
+                ['git', 'rebase', remote_branch], 
+                cwd=self.data_dir, capture_output=True, text=True
+            )
+            
+            if result.returncode == 0:
+                self._cleanup_old_backups()
+                return (True, "リベースによる同期が完了しました")
+            else:
+                return (False, f"リベースに失敗しました: {result.stderr}")
+                
+        except Exception as e:
+            return (False, f"リベース実行エラー: {e}")
+
+    def _execute_force_push(self, current_branch: str) -> tuple:
+        """強制プッシュ実行"""
+        try:
+            result = subprocess.run(
+                ['git', 'push', '--force', 'origin', current_branch], 
+                cwd=self.data_dir, capture_output=True, text=True
+            )
+            
+            if result.returncode == 0:
+                self._cleanup_old_backups()
+                return (True, "ローカル変更を強制的にリモートに反映しました")
+            else:
+                return (False, f"強制プッシュに失敗しました: {result.stderr}")
+                
+        except Exception as e:
+            return (False, f"強制プッシュ実行エラー: {e}")
+
+    def _execute_reset_to_remote(self, remote_branch: str) -> tuple:
+        """リモートに合わせてリセット"""
+        try:
+            result = subprocess.run(
+                ['git', 'reset', '--hard', remote_branch], 
+                cwd=self.data_dir, capture_output=True, text=True
+            )
+            
+            if result.returncode == 0:
+                self._cleanup_old_backups()
+                return (True, "リモート変更でローカルを上書きしました")
+            else:
+                return (False, f"リセットに失敗しました: {result.stderr}")
+                
+        except Exception as e:
+            return (False, f"リセット実行エラー: {e}")
+
+    def _execute_simple_pull(self) -> tuple:
+        """通常のpullを実行"""
+        try:
+            # 通常のpullを実行
+            result = subprocess.run(['git', 'pull', 'origin', 'main'],
+                                    cwd=self.data_dir, capture_output=True, text=True)
+
+            if result.returncode == 0:
+                return (True, "リモートデータの取得が完了しました")
+            else:
+                return (False, f"データ取得エラー: {result.stderr}")
+
+        except Exception as e:
+            return (False, f"プルエラー: {e}")
