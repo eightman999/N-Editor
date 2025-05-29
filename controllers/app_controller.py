@@ -353,7 +353,7 @@ class Worker(QRunnable):
                 stats[stat_id] = final_stats[stat_id]
         
         return stats
-    
+
  
     def _calculate_equipment_stats(self, equipment_data: Dict[str, Any]) -> Dict[str, float]:
         """
@@ -385,11 +385,6 @@ class Worker(QRunnable):
             # 砲系統の計算
             gun_stats = self._calculate_gun_stats(equipment_data)
             stats.update(gun_stats)
-        
-        # その他の装備タイプの計算（将来拡張用）
-        # elif equipment_type == 'torpedo':
-        #     torpedo_stats = self._calculate_torpedo_stats(equipment_data)
-        #     stats.update(torpedo_stats)
         
         return stats
     
@@ -441,8 +436,10 @@ class Worker(QRunnable):
                          rounds_per_minute * turret_count)
                 
                 # 軽砲・重砲攻撃力を計算
-                stats['add_stats']['lg_attack'] = attack * l_inclination
-                stats['add_stats']['hg_attack'] = attack * h_inclination
+                stats['add_stats'] = {
+                    'lg_attack': attack * l_inclination,
+                    'hg_attack': attack * h_inclination
+                }
             
             # 装甲貫通力を計算
             if caliber_cm > 0 and barrel_length > 0:
@@ -451,8 +448,10 @@ class Worker(QRunnable):
                                 barrel_length**0.5 * 132)
                 
                 # 軽砲・重砲装甲貫通を計算
-                stats['add_average_stats']['lg_armor_piercing'] = armor_piercing * l_inclination
-                stats['add_average_stats']['hg_armor_piercing'] = armor_piercing * h_inclination
+                stats['add_average_stats'] = {
+                    'lg_armor_piercing': armor_piercing * l_inclination,
+                    'hg_armor_piercing': armor_piercing * h_inclination
+                }
             
             # 対空攻撃力を計算
             if shell_weight_kg > 0 and rounds_per_minute > 0:
@@ -465,7 +464,7 @@ class Worker(QRunnable):
                         
                         if exponent <= 10:  # 指数を制限
                             anti_air_base = base_power * (rpm_power ** exponent) * max_elevation_value
-                            lg_attack_contribution = stats.get('lg_attack', 0) / 10
+                            lg_attack_contribution = stats.get('add_stats', {}).get('lg_attack', 0) / 10
                             stats['add_stats']['anti_air_attack'] = anti_air_base + lg_attack_contribution
                         else:
                             stats['add_stats']['anti_air_attack'] = 0.0
@@ -480,8 +479,7 @@ class Worker(QRunnable):
             return {}
         
         return stats
-    
-    
+
     def _get_gun_parameters(self, caliber_cm: float) -> tuple:
         """
         口径に基づいてmagic_numberと傾斜係数を取得
@@ -514,6 +512,17 @@ class Worker(QRunnable):
             return 63000000, 1, 0
         else:
             return 60000000, 1, 0  # 極小口径用のデフォルト値
+
+    def _calculate_stat_value(self):
+        """
+        ステータス値を計算するための内部メソッド。
+        ここでは、装備や船体のデータを基にステータス値を計算します。
+        """
+        # 実際の計算ロジックはここに実装
+        final_design_stats = self.get_design_stats()
+        # 例として、計算結果をログに出力
+        logger.info(f"Calculated design stats: {final_design_stats}")
+        return final_design_stats
 
 
 class WorkerSignals(QObject):

@@ -274,7 +274,7 @@ class DesignView(QWidget):
                 print("警告: app_controllerが設定されていません")
                 return
 
-            status_definitions = self.app_controller.get_all_status_definitions()
+            status_definitions = self.app_controller._get_default_status_definitions()
 
             # 設計データがある場合は実際の値を取得
             stats_values = {}
