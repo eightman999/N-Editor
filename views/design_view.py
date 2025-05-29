@@ -284,6 +284,11 @@ class DesignView(QWidget):
                 # デフォルト値を取得
                 stats_values = self.app_controller.get_design_stats(None)
 
+            # 船体重量を取得（重量比率表示用）
+            hull_weight = 0.0
+            if design_data and 'hull' in design_data:
+                hull_weight = float(design_data['hull'].get('weight', 0))
+
             # UI要素を動的に生成
             for i, stat_def in enumerate(status_definitions):
                 stat_id = stat_def['id']
@@ -297,7 +302,37 @@ class DesignView(QWidget):
 
                 # 値表示用ウィジェット
                 value = stats_values.get(stat_id, 0)
-                value_widget = QLabel(str(value))
+                
+                # 特別な表示形式を適用
+                if stat_id == 'weight_ratio':
+                    # 重量比率の特別表示
+                    equipment_weight = stats_values.get('equipment_weight', 0)
+                    if hull_weight > 0:
+                        value_text = f"{equipment_weight:.1f}kg / {hull_weight:.0f}kg ({value:.1f}%)"
+                    else:
+                        value_text = f"{equipment_weight:.1f}kg / 0kg (0.0%)"
+                    value_widget = QLabel(value_text)
+                elif stat_id == 'equipment_weight':
+                    # 装備重量の表示
+                    value_text = f"{value:.1f}kg"
+                    value_widget = QLabel(value_text)
+                elif stat_id == 'manpower':
+                    # 人員の表示
+                    value_text = f"{int(value)}名"
+                    value_widget = QLabel(value_text)
+                elif stat_id in ['lg_attack', 'hg_attack', 'lg_armor_piercing', 'hg_armor_piercing', 'anti_air_attack']:
+                    # 砲系統ステータスの表示（小数点1位まで）
+                    value_text = f"{value:.1f}"
+                    value_widget = QLabel(value_text)
+                elif isinstance(value, float):
+                    # その他の数値（小数点2位まで）
+                    value_text = f"{value:.2f}"
+                    value_widget = QLabel(value_text)
+                else:
+                    # その他
+                    value_text = str(value)
+                    value_widget = QLabel(value_text)
+                
                 value_widget.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
                 value_widget.setStyleSheet("QLabel { border: 1px solid gray; padding: 2px; background-color: white; }")
 
@@ -856,9 +891,10 @@ class DesignView(QWidget):
                     display_text = f"{eq_name} ({eq_id}) - {eq_type}"
                     equipment_combo.addItem(display_text)
 
-            # 装備変更後にステータス表示を更新
-            current_design_data = self.get_current_design_data()
-            self.update_stats_display(current_design_data)
+            # 装備選択変更時のイベントハンドラーを接続
+            equipment_combo.currentTextChanged.connect(
+                lambda: self.on_equipment_selection_changed(slot_id)
+            )
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"装備コンボボックス更新中にエラーが発生しました: {e}")
@@ -1344,4 +1380,16 @@ class DesignView(QWidget):
             print(f"装備選択エラー: {e}")
             import traceback
             traceback.print_exc()
+
+    def on_equipment_selection_changed(self, slot_id):
+        """装備選択が変更されたときの処理"""
+        try:
+            # 現在の設計データを取得
+            current_design_data = self.get_current_design_data()
+            
+            # ステータス表示を更新
+            self.update_stats_display(current_design_data)
+            
+        except Exception as e:
+            print(f"装備選択変更処理エラー: {e}")
 
