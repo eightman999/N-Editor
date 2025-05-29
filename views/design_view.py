@@ -288,6 +288,8 @@ class DesignView(QWidget):
             hull_weight = 0.0
             if design_data and 'hull' in design_data:
                 hull_weight = float(design_data['hull'].get('weight', 0))
+                #hull_weightは[t]なので[kg]に変換
+                hull_weight *= 1000.0  # トンからキログラムに変換
 
             # UI要素を動的に生成
             for i, stat_def in enumerate(status_definitions):
@@ -308,7 +310,7 @@ class DesignView(QWidget):
                     # 重量比率の特別表示
                     equipment_weight = stats_values.get('equipment_weight', 0)
                     if hull_weight > 0:
-                        value_text = f"{equipment_weight:.1f}kg / {hull_weight:.0f}kg ({value:.1f}%)"
+                        value_text = f"{equipment_weight:.1f}kg / {hull_weight/1000:.0f}t ({hull_weight/equipment_weight*100}%)"
                     else:
                         value_text = f"{equipment_weight:.1f}kg / 0kg (0.0%)"
                     value_widget = QLabel(value_text)
@@ -360,28 +362,42 @@ class DesignView(QWidget):
     def load_equipment_categories(self):
         """装備カテゴリーを読み込む"""
         try:
-            # 全スロットのカテゴリーコンボボックスを初期化
-            for slot_type, combo in self.slot_category_combos.items():
-                combo.clear()
-                combo.addItem("カテゴリー選択")
+            # カテゴリー選択状態をリセット
+            if hasattr(self, 'slot_category_selections'):
+                self.slot_category_selections.clear()
 
-                # 装備タイプを追加
-                if self.app_controller:
-                    equipment_types = self.app_controller.get_equipment_types()
-                    combo.addItems(equipment_types)
-                else:
-                    # デフォルトのカテゴリーを追加
-                    default_categories = [
-                        "小口径砲", "中口径砲", "大口径砲", "超大口径砲", "対空砲",
-                        "魚雷", "潜水艦魚雷", "対艦ミサイル", "対空ミサイル",
-                        "水上機", "艦上偵察機", "回転翼機", "対潜哨戒機", "大型飛行艇",
-                        "爆雷投射機", "爆雷", "対潜迫撃砲",
-                        "ソナー", "大型ソナー", "小型電探", "大型電探", "測距儀",
-                        "機関", "増設バルジ(中型艦)", "増設バルジ(大型艦)", "格納庫", "その他"
-                    ]
-                    combo.addItems(default_categories)
+            # 全スロットのカテゴリーボタンを初期化
+            for slot_type in ["PA", "SA", "PSA", "SSA", "PLA", "SLA"]:
+                if slot_type in self.slot_category_combos:
+                    button = self.slot_category_combos[slot_type]
+                    # QPushButtonの場合は、テキストのみ設定
+                    button.setText("カテゴリー選択")
+                
+                # 装備選択コンボボックスも初期化
+                if slot_type in self.slot_combos:
+                    combo = self.slot_combos[slot_type]
+                    combo.clear()
+                    combo.addItem("選択する")
+
+            # 内部スロットがある場合も同様に処理
+            if hasattr(self, 'internal_slots'):
+                for slot_info in self.internal_slots:
+                    slot_id = slot_info.get("id")
+                    if slot_id:
+                        # カテゴリーボタンの初期化
+                        if "category_button" in slot_info:
+                            slot_info["category_button"].setText("カテゴリー選択")
+                        
+                        # 装備コンボボックスの初期化
+                        if "equipment_combo" in slot_info:
+                            combo = slot_info["equipment_combo"]
+                            combo.clear()
+                            combo.addItem("選択する")
+                            
         except Exception as e:
             print(f"装備カテゴリー読み込みエラー: {e}")
+            import traceback
+            traceback.print_exc()
 
     def on_slot_category_changed(self, slot_type, index):
         """スロットのカテゴリーが変更されたときの処理"""
