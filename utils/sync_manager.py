@@ -7,7 +7,7 @@ import logging
 from datetime import datetime
 from typing import Optional, Dict, List
 from PyQt5.QtCore import QObject, pyqtSignal, QThread, QTimer
-from PyQt5.QtWidgets import QMessageBox, QProgressDialog, QInputDialog, QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QCheckBox
+from PyQt5.QtWidgets import QMessageBox, QProgressDialog, QInputDialog
 
 logger = logging.getLogger(__name__)
 
@@ -142,28 +142,252 @@ class SyncManager(QObject):
             logger.error(f"Gitコマンドエラー: {e}")
             return False
 
+    def _init_github_repository(self) -> bool:
+        """GitHub APIでリポジトリを初期化（将来の実装用）"""
+        # 現在は未実装
+        logger.warning("GitHub API経由の初期化は未実装です")
+        return False
+
+    def _update_git_config(self) -> bool:
+        """既存リポジトリのGit設定を更新"""
+        try:
+            # リモートリポジトリ設定の更新
+            result = subprocess.run(['git', 'remote', 'get-url', 'origin'],
+                                    cwd=self.data_dir, capture_output=True, text=True)
+
+            if result.returncode == 0:
+                # 既存のリモートURLと比較
+                current_url = result.stdout.strip()
+                if current_url != self.repo_url:
+                    subprocess.run(['git', 'remote', 'set-url', 'origin', self.repo_url],
+                                   cwd=self.data_dir, check=True)
+            else:
+                # リモートが存在しない場合は追加
+                subprocess.run(['git', 'remote', 'add', 'origin', self.repo_url],
+                               cwd=self.data_dir, check=True)
+
+            # Git設定の更新
+            if self.git_user_name:
+                subprocess.run(['git', 'config', 'user.name', self.git_user_name],
+                               cwd=self.data_dir, check=True)
+            if self.git_user_email:
+                subprocess.run(['git', 'config', 'user.email', self.git_user_email],
+                               cwd=self.data_dir, check=True)
+
+            return True
+
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Git設定更新エラー: {e}")
+            return False
+
     def _create_gitignore(self):
-        """適切な.gitignoreファイルを作成"""
-        gitignore_content = """# Naval Design System
-*.tmp
-*.log
-*.cache
+        """Naval Design System用の.gitignoreファイルを作成"""
+        gitignore_content = """# Naval Design System - Generated .gitignore
+# このファイルはNaval Design Systemによって自動生成されました
+# 必要に応じて手動で編集してください
+
+# === Python関連 ===
 __pycache__/
-.DS_Store
-Thumbs.db
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# === PyQt5関連 ===
+*.ui~
+*.qrc~
+
+# === Naval Design System関連 ===
+# キャッシュファイル
+caches/
+*.cache
+*.pkl
+
+# ログファイル
+*.log
+app.log
+debug.log
 
 # 一時ファイル
+*.tmp
+*.temp
 temp/
-cache/
-*.bmp
-*.png
+temporary/
+
 # バックアップファイル
 *.bak
-*.pkl
+*.backup
+*~
+*.orig
+
+# === HOI4 MOD開発関連 ===
+# パーサー自動生成ファイル
+parser/parsetab.py
+parser/*_parsetab.py
+parser/parser.out
+
+# 設定ファイル（機密情報を含む可能性）
+settings_local.json
+config_local.json
+
+# === 画像・メディアファイル ===
+# 生成された画像ファイル
+generated_images/
+*.bmp
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.tga
+*.dds
+
+# === IDE・エディタ関連 ===
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# === OS関連 ===
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# === Git関連 ===
+*.orig
+*.rej
+
+# === データベース関連 ===
+*.db
+*.sqlite
+*.sqlite3
+
+# === 証明書・鍵ファイル ===
+*.pem
+*.key
+*.crt
+*.p12
+
+# === 圧縮ファイル ===
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# === プロジェクト固有 ===
+# 大容量テストデータ
+test_data_large/
+benchmark_results/
+
+# ユーザー固有の設定
+user_preferences.json
+local_settings.json
 """
         gitignore_path = os.path.join(self.data_dir, ".gitignore")
+
+        # 既存の.gitignoreが存在する場合はバックアップを作成
+        if os.path.exists(gitignore_path):
+            backup_path = gitignore_path + ".backup"
+            import shutil
+            shutil.copy2(gitignore_path, backup_path)
+            logger.info(f".gitignoreのバックアップを作成: {backup_path}")
+
         with open(gitignore_path, 'w', encoding='utf-8') as f:
             f.write(gitignore_content)
+
+        logger.info(f".gitignoreファイルを作成: {gitignore_path}")
+
+    def get_gitignore_content(self) -> str:
+        """現在の.gitignoreファイルの内容を取得"""
+        gitignore_path = os.path.join(self.data_dir, ".gitignore")
+        if os.path.exists(gitignore_path):
+            try:
+                with open(gitignore_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+            except Exception as e:
+                logger.error(f".gitignore読み込みエラー: {e}")
+                return ""
+        return ""
+
+    def save_gitignore_content(self, content: str) -> bool:
+        """新しい.gitignoreファイルの内容を保存"""
+        gitignore_path = os.path.join(self.data_dir, ".gitignore")
+        try:
+            # バックアップを作成
+            if os.path.exists(gitignore_path):
+                backup_path = gitignore_path + ".backup"
+                import shutil
+                shutil.copy2(gitignore_path, backup_path)
+
+            # 新しい内容を保存
+            with open(gitignore_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+
+            logger.info(".gitignoreファイルを更新しました")
+            return True
+
+        except Exception as e:
+            logger.error(f".gitignore保存エラー: {e}")
+            return False
 
     def sync_data_async(self, operation: str = 'full_sync'):
         """非同期でデータ同期を実行"""
@@ -302,152 +526,11 @@ cache/
         # 実装は必要に応じて追加
         pass
 
-    def show_sync_settings_dialog(self, parent=None):
-        """同期設定ダイアログを表示"""
-        dialog = SyncSettingsDialog(self, parent)
-        return dialog.exec_()
-
-class SyncSettingsDialog(QDialog):
-    """同期設定ダイアログ"""
-
-    def __init__(self, sync_manager, parent=None):
-        super().__init__(parent)
-        self.sync_manager = sync_manager
-        self.init_ui()
-        self.load_settings()
-
-    def init_ui(self):
-        self.setWindowTitle("データ同期設定")
-        self.setMinimumWidth(500)
-
-        layout = QVBoxLayout()
-
-        # リポジトリURL
-        layout.addWidget(QLabel("GitHubリポジトリURL:"))
-        self.repo_url_edit = QLineEdit()
-        self.repo_url_edit.setPlaceholderText("https://github.com/username/repository.git")
-        layout.addWidget(self.repo_url_edit)
-
-        # GitHubトークン
-        layout.addWidget(QLabel("GitHubパーソナルアクセストークン（オプション）:"))
-        self.github_token_edit = QLineEdit()
-        self.github_token_edit.setEchoMode(QLineEdit.Password)
-        self.github_token_edit.setPlaceholderText("ghp_xxxxxxxxxxxxxxxxxxxx")
-        layout.addWidget(self.github_token_edit)
-
-        # Git設定
-        layout.addWidget(QLabel("Git設定:"))
-
-        git_layout = QHBoxLayout()
-        git_layout.addWidget(QLabel("ユーザー名:"))
-        self.git_name_edit = QLineEdit()
-        git_layout.addWidget(self.git_name_edit)
-
-        git_layout.addWidget(QLabel("メール:"))
-        self.git_email_edit = QLineEdit()
-        git_layout.addWidget(self.git_email_edit)
-        layout.addLayout(git_layout)
-
-        # オプション
-        self.auto_sync_check = QCheckBox("保存時に自動コミット")
-        layout.addWidget(self.auto_sync_check)
-
-        self.sync_on_exit_check = QCheckBox("終了時に自動同期")
-        self.sync_on_exit_check.setChecked(True)
-        layout.addWidget(self.sync_on_exit_check)
-
-        # ボタン
-        button_layout = QHBoxLayout()
-
-        test_button = QPushButton("接続テスト")
-        test_button.clicked.connect(self.test_connection)
-        button_layout.addWidget(test_button)
-
-        button_layout.addStretch()
-
-        ok_button = QPushButton("OK")
-        ok_button.clicked.connect(self.accept)
-        button_layout.addWidget(ok_button)
-
-        cancel_button = QPushButton("キャンセル")
-        cancel_button.clicked.connect(self.reject)
-        button_layout.addWidget(cancel_button)
-
-        layout.addLayout(button_layout)
-        self.setLayout(layout)
-
-    def load_settings(self):
-        """設定を読み込み"""
-        self.repo_url_edit.setText(self.sync_manager.repo_url)
-        self.github_token_edit.setText(self.sync_manager.github_token)
-        self.git_name_edit.setText(self.sync_manager.git_user_name)
-        self.git_email_edit.setText(self.sync_manager.git_user_email)
-        self.auto_sync_check.setChecked(self.sync_manager.auto_sync_enabled)
-        self.sync_on_exit_check.setChecked(self.sync_manager.sync_on_exit)
-
-    def accept(self):
-        """設定を保存"""
-        self.sync_manager.repo_url = self.repo_url_edit.text().strip()
-        self.sync_manager.github_token = self.github_token_edit.text().strip()
-        self.sync_manager.git_user_name = self.git_name_edit.text().strip()
-        self.sync_manager.git_user_email = self.git_email_edit.text().strip()
-        self.sync_manager.auto_sync_enabled = self.auto_sync_check.isChecked()
-        self.sync_manager.sync_on_exit = self.sync_on_exit_check.isChecked()
-
-        # app_settingsに保存
-        self.sync_manager.app_settings.set_setting("sync_repo_url", self.sync_manager.repo_url)
-        self.sync_manager.app_settings.set_setting("sync_github_token", self.sync_manager.github_token)
-        self.sync_manager.app_settings.set_setting("git_user_name", self.sync_manager.git_user_name)
-        self.sync_manager.app_settings.set_setting("git_user_email", self.sync_manager.git_user_email)
-        self.sync_manager.app_settings.set_setting("auto_sync_enabled", self.sync_manager.auto_sync_enabled)
-        self.sync_manager.app_settings.set_setting("sync_on_exit", self.sync_manager.sync_on_exit)
-
-        # リポジトリセットアップ
-        if self.sync_manager.repo_url:
-            success = self.sync_manager.setup_repository(
-                self.sync_manager.repo_url,
-                self.sync_manager.github_token
-            )
-
-            if success:
-                QMessageBox.information(self, "成功", "同期設定が完了しました")
-            else:
-                QMessageBox.warning(self, "警告", "リポジトリのセットアップに失敗しました")
-
-        super().accept()
-
-    def test_connection(self):
-        """接続テスト"""
-        repo_url = self.repo_url_edit.text().strip()
-        github_token = self.github_token_edit.text().strip()
-
-        if not repo_url:
-            QMessageBox.warning(self, "警告", "リポジトリURLを入力してください")
-            return
-
-        try:
-            # GitHub APIで接続テスト
-            if github_token and 'github.com' in repo_url:
-                # リポジトリ情報を取得してテスト
-                repo_path = repo_url.replace('https://github.com/', '').replace('.git', '')
-                api_url = f"https://api.github.com/repos/{repo_path}"
-
-                headers = {'Authorization': f'token {github_token}'}
-                response = requests.get(api_url, headers=headers, timeout=10)
-
-                if response.status_code == 200:
-                    QMessageBox.information(self, "成功", "GitHub APIでの接続に成功しました")
-                else:
-                    QMessageBox.warning(self, "警告", f"GitHub API接続エラー: {response.status_code}")
-            else:
-                # Git コマンドでテスト
-                result = subprocess.run(['git', 'ls-remote', repo_url],
-                                        capture_output=True, text=True, timeout=10)
-
-                if result.returncode == 0:
-                    QMessageBox.information(self, "成功", "リポジトリへの接続に成功しました")
-                else:
-                    QMessageBox.warning(self, "警告", f"接続エラー: {result.stderr}")
-
-        except Exception as e:
-            QMessageBox.critical(self, "エラー", f"接続テストエラー: {e}")
+    def reload_settings(self):
+        """設定を再読み込み"""
+        self.repo_url = self.app_settings.get_setting("sync_repo_url", "")
+        self.github_token = self.app_settings.get_setting("sync_github_token", "")
+        self.auto_sync_enabled = self.app_settings.get_setting("auto_sync_enabled", False)
+        self.sync_on_exit = self.app_settings.get_setting("sync_on_exit", True)
+        self.git_user_name = self.app_settings.get_setting("git_user_name", "")
+        self.git_user_email = self.app_settings.get_setting("git_user_email", "")

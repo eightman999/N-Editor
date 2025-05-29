@@ -292,6 +292,7 @@ class DesignView(QWidget):
                 #hull_weightは[t]なので[kg]に変換
                 hull_weight *= 1000.0  # トンからキログラムに変換
             # 人員数を取得
+            all_crew = 0
             if design_data and 'hull' in design_data:
                 all_crew = design_data['hull'].get('crew', 0)
                 stats_values['crew'] = all_crew

@@ -2596,12 +2596,25 @@ class AppController(QObject):
                     self.show_sync_settings()
             return False
         
+        # 設定を同期マネージャーに反映
+        self.sync_manager.reload_settings()
+        
+        # 同期実行
         self.sync_manager.sync_data_async(operation)
         return True
 
     def show_sync_settings(self):
-        """同期設定画面を表示"""
+        """同期設定画面を表示（SettingsViewの同期タブを表示）"""
         if hasattr(self, 'main_window') and self.main_window:
-            result = self.sync_manager.show_sync_settings_dialog(self.main_window)
-            return result == QDialog.Accepted
+            # SettingsViewを表示
+            self.main_window.show_view("settings")
+            
+            # 設定画面の同期タブを選択
+            if hasattr(self.main_window, 'views') and 'settings' in self.main_window.views:
+                settings_view = self.main_window.views['settings']
+                if hasattr(settings_view, 'tab_widget'):
+                    # 同期設定タブ（インデックス1）を選択
+                    settings_view.tab_widget.setCurrentIndex(1)
+                    
+            return True
         return False

@@ -275,6 +275,10 @@ class NavalDesignSystem(QMainWindow):
             self.sync_status_label):
             
             sync_manager = self.app_controller.sync_manager
+            
+            # 設定を再読み込み
+            sync_manager.reload_settings()
+            
             if sync_manager.is_configured():
                 repo_name = sync_manager.repo_url.split('/')[-1].replace('.git', '') if sync_manager.repo_url else "不明"
                 self.sync_status_label.setText(f"同期先: {repo_name}")
@@ -301,8 +305,17 @@ class NavalDesignSystem(QMainWindow):
     def show_sync_settings(self):
         """同期設定画面を表示"""
         if self.app_controller:
-            if self.app_controller.show_sync_settings():
-                self.update_sync_status()
+            # SettingsViewの同期タブを表示
+            self.show_view("settings")
+            
+            # 同期設定タブを選択
+            if hasattr(self, 'views') and 'settings' in self.views:
+                settings_view = self.views['settings']
+                if hasattr(settings_view, 'tab_widget'):
+                    settings_view.tab_widget.setCurrentIndex(1)  # 同期設定タブ
+                    
+            # 同期ステータスを更新
+            self.update_sync_status()
 
     def on_sync_started(self, operation):
         """同期開始時の処理"""
