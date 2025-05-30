@@ -6,6 +6,7 @@ from PyQt5.QtCore import Qt
 import subprocess
 import requests
 import logging
+import miyabi
 
 logger = logging.getLogger(__name__)
 
@@ -265,9 +266,21 @@ class SettingsView(QWidget):
 
             # 同期設定
             self.repo_url_edit.setText(self.app_settings.get_setting("sync_repo_url", ""))
-            self.github_token_edit.setText(self.app_settings.get_setting("sync_github_token", ""))
-            self.git_name_edit.setText(self.app_settings.get_setting("git_user_name", ""))
-            self.git_email_edit.setText(self.app_settings.get_setting("git_user_email", ""))
+            
+            # 暗号化された設定を復号化
+            encoded_token = self.app_settings.get_setting("sync_github_token", "")
+            encoded_name = self.app_settings.get_setting("git_user_name", "")
+            encoded_email = self.app_settings.get_setting("git_user_email", "")
+            
+            try:
+                self.github_token_edit.setText(miyabi.decode_text(encoded_token) if encoded_token else "")
+                self.git_name_edit.setText(miyabi.decode_text(encoded_name) if encoded_name else "")
+                self.git_email_edit.setText(miyabi.decode_text(encoded_email) if encoded_email else "")
+            except Exception as e:
+                logger.error(f"設定の復号化エラー: {e}")
+                self.github_token_edit.setText("")
+                self.git_name_edit.setText("")
+                self.git_email_edit.setText("")
 
             self.auto_sync_check.setChecked(self.app_settings.get_setting("auto_sync_enabled", False))
             self.sync_on_exit_check.setChecked(self.app_settings.get_setting("sync_on_exit", True))
@@ -329,9 +342,16 @@ class SettingsView(QWidget):
 
             # 同期設定
             self.app_settings.set_setting("sync_repo_url", self.repo_url_edit.text().strip())
-            self.app_settings.set_setting("sync_github_token", self.github_token_edit.text().strip())
-            self.app_settings.set_setting("git_user_name", self.git_name_edit.text().strip())
-            self.app_settings.set_setting("git_user_email", self.git_email_edit.text().strip())
+            
+            # 機密情報を暗号化して保存
+            github_token = self.github_token_edit.text().strip()
+            git_name = self.git_name_edit.text().strip()
+            git_email = self.git_email_edit.text().strip()
+            
+            self.app_settings.set_setting("sync_github_token", miyabi.encode_text(github_token) if github_token else "")
+            self.app_settings.set_setting("git_user_name", miyabi.encode_text(git_name) if git_name else "")
+            self.app_settings.set_setting("git_user_email", miyabi.encode_text(git_email) if git_email else "")
+            
             self.app_settings.set_setting("auto_sync_enabled", self.auto_sync_check.isChecked())
             self.app_settings.set_setting("sync_on_exit", self.sync_on_exit_check.isChecked())
             self.app_settings.set_setting("auto_pull_enabled", self.auto_pull_check.isChecked())

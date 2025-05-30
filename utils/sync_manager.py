@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Optional, Dict, List
 from PyQt5.QtCore import QObject, pyqtSignal, QThread, QTimer
 from PyQt5.QtWidgets import QMessageBox, QProgressDialog, QInputDialog, QApplication
+import miyabi
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,8 @@ class SyncManager(QObject):
             # 設定を保存
             self.app_settings.set_setting("sync_repo_url", repo_url)
             if github_token:
-                self.app_settings.set_setting("sync_github_token", github_token)
+                # トークンを暗号化して保存
+                self.app_settings.set_setting("sync_github_token", miyabi.encode_text(github_token))
 
             # .gitディレクトリが存在するかチェック
             git_dir = os.path.join(self.data_dir, ".git")
@@ -252,6 +254,10 @@ parser/parser.out
 # 設定ファイル（機密情報を含む可能性）
 settings_local.json
 config_local.json
+config.json
+setting.json
+settings.json
+mods.json
 
 # === 画像・メディアファイル ===
 # 生成された画像ファイル
@@ -490,7 +496,7 @@ local_settings.json
             self.sync_progress.emit("リモートにプッシュ中...")
 
             # まずプッシュを試行
-            result = subprocess.run(['git', 'push', 'origin', 'main'],
+            result = subprocess.run(['git', 'push', 'origin', 'master'],
                                     cwd=self.data_dir, capture_output=True, text=True)
 
             if result.returncode == 0:
@@ -501,7 +507,7 @@ local_settings.json
                 self.sync_progress.emit("競合を解決中...")
                 
                 # リモートの変更を取得してリベース
-                pull_result = subprocess.run(['git', 'pull', '--rebase', 'origin', 'main'],
+                pull_result = subprocess.run(['git', 'pull', '--rebase', 'origin', 'master'],
                                              cwd=self.data_dir, capture_output=True, text=True)
                 
                 if pull_result.returncode != 0:
@@ -511,12 +517,12 @@ local_settings.json
                 
                 if pull_result.returncode == 0:
                     # リベース成功後、再度プッシュ
-                    retry_result = subprocess.run(['git', 'push', 'origin', 'main'],
+                    retry_result = subprocess.run(['git', 'push', 'origin', 'master'],
                                                   cwd=self.data_dir, capture_output=True, text=True)
                     
                     if retry_result.returncode != 0:
-                        # masterブランチも試行
-                        retry_result = subprocess.run(['git', 'push', 'origin', 'master'],
+                        # mainブランチも試行
+                        retry_result = subprocess.run(['git', 'push', 'origin', 'main'],
                                                       cwd=self.data_dir, capture_output=True, text=True)
                     
                     if retry_result.returncode == 0:
@@ -619,11 +625,29 @@ local_settings.json
     def reload_settings(self):
         """設定を再読み込み"""
         self.repo_url = self.app_settings.get_setting("sync_repo_url", "")
-        self.github_token = self.app_settings.get_setting("sync_github_token", "")
+        
+        # 暗号化されたトークンを復号化
+        encoded_token = self.app_settings.get_setting("sync_github_token", "")
+        try:
+            self.github_token = miyabi.decode_text(encoded_token) if encoded_token else ""
+        except Exception as e:
+            logger.error(f"トークンの復号化エラー: {e}")
+            self.github_token = ""
+            
         self.auto_sync_enabled = self.app_settings.get_setting("auto_sync_enabled", False)
         self.sync_on_exit = self.app_settings.get_setting("sync_on_exit", True)
-        self.git_user_name = self.app_settings.get_setting("git_user_name", "")
-        self.git_user_email = self.app_settings.get_setting("git_user_email", "")
+        
+        # Gitユーザー情報も復号化
+        encoded_name = self.app_settings.get_setting("git_user_name", "")
+        encoded_email = self.app_settings.get_setting("git_user_email", "")
+        
+        try:
+            self.git_user_name = miyabi.decode_text(encoded_name) if encoded_name else ""
+            self.git_user_email = miyabi.decode_text(encoded_email) if encoded_email else ""
+        except Exception as e:
+            logger.error(f"Gitユーザー情報の復号化エラー: {e}")
+            self.git_user_name = ""
+            self.git_user_email = ""
 
     def _analyze_branch_status(self) -> dict:
         """ブランチの状態を分析"""
@@ -645,9 +669,9 @@ local_settings.json
             )
             
             if branch_result.returncode == 0:
-                conflict_info['current_branch'] = branch_result.stdout.strip() or 'main'
+                conflict_info['current_branch'] = branch_result.stdout.strip() or 'master'
             else:
-                conflict_info['current_branch'] = 'main'
+                conflict_info['current_branch'] = 'master'
             
             # リモートブランチ名を設定
             remote_branch = f"origin/{conflict_info['current_branch']}"
@@ -969,7 +993,7 @@ local_settings.json
         """通常のpullを実行"""
         try:
             # 通常のpullを実行
-            result = subprocess.run(['git', 'pull', 'origin', 'main'],
+            result = subprocess.run(['git', 'pull', 'origin', ''],
                                     cwd=self.data_dir, capture_output=True, text=True)
 
             if result.returncode == 0:

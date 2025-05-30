@@ -196,7 +196,7 @@ class ConflictResolutionDialog(QDialog):
         remote_commits = len(self.conflict_info.get('remote_commits', []))
         changed_files = len(self.conflict_info.get('changed_files', []))
         
-        current_branch = self.conflict_info.get('current_branch', 'main')
+        current_branch = self.conflict_info.get('current_branch', 'master')
         
         summary = f"現在のブランチ: <b>{current_branch}</b><br>"
         summary += f"ローカル固有のコミット: <b>{local_commits}件</b> | "

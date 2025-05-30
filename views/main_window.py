@@ -235,32 +235,32 @@ class NavalDesignSystem(QMainWindow):
             self.app_controller.sync_manager.sync_completed.connect(self.on_sync_completed)
 
     def create_toolbar(self):
-        """ツールバーの作成"""
+        """ツールバーの作成（文字化け修正版）"""
         toolbar = QToolBar("メインツールバー")
         self.addToolBar(toolbar)
         
-        # 同期ボタン
-        sync_action = QAction("🔄 同期", self)
+        # 同期ボタン（絵文字を削除）
+        sync_action = QAction("同期", self)
         sync_action.setStatusTip("データをオンラインと同期")
         sync_action.triggered.connect(self.sync_data)
         toolbar.addAction(sync_action)
         
-        # プッシュボタン
-        push_action = QAction("⬆️ プッシュ", self)
+        # プッシュボタン（絵文字を削除）
+        push_action = QAction("プッシュ", self)
         push_action.setStatusTip("ローカルデータをリモートにアップロード")
         push_action.triggered.connect(self.push_data)
         toolbar.addAction(push_action)
         
-        # プルボタン
-        pull_action = QAction("⬇️ プル", self)
+        # プルボタン（絵文字を削除）
+        pull_action = QAction("プル", self)
         pull_action.setStatusTip("リモートデータをダウンロード")
         pull_action.triggered.connect(self.pull_data)
         toolbar.addAction(pull_action)
         
         toolbar.addSeparator()
         
-        # 同期設定ボタン
-        sync_settings_action = QAction("⚙️ 同期設定", self)
+        # 同期設定ボタン（絵文字を削除）
+        sync_settings_action = QAction("同期設定", self)
         sync_settings_action.setStatusTip("データ同期の設定")
         sync_settings_action.triggered.connect(self.show_sync_settings)
         toolbar.addAction(sync_settings_action)

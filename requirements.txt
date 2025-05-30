@@ -5,4 +5,6 @@ opencv-python~=4.11.0.86
 psutil~=7.0.0
 PyYAML~=6.0.2
 ply~=3.11
-git+https://github.com/eightman999/useful_tools
+
+requests~=2.32.3
+miyabi256~=0.1.2
