@@ -1005,34 +1005,116 @@ class MapViewer(QGraphicsView):
         if not self.fleet_data or not self.show_fleet_info:
             return
 
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.Antialiasing)
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.Antialiasing)
 
         # プロビンスごとの艦隊情報を描画
         for prov_id, fleets in self.fleet_data.items():
             if prov_id in self.province_centroids:
-                center_x, center_y = self.province_centroids[prov_id]
-                
-                # 艦隊ボタンを描画
-                button_radius = 10
-                button_color = QColor(0, 128, 255)  # 青色
-                
-                # ボタンの背景を描画
-                painter.setPen(QPen(QColor(0, 0, 0, 180), 1))
-                painter.setBrush(button_color)
-                painter.drawEllipse(QPointF(center_x, center_y), button_radius, button_radius)
-                
-                # ボタンのテキストを描画
-                painter.setPen(QColor(255, 255, 255))
-                painter.setFont(QFont("Arial", 8))
-                painter.drawText(
-                    QRectF(center_x - button_radius, center_y - button_radius,
-                          button_radius * 2, button_radius * 2),
-                    Qt.AlignCenter,
-                    "艦"
-                )
+                self._draw_province_fleet_info(painter, prov_id, fleets)
 
         painter.end()
+
+    def _draw_province_fleet_info(self, painter, prov_id, fleets):
+        """プロビンスごとの艦隊情報を描画"""
+        center_x, center_y = self.province_centroids[prov_id]
+        
+        # 艦隊情報を集約
+        fleet_info = self._aggregate_fleet_info([prov_id], {prov_id: fleets})
+        
+        # 背景のサイズを計算
+        padding = 10
+        line_height = 20
+        icon_size = 16
+        spacing = 5
+
+        # 艦隊情報の行数を計算
+        total_rows = len(fleet_info['fleets']) + 1  # 艦種別集計の行を含む
+
+        # 背景のサイズを計算
+        max_width = 0
+        for fleet in fleet_info['fleets']:
+            fleet_name = fleet['name']
+            width = painter.fontMetrics().width(fleet_name) + padding * 2
+            max_width = max(max_width, width)
+
+        # 艦種別集計の幅を計算
+        ship_types_text = "艦種別: " + ", ".join([f"{self.ship_icon_manager._abbreviation_to_display.get(t, t)}: {c}" for t, c in fleet_info['ship_types'].items()])
+        max_width = max(max_width, painter.fontMetrics().width(ship_types_text) + padding * 2)
+
+        # 背景の位置を計算
+        bg_x = int(center_x - max_width / 2)
+        bg_y = int(center_y - (total_rows * line_height) / 2)
+        bg_width = int(max_width)
+        bg_height = int(total_rows * line_height + padding * 2)
+
+        # 背景を描画
+        painter.setBrush(QColor(255, 255, 255, 230))
+        painter.setPen(QPen(QColor(0, 0, 0, 180), 1))
+        painter.drawRoundedRect(
+            bg_x, bg_y,
+            bg_width,
+            bg_height,
+            5, 5
+        )
+
+        # 艦隊情報を描画
+        current_y = bg_y + padding
+        for fleet in fleet_info['fleets']:
+            # 艦隊名を描画
+            fleet_name = fleet['name']
+            painter.setPen(QColor(0, 0, 0))
+            painter.drawText(
+                bg_x + padding,
+                current_y,
+                max_width - padding * 2,
+                line_height,
+                Qt.AlignLeft | Qt.AlignVCenter,
+                fleet_name
+            )
+
+            # 任務部隊の情報を描画
+            for tf in fleet.get('task_forces', []):
+                current_y += line_height
+                tf_name = tf['name']
+                
+                # 任務部隊の艦種別構成を計算
+                tf_composition = {}
+                for ship in tf.get('ships', []):
+                    ship_type = ship.get('type')
+                    if ship_type:
+                        tf_composition[ship_type] = tf_composition.get(ship_type, 0) + 1
+
+                # 艦種アイコンと隻数を描画
+                icon_x = bg_x + padding
+                for ship_type, count in tf_composition.items():
+                    # 艦種アイコンを描画
+                    icon = self.ship_icon_manager.get_ship_icon(ship_type, QSize(icon_size, icon_size))
+                    if icon:
+                        # QIconからQPixmapを取得して描画
+                        pixmap = icon.pixmap(QSize(icon_size, icon_size))
+                        painter.drawPixmap(icon_x, current_y, pixmap)
+                    icon_x += icon_size + spacing
+
+                    # 隻数を描画
+                    painter.drawText(
+                        icon_x,
+                        current_y,
+                        max_width - padding * 2,
+                        line_height,
+                        Qt.AlignLeft | Qt.AlignVCenter,
+                        f"{count}"
+                    )
+                    icon_x += painter.fontMetrics().width(f"{count}") + spacing * 2
+
+            current_y += line_height
+
+        # プロビンスへの接続線を描画
+        painter.setPen(QPen(QColor(0, 0, 0, 180), 1, Qt.DashLine))
+        painter.drawLine(
+            int(center_x), int(center_y),
+            int(center_x), int(bg_y + bg_height)
+        )
 
     def _aggregate_fleet_info(self, province_group, province_fleets):
         """艦隊情報を集約"""
@@ -1260,7 +1342,7 @@ class MapViewer(QGraphicsView):
         if event.button() == Qt.LeftButton:
             # 左クリックでドラッグ開始位置を記録し、アニメーションを停止
             self._last_drag_pos = event.pos()
-            if self._animation and self._animation.state() == QPropertyAnimation.Running:
+            if self._animation.state() == QPropertyAnimation.Running:
                 self._animation.stop()
         elif event.button() == Qt.RightButton:
             # 右クリックでプロビンス情報ダイアログを表示
@@ -1310,10 +1392,6 @@ class MapViewer(QGraphicsView):
 
                 if found_province.id in self.naval_base_locations:
                     tooltip_text += f"\n海軍基地レベル: {self.naval_base_locations[found_province.id]}"
-                
-                # 艦隊情報がある場合はツールチップに追加
-                if found_province.id in self.fleet_data:
-                    tooltip_text += "\n\n艦隊が存在します（右クリックで詳細表示）"
 
                 tooltip_pos = self.mapToGlobal(event.pos())
                 self.tooltip_label.setText(tooltip_text)
@@ -1337,10 +1415,11 @@ class MapViewer(QGraphicsView):
             delta = event.pos() - self._last_drag_pos
             self._last_drag_pos = event.pos()
 
-            # X方向のスクロールはカスタムプロパティで制御
+            # X方向のスクロールはカスタムプロパティで制御（マウスを右に動かすとマップが右に動くように）
+            # 修正点: 左右の移動方向を反転
             self.scrollOffsetX = self.scrollOffsetX - delta.x()
 
-            # Y方向のスクロールはQGraphicsViewの標準スクロール
+            # Y方向のスクロールはQGraphicsViewの標準スクロールバーで制御
             self.verticalScrollBar().setValue(self.verticalScrollBar().value() - delta.y())
 
             # 慣性スクロールのために最後の移動量を記録
