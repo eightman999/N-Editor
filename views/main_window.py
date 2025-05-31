@@ -120,10 +120,10 @@ class NavalDesignSystem(QMainWindow):
         self.thread_pool = ThreadPoolExecutor(max_workers=2)
         
         # メモリ管理用の変数
-        self._memory_warning_threshold = 500  # MB
-        self._memory_critical_threshold = 800  # MB
+        self._memory_warning_threshold = 300  # MB（閾値を下げる）
+        self._memory_critical_threshold = 500  # MB（閾値を下げる）
         self._last_cleanup_time = 0
-        self._cleanup_interval = 60  # 秒
+        self._cleanup_interval = 30  # 秒（間隔を短くする）
         
         # ロガーの設定
         self.logger = logging.getLogger('NavalDesignSystem')
@@ -548,68 +548,53 @@ class NavalDesignSystem(QMainWindow):
         self.memory_timer.start(5000)  # 5秒ごとに監視
 
     def emergency_cleanup(self):
-        """緊急時のリソース解放"""
+        """緊急時のリソースクリーンアップ"""
         try:
-            self.logger.warning("緊急リソース解放を実行します")
+            # すべてのキャッシュをクリア
+            if hasattr(self.app_controller, 'clear_cache'):
+                self.app_controller.clear_cache()
             
-            # スレッドプールのシャットダウン
-            if hasattr(self, 'thread_pool'):
-                self.thread_pool.shutdown(wait=False)
-                self.thread_pool = ThreadPoolExecutor(max_workers=1)
+            # アイコンキャッシュのクリア
+            if hasattr(self.app_controller, 'ship_icon_manager'):
+                self.app_controller.ship_icon_manager.clear_cache()
             
-            # すべてのビューのキャッシュをクリア
-            if hasattr(self, 'views'):
-                for view in self.views.values():
-                    if hasattr(view, 'clear_cache'):
-                        view.clear_cache()
-                    if hasattr(view, 'clear_resources'):
-                        view.clear_resources()
-            
-            # 画像キャッシュのクリア
-            if hasattr(self, 'image_cache'):
-                self.image_cache.clear()
+            # すべてのビューを解放
+            for view in self.views.values():
+                if hasattr(view, 'cleanup'):
+                    view.cleanup()
+            self.views.clear()
             
             # ガベージコレクションの強制実行
             import gc
             gc.collect()
             
-            # メモリ使用量の再確認
-            import psutil
-            import os
-            process = psutil.Process(os.getpid())
-            memory_info = process.memory_info()
-            memory_usage = memory_info.rss / 1024 / 1024
-            self.logger.info(f"緊急クリーンアップ後のメモリ使用量: {memory_usage:.2f} MB")
+            self.logger.warning("緊急リソースクリーンアップを実行しました")
             
         except Exception as e:
-            self.logger.error(f"緊急リソース解放中にエラーが発生: {e}")
+            self.logger.error(f"緊急リソースクリーンアップ中にエラーが発生: {e}")
 
     def cleanup_resources(self):
-        """不要なリソースの解放"""
+        """リソースのクリーンアップ（改善版）"""
         try:
-            # キャッシュのクリア
-            if hasattr(self, 'views'):
-                for view in self.views.values():
-                    if hasattr(view, 'clear_cache'):
-                        view.clear_cache()
+            # アイコンキャッシュのクリア
+            if hasattr(self.app_controller, 'ship_icon_manager'):
+                self.app_controller.ship_icon_manager.clear_cache()
             
-            # 画像キャッシュのクリア
-            if hasattr(self, 'image_cache'):
-                self.image_cache.clear()
-            
-            # 未使用のビューの解放
-            current_view = self.stacked_widget.currentWidget()
+            # 不要なビューの解放
             for view_name, view in list(self.views.items()):
-                if view != current_view and hasattr(view, 'clear_resources'):
-                    view.clear_resources()
+                if view_name != self.stacked_widget.currentWidget():
+                    if hasattr(view, 'cleanup'):
+                        view.cleanup()
+                    self.views.pop(view_name, None)
             
             # ガベージコレクションの強制実行
             import gc
             gc.collect()
             
-            self.logger.info("リソースの解放を実行しました")
+            self.logger.info("リソースのクリーンアップを実行しました")
+            
         except Exception as e:
-            self.logger.error(f"リソース解放中にエラーが発生: {e}")
+            self.logger.error(f"リソースのクリーンアップ中にエラーが発生: {e}")
 
     def update_progress(self, value):
         """プログレスバーの更新"""
@@ -729,6 +714,8 @@ class NavalDesignSystem(QMainWindow):
             menu_texts = ["ホーム", "装備登録", "船体リスト", "船体登録", "船体設計", "艦隊配備", "国家確認", "国家詳細", "艦艇一覧", "設定"]
             if 0 <= index < len(menu_texts):
                 self.statusBar().showMessage(f"{menu_texts[index]}ページを表示しています")
+        else:
+            self.logger.warning(f"不明なビュー名: {view_name}")
 
     def closeEvent(self, event: QCloseEvent):
         """ウィンドウが閉じられる時の処理"""

@@ -7,6 +7,7 @@ import logging
 import os
 import time
 from parser.NavalOOBParser import NavalOOBParser
+from utils.ship_icon_manager import ShipIconManager
 
 # PIL のインポートを安全に行う
 try:
@@ -29,6 +30,9 @@ class ShipListView(QWidget):
         # キャッシュ用の変数を追加
         self.nations_ship_cache = {}  # 国家別の艦艇データキャッシュ
         self.last_cache_update = {}  # 国家別の最終キャッシュ更新時刻
+        
+        # 艦種アイコン管理を初期化
+        self.ship_icon_manager = ShipIconManager()
         
         self.init_ui()
 
@@ -490,9 +494,16 @@ class ShipListView(QWidget):
         
         for ship in ships:
             ship_name = ship.get('name', '')
+            ship_type = ship.get('type', '')
             ship_item = QTreeWidgetItem(parent_item)
+            
+            # 艦種アイコンを設定
+            icon = self.ship_icon_manager.get_ship_icon(ship_type)
+            if not icon.isNull():
+                ship_item.setIcon(0, icon)
+            
             ship_item.setText(0, ship_name)
-            ship_item.setText(1, ship.get('type', ''))
+            ship_item.setText(1, ship_type)
             ship_item.setText(2, ship.get('design', ''))
             ship_item.setText(3, ship.get('fleet', ''))
             
@@ -517,7 +528,7 @@ class ShipListView(QWidget):
             # 艦艇データを保存
             ship_data = {
                 'name': ship_name,
-                'type': ship.get('type', ''),
+                'type': ship_type,
                 'design': ship.get('design', ''),
                 'nation': nation,
                 'data': ship.get('data', {})

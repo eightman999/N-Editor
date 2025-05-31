@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 import platform
+from logging.handlers import RotatingFileHandler
 
 # ロガーの設定
 logging.basicConfig(
@@ -9,7 +10,12 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('app.log', encoding='utf-8')
+        RotatingFileHandler(
+            'app.log',
+            maxBytes=10*1024*1024,  # 10MB
+            backupCount=5,
+            encoding='utf-8'
+        )
     ]
 )
 
@@ -262,12 +268,18 @@ def main():
 
 
 def ensure_assets_directory():
-    """assets ディレクトリが存在することを確認する"""
+    """assets ディレクトリが存在することを確認する（アイコン対応版）"""
     try:
         assets_dir = os.path.join(os.path.dirname(__file__), "assets")
         if not os.path.exists(assets_dir):
             os.makedirs(assets_dir)
             logger.info(f"Created assets directory: {assets_dir}")
+
+        # ROLEディレクトリを作成
+        role_dir = os.path.join(assets_dir, "ROLE")
+        if not os.path.exists(role_dir):
+            os.makedirs(role_dir)
+            logger.info(f"Created ROLE directory: {role_dir}")
 
         # デフォルトMODアイコンがなければサンプルを作成
         default_icon_path = os.path.join(assets_dir, "default_mod_icon.png")
@@ -281,6 +293,16 @@ def ensure_assets_directory():
                 )
                 f.write(png_data)
             logger.info(f"Created default icon: {default_icon_path}")
+
+        # 艦種アイコンのデフォルト生成
+        try:
+            from utils.ship_icon_manager import ShipIconManager
+            icon_manager = ShipIconManager(assets_dir)
+            icon_manager.ensure_default_icons()
+            logger.info("デフォルト艦種アイコンを確保しました")
+        except Exception as e:
+            logger.warning(f"デフォルト艦種アイコンの生成に失敗: {e}")
+
     except Exception as e:
         logger.warning(f"Failed to ensure assets directory: {e}")
 

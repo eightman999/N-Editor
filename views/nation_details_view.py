@@ -8,6 +8,7 @@ from PyQt5.QtGui import QIcon, QPixmap, QFont
 import os
 from parser.EffectParser import EffectParser
 from parser.NavalOOBParser import NavalOOBParser
+from utils.ship_icon_manager import ShipIconManager
 
 # PIL のインポートを安全に行う
 try:
@@ -28,6 +29,10 @@ class NationDetailsView(QWidget):
         self.current_nation_tag = None
         self.all_nations = []  # 全国家データを保持
         self.filtered_nations = []  # フィルタリングされた国家データを保持
+        
+        # 艦種アイコン管理を初期化
+        self.ship_icon_manager = ShipIconManager()
+        
         self.init_ui()
 
     def init_ui(self):
@@ -830,6 +835,12 @@ class NationDetailsView(QWidget):
                         ship_name = ship.get('name', '不明')
                         definition = ship.get('definition', '不明')
                         exp_factor = ship.get('start_experience_factor', '不明')
+                        ship_type = ship.get('type', '不明')
+
+                        # 艦種アイコンを設定
+                        icon = self.ship_icon_manager.get_ship_icon(ship_type)
+                        if not icon.isNull():
+                            ship_item.setIcon(0, icon)
 
                         # 設計データから表示名を取得
                         version_name = self.get_display_name_from_design_cached(definition, designs_data, nation_tag, ship)

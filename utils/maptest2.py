@@ -3,13 +3,14 @@ import sys
 import os
 import csv
 import re
+import math
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QGraphicsView, QGraphicsScene,
     QFileDialog, QVBoxLayout, QWidget, QMessageBox, QLabel,
     QPushButton, QHBoxLayout, QComboBox, QLineEdit, QScrollBar
 )
 from PyQt5.QtGui import QPixmap, QImage, QColor, QPainter, QFont, QPen, QBrush
-from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint, QPropertyAnimation, QEasingCurve, pyqtProperty, QTimer
+from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint, QPropertyAnimation, QEasingCurve, pyqtProperty, QTimer, QSize
 
 # PIL (Pillow) は画像を扱うために必要です
 from PIL import Image
@@ -23,6 +24,7 @@ from parser.StateParser import ParserError
 from parser.StrategicRegionParser import StrategicRegionParser
 from parser.CountryColorParser import CountryColorParser
 from parser.NavalOOBParser import NavalOOBParser
+from utils.ship_icon_manager import ShipIconManager
 
 
 def get_file_content(file_path):
@@ -66,6 +68,10 @@ class MapViewer(QGraphicsView):
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.INFO)
+
+        # アイコンマネージャーを初期化
+        self.ship_icon_manager = ShipIconManager()
+        self.ship_icon_manager.ensure_default_icons()  # デフォルトアイコンを確保
 
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
@@ -995,100 +1001,215 @@ class MapViewer(QGraphicsView):
         painter.end()
 
     def draw_fleet_info(self, pixmap):
-        """艦隊情報を描画"""
-        if not self.show_fleet_info:
-            self.logger.debug("艦隊情報の表示が無効です")
+        """艦隊情報を描画（改善版）"""
+        if not self.fleet_data or not self.show_fleet_info:
             return
 
-        if not self.fleet_data:
-            self.logger.debug("艦隊データが空です")
-            return
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
 
-        self.logger.info(
-            f"draw_fleet_info called: show_fleet_info={self.show_fleet_info}, fleet_data={bool(self.fleet_data)}")
-        self.logger.info(f"艦隊データのプロビンス数: {len(self.fleet_data)}")
+        # プロビンスごとの艦隊情報を描画
+        for prov_id, fleets in self.fleet_data.items():
+            if prov_id in self.province_centroids:
+                center_x, center_y = self.province_centroids[prov_id]
+                
+                # 艦隊ボタンを描画
+                button_radius = 10
+                button_color = QColor(0, 128, 255)  # 青色
+                
+                # ボタンの背景を描画
+                painter.setPen(QPen(QColor(0, 0, 0, 180), 1))
+                painter.setBrush(button_color)
+                painter.drawEllipse(QPointF(center_x, center_y), button_radius, button_radius)
+                
+                # ボタンのテキストを描画
+                painter.setPen(QColor(255, 255, 255))
+                painter.setFont(QFont("Arial", 8))
+                painter.drawText(
+                    QRectF(center_x - button_radius, center_y - button_radius,
+                          button_radius * 2, button_radius * 2),
+                    Qt.AlignCenter,
+                    "艦"
+                )
 
+        painter.end()
+
+    def _aggregate_fleet_info(self, province_group, province_fleets):
+        """艦隊情報を集約"""
+        aggregated_info = {
+            'fleets': [],
+            'total_ships': 0,
+            'ship_types': {}
+        }
+
+        for prov_id in province_group:
+            if prov_id in province_fleets:
+                for fleet in province_fleets[prov_id]:
+                    fleet_info = {
+                        'name': fleet['name'],
+                        'task_forces': []
+                    }
+
+                    for tf in fleet.get('task_forces', []):
+                        tf_info = {
+                            'name': tf['name'],
+                            'ships': []
+                        }
+
+                        for ship in tf.get('ships', []):
+                            ship_type = self._get_ship_type_from_design(ship)
+                            if ship_type:
+                                if ship_type not in aggregated_info['ship_types']:
+                                    aggregated_info['ship_types'][ship_type] = 0
+                                aggregated_info['ship_types'][ship_type] += 1
+                                aggregated_info['total_ships'] += 1
+
+                            tf_info['ships'].append({
+                                'name': ship['name'],
+                                'type': ship_type,
+                                'is_pride': ship.get('is_pride', False)
+                            })
+
+                        fleet_info['task_forces'].append(tf_info)
+
+                    aggregated_info['fleets'].append(fleet_info)
+
+        return aggregated_info
+
+    def _calculate_fleet_composition(self, fleets: list) -> dict:
+        """
+        艦隊データから艦種別隻数を計算
+        
+        Args:
+            fleets: 艦隊データのリスト
+            
+        Returns:
+            dict: 艦種別隻数 {"DD": 3, "CA": 2, ...}
+        """
+        composition = {}
+        
         try:
-            painter = QPainter(pixmap)
-            painter.setRenderHint(QPainter.Antialiasing)
-
-            # プロビンスごとに艦隊情報を描画
-            for province_id, fleets in self.fleet_data.items():
-                try:
-                    self.logger.info(f"プロビンス {province_id} の処理開始")
-
-                    # プロビンスの中心座標を取得
-                    if province_id not in self.province_centroids:
-                        self.logger.warning(f"プロビンス {province_id} の中心座標が見つかりません")
-                        continue
-
-                    center_x, center_y = self.province_centroids[province_id]
-                    # NumPyの浮動小数点数を整数に変換
-                    center_x = int(center_x)
-                    center_y = int(center_y)
-                    self.logger.info(f"プロビンス {province_id} の中心座標: ({center_x}, {center_y})")
-
-                    # 艦隊情報を描画
-                    total_ships = 0
-                    for fleet in fleets:
-                        if not isinstance(fleet, dict):
-                            self.logger.warning(f"無効な艦隊データ: {fleet}")
-                            continue
-
-                        # 艦隊名のオーバーライドを確認
-                        fleet_name = fleet.get('name', '')
-                        if isinstance(fleet_name, dict) and 'override' in fleet_name:
-                            fleet_name = fleet_name['override']
-
-                        for task_force in fleet.get('task_forces', []):
-                            if not isinstance(task_force, dict):
-                                self.logger.warning(f"無効な任務部隊データ: {task_force}")
-                                continue
-
-                            # 任務部隊名のオーバーライドを確認
-                            task_force_name = task_force.get('name', '')
-                            if isinstance(task_force_name, dict) and 'override' in task_force_name:
-                                task_force_name = task_force_name['override']
-
-                            ships = task_force.get('ships', [])
-                            if not isinstance(ships, list):
-                                self.logger.warning(f"無効な艦艇リスト: {ships}")
-                                continue
-
-                            total_ships += len(ships)
-
-                    self.logger.info(f"プロビンス {province_id} の総隻数: {total_ships}")
-
-                    # 四角形のサイズを計算（艦艇数に応じて調整）
-                    size = min(40, max(20, total_ships * 2))
-                    rect_size = int(size)  # 整数に変換
-                    rect_x = int(center_x - rect_size / 2)  # 整数に変換
-                    rect_y = int(center_y - rect_size / 2)  # 整数に変換
-
-                    self.logger.info(f"四角形の描画位置: ({rect_x}, {rect_y}), サイズ: {rect_size}")
-
-                    # 四角形を描画
-                    painter.setPen(QPen(Qt.black, 2))
-                    painter.setBrush(QBrush(Qt.white))
-                    painter.drawRect(rect_x, rect_y, rect_size, rect_size)
-
-                    # 艦艇数を描画
-                    painter.setPen(QPen(Qt.black))
-                    font = QFont()
-                    font.setPointSize(8)
-                    painter.setFont(font)
-                    painter.drawText(rect_x, rect_y, rect_size, rect_size, Qt.AlignCenter, str(total_ships))
-
-                except Exception as e:
-                    self.logger.error(f"プロビンス {province_id} の処理中にエラーが発生: {str(e)}")
+            for fleet in fleets:
+                if not isinstance(fleet, dict):
+                    self.logger.warning(f"無効な艦隊データ: {fleet}")
                     continue
 
-            painter.end()
+                for task_force in fleet.get('task_forces', []):
+                    if not isinstance(task_force, dict):
+                        self.logger.warning(f"無効な任務部隊データ: {task_force}")
+                        continue
+
+                    ships = task_force.get('ships', [])
+                    if not isinstance(ships, list):
+                        self.logger.warning(f"無効な艦艇リスト: {ships}")
+                        continue
+
+                    for ship in ships:
+                        if not isinstance(ship, dict):
+                            continue
+
+                        # 設計データから艦種を特定
+                        ship_type = self._get_ship_type_from_design(ship)
+                        
+                        if ship_type:
+                            if ship_type not in composition:
+                                composition[ship_type] = 0
+                            composition[ship_type] += 1
 
         except Exception as e:
-            self.logger.error(f"艦隊情報の描画中にエラーが発生: {str(e)}")
-            if painter:
-                painter.end()
+            self.logger.error(f"艦隊編成計算エラー: {e}")
+
+        return composition
+
+    def _get_ship_type_from_design(self, ship: dict) -> str:
+        """
+        艦艇データから艦種を特定
+        
+        Args:
+            ship: 艦艇データ
+            
+        Returns:
+            str: 艦種略号
+        """
+        try:
+            # 設計データから艦種を取得
+            design = ship.get('design', {})
+            
+            if isinstance(design, str):
+                # 設計名から艦種を推測
+                design_name = design.lower()
+                
+                # 設計名パターンマッチング
+                if 'destroyer' in design_name or '駆逐' in design_name:
+                    return 'DD'
+                elif 'cruiser' in design_name and ('heavy' in design_name or '重' in design_name):
+                    return 'CA'
+                elif 'cruiser' in design_name and ('light' in design_name or '軽' in design_name):
+                    return 'CL'
+                elif 'battleship' in design_name or '戦艦' in design_name:
+                    return 'BB'
+                elif 'carrier' in design_name or '空母' in design_name:
+                    return 'CV'
+                elif 'submarine' in design_name or '潜水' in design_name:
+                    return 'SS'
+                elif 'battlecruiser' in design_name or '巡洋戦艦' in design_name:
+                    return 'BC'
+                    
+            elif isinstance(design, dict):
+                # 設計データがオブジェクトの場合
+                ship_type = design.get('ship_type', design.get('type', ''))
+                if ship_type:
+                    # 日本語艦種名から略号を取得
+                    return self.ship_icon_manager._get_ship_abbreviation(ship_type)
+            
+            # デフォルトとして不明な艦種
+            return 'UNKNOWN'
+            
+        except Exception as e:
+            self.logger.error(f"艦種特定エラー: {e}")
+            return 'UNKNOWN'
+
+    def show_fleet_details_with_icons(self, province_id):
+        """艦隊の詳細情報を表示する（アイコン版）"""
+        if province_id in self.fleet_data:
+            fleet_info = self.fleet_data[province_id]
+            
+            # 艦種別隻数を計算
+            composition = self._calculate_fleet_composition(fleet_info)
+            
+            details = "艦隊編成:\n\n"
+            
+            # 艦種別サマリー
+            details += "=== 艦種別隻数 ===\n"
+            for ship_type, count in composition.items():
+                ship_name = self.ship_icon_manager._abbreviation_to_display.get(ship_type, ship_type)
+                details += f"  {ship_name} ({ship_type}): {count}隻\n"
+            
+            details += "\n=== 詳細編成 ===\n"
+            
+            for fleet in fleet_info:
+                # MOD内編成かどうかを表示
+                mod_prefix = "[MOD] " if fleet.get('is_mod', False) else ""
+                details += f"{mod_prefix}艦隊: {fleet['name']}\n"
+                
+                for task_force in fleet.get('task_forces', []):
+                    mod_prefix = "[MOD] " if task_force.get('is_mod', False) else ""
+                    details += f"  {mod_prefix}任務部隊: {task_force['name']}\n"
+                    
+                    # 艦艇タイプごとの集計
+                    task_force_composition = {}
+                    for ship in task_force.get('ships', []):
+                        ship_type = self._get_ship_type_from_design(ship)
+                        task_force_composition[ship_type] = task_force_composition.get(ship_type, 0) + 1
+                    
+                    # 艦艇タイプごとの情報を表示
+                    for ship_type, count in task_force_composition.items():
+                        ship_name = self.ship_icon_manager._abbreviation_to_display.get(ship_type, ship_type)
+                        mod_prefix = "[MOD] " if ship.get('is_mod', False) else ""
+                        details += f"    {mod_prefix}{ship_name} ({ship_type}): {count}隻\n"
+                details += "\n"
+            
+            QMessageBox.information(self, "艦隊情報", details)
 
     def show_fleet_details(self, province_id):
         """艦隊の詳細情報を表示する"""
@@ -1139,7 +1260,7 @@ class MapViewer(QGraphicsView):
         if event.button() == Qt.LeftButton:
             # 左クリックでドラッグ開始位置を記録し、アニメーションを停止
             self._last_drag_pos = event.pos()
-            if self._animation.state() == QPropertyAnimation.Running:
+            if self._animation and self._animation.state() == QPropertyAnimation.Running:
                 self._animation.stop()
         elif event.button() == Qt.RightButton:
             # 右クリックでプロビンス情報ダイアログを表示
@@ -1155,23 +1276,15 @@ class MapViewer(QGraphicsView):
                     0 <= adjusted_x < self.original_width and 0 <= y < self.original_height:
 
                 r, g, b = self.original_map_image_data[y, adjusted_x]
-                rgb_key = (r, g, b)
+                province_id = self._rgb_to_id_map_array[r * 256 * 256 + g * 256 + b]
 
-                if rgb_key in self.provinces_data_by_rgb:
-                    province = self.provinces_data_by_rgb[rgb_key]
-                    if self.show_fleet_info:
-                        self.show_fleet_details(province.id)
+                if province_id != -1:
+                    # 艦隊情報がある場合は、アイコン版の詳細情報を表示
+                    if province_id in self.fleet_data:
+                        self.show_fleet_details_with_icons(province_id)
                     else:
-                        info = f"プロビンスID: {province.id}\n"
-                        if province.name:
-                            info += f"名前: {province.name}\n"
-                        if province.type:
-                            info += f"タイプ: {province.type}\n"
-                        if province.state_id:
-                            info += f"ステートID: {province.state_id}\n"
-                        if province.strategic_region_id:
-                            info += f"戦略地域ID: {province.strategic_region_id}\n"
-                        QMessageBox.information(self, "プロビンス情報", info)
+                        # 既存のプロビンス情報表示処理
+                        self.show_province_info(province_id)
         else:
             super().mousePressEvent(event)
 
@@ -1197,6 +1310,10 @@ class MapViewer(QGraphicsView):
 
                 if found_province.id in self.naval_base_locations:
                     tooltip_text += f"\n海軍基地レベル: {self.naval_base_locations[found_province.id]}"
+                
+                # 艦隊情報がある場合はツールチップに追加
+                if found_province.id in self.fleet_data:
+                    tooltip_text += "\n\n艦隊が存在します（右クリックで詳細表示）"
 
                 tooltip_pos = self.mapToGlobal(event.pos())
                 self.tooltip_label.setText(tooltip_text)
@@ -1220,11 +1337,10 @@ class MapViewer(QGraphicsView):
             delta = event.pos() - self._last_drag_pos
             self._last_drag_pos = event.pos()
 
-            # X方向のスクロールはカスタムプロパティで制御（マウスを右に動かすとマップが右に動くように）
-            # 修正点: 左右の移動方向を反転
+            # X方向のスクロールはカスタムプロパティで制御
             self.scrollOffsetX = self.scrollOffsetX - delta.x()
 
-            # Y方向のスクロールはQGraphicsViewの標準スクロールバーで制御
+            # Y方向のスクロールはQGraphicsViewの標準スクロール
             self.verticalScrollBar().setValue(self.verticalScrollBar().value() - delta.y())
 
             # 慣性スクロールのために最後の移動量を記録

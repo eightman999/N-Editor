@@ -5,10 +5,11 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFo
                              QDialog, QListWidget, QTableWidget, QTableWidgetItem,
                              QScrollArea, QMessageBox, QHeaderView, QListWidgetItem,
                              QCheckBox)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QColor, QPalette
 from utils.path_utils import get_data_dir
 from utils.ship_type_mapping import ship_type_mapping
+from utils.ship_icon_manager import ShipIconManager
 
 
 class DesignView(QWidget):
@@ -30,6 +31,11 @@ class DesignView(QWidget):
         self.internal_slots = []  # 内部スロットのリストを初期化
         self.slot_category_selections = {}  # スロットカテゴリー選択を初期化
         self.stat_widgets: Dict[str, Dict[str, QWidget]] = {}
+
+        # アイコンマネージャーを追加
+        self.ship_icon_manager = ShipIconManager()
+        self.ship_icon_manager.ensure_default_icons()
+
         self.initUI()
 
         # 船体データが渡された場合は初期化
@@ -43,20 +49,18 @@ class DesignView(QWidget):
         # 上部：艦種と船体選択
         top_layout = QHBoxLayout()
 
-        # 艦種選択
+        # 艦種選択（アイコン対応版）
         ship_type_layout = QHBoxLayout()
         ship_type_layout.addWidget(QLabel("艦種 ▷"))
         self.ship_type_combo = QComboBox()
         
-        # 艦種の選択肢を追加
+        # 艦種の選択肢を追加（アイコン付き）
         self.ship_type_combo.addItem("選択してください")
         
-        # 艦種マッピングの定義
-
-
-        # 艦種をコンボボックスに追加
-        for value in ship_type_mapping.values():
-            self.ship_type_combo.addItem(value)
+        # アイコン付きで艦種をコンボボックスに追加
+        for abbreviation, display_name in ship_type_mapping.items():
+            icon = self.ship_icon_manager.get_ship_icon(abbreviation, QSize(24, 24))
+            self.ship_type_combo.addItem(icon, display_name, abbreviation)
 
         ship_type_layout.addWidget(self.ship_type_combo)
         top_layout.addLayout(ship_type_layout)
@@ -74,8 +78,15 @@ class DesignView(QWidget):
 
         main_layout.addLayout(top_layout)
 
-        # 船体表示
+        # 船体表示（アイコン対応）
         hull_info_layout = QHBoxLayout()
+        
+        # 船体アイコン表示用ラベル
+        self.hull_icon_label = QLabel()
+        self.hull_icon_label.setFixedSize(32, 32)
+        self.hull_icon_label.setStyleSheet("border: 1px solid gray; background-color: white;")
+        hull_info_layout.addWidget(self.hull_icon_label)
+        
         hull_info_layout.addWidget(QLabel("選択中の船体:"))
         self.selected_hull_label = QLabel("なし")
         hull_info_layout.addWidget(self.selected_hull_label)
@@ -453,16 +464,20 @@ class DesignView(QWidget):
             print(f"スロットカテゴリー変更エラー: {e}")
 
     def select_hull(self):
-        """船体選択ダイアログを表示"""
+        """船体選択ダイアログを表示（アイコン対応版）"""
         try:
             # 艦種でフィルタリング
-            selected_ship_type = self.ship_type_combo.currentText()
-            if selected_ship_type == "選択してください":
+            selected_ship_type_index = self.ship_type_combo.currentIndex()
+            if selected_ship_type_index <= 0:
                 # 艦種が選択されていない場合は、最初の有効な艦種を選択
                 for i in range(1, self.ship_type_combo.count()):
                     self.ship_type_combo.setCurrentIndex(i)
-                    selected_ship_type = self.ship_type_combo.currentText()
+                    selected_ship_type_index = i
                     break
+
+            # 選択された艦種の情報を取得
+            selected_ship_type_data = self.ship_type_combo.itemData(selected_ship_type_index)
+            selected_ship_type_text = self.ship_type_combo.itemText(selected_ship_type_index)
 
             # JSONファイルから直接船体データを読み込む
             import os
@@ -494,35 +509,48 @@ class DesignView(QWidget):
             filtered_hulls = []
             for hull in hulls:
                 hull_type = hull.get("type", "")
-                # 完全な艦種名で比較
-                if hull_type == selected_ship_type:
+                # 完全な艦種名またはデータで比較
+                if (hull_type == selected_ship_type_text or 
+                    hull_type == selected_ship_type_data or
+                    selected_ship_type_text in hull_type):
                     filtered_hulls.append(hull)
 
             if not filtered_hulls:
-                QMessageBox.information(self, "情報", f"選択された艦種「{selected_ship_type}」の船体データがありません。")
+                QMessageBox.information(self, "情報", f"選択された艦種「{selected_ship_type_text}」の船体データがありません。")
                 return
 
-            # 船体選択ダイアログを表示
+            # 船体選択ダイアログを表示（アイコン対応版）
             dialog = QDialog(self)
-            dialog.setWindowTitle(f"船体選択 - {selected_ship_type}")
-            dialog.setMinimumWidth(500)
-            dialog.setMinimumHeight(300)
+            dialog.setWindowTitle(f"船体選択 - {selected_ship_type_text}")
+            dialog.setMinimumWidth(600)
+            dialog.setMinimumHeight(400)
 
             dialog_layout = QVBoxLayout()
 
-            # 船体一覧テーブル
+            # 船体一覧テーブル（アイコン列を追加）
             hull_table = QTableWidget()
-            hull_table.setColumnCount(4)  # ID, 艦級名, 種別, 排水量
-            hull_table.setHorizontalHeaderLabels(["ID", "艦級名", "種別", "排水量"])
-            hull_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)  # 艦級名列を拡大
+            hull_table.setColumnCount(5)  # アイコン, ID, 艦級名, 種別, 排水量
+            hull_table.setHorizontalHeaderLabels(["アイコン", "ID", "艦級名", "種別", "排水量"])
+            hull_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)  # 艦級名列を拡大
+            hull_table.setColumnWidth(0, 60)  # アイコン列の幅を固定
 
             # 船体データをテーブルに追加
             for i, hull in enumerate(filtered_hulls):
                 hull_table.insertRow(i)
-                hull_table.setItem(i, 0, QTableWidgetItem(hull.get("id", "")))
-                hull_table.setItem(i, 1, QTableWidgetItem(hull.get("name", "")))
-                hull_table.setItem(i, 2, QTableWidgetItem(hull.get("type", "")))
-                hull_table.setItem(i, 3, QTableWidgetItem(str(hull.get("weight", ""))))
+                
+                # アイコンセル
+                icon_item = QTableWidgetItem()
+                hull_type = hull.get("type", "")
+                if hull_type:
+                    hull_icon = self.ship_icon_manager.get_ship_icon(hull_type, QSize(32, 32))
+                    icon_item.setIcon(hull_icon)
+                hull_table.setItem(i, 0, icon_item)
+                
+                # その他のセル
+                hull_table.setItem(i, 1, QTableWidgetItem(hull.get("id", "")))
+                hull_table.setItem(i, 2, QTableWidgetItem(hull.get("name", "")))
+                hull_table.setItem(i, 3, QTableWidgetItem(hull.get("type", "")))
+                hull_table.setItem(i, 4, QTableWidgetItem(str(hull.get("weight", ""))))
 
             dialog_layout.addWidget(hull_table)
 
@@ -559,31 +587,45 @@ class DesignView(QWidget):
             traceback.print_exc()
 
     def on_hull_selected(self, hull_data):
-        """船体が選択された時の処理"""
+        """船体が選択された時の処理（アイコン対応版）"""
         try:
             self.current_hull = hull_data
 
             # 船体名を表示
-            self.selected_hull_label.setText(hull_data.get("name", "不明"))
+            hull_name = hull_data.get("name", "不明")
+            self.selected_hull_label.setText(hull_name)
+
+            # 船体アイコンを表示
+            hull_type = hull_data.get("type", "")
+            if hull_type:
+                hull_icon = self.ship_icon_manager.get_ship_icon(hull_type, QSize(32, 32))
+                self.hull_icon_label.setPixmap(hull_icon.pixmap(32, 32))
+            else:
+                # デフォルトアイコン
+                self.hull_icon_label.clear()
+                self.hull_icon_label.setText("?")
 
             # 艦級名フィールドにデフォルト値を設定
-            self.design_name_edit.setText(hull_data.get("name", ""))
+            self.design_name_edit.setText(hull_name)
 
-            # 艦種コンボボックスを更新
+            # 艦種コンボボックスを更新（アイコンと一致させる）
             ship_type = hull_data.get("type", "")
-            index = self.ship_type_combo.findText(ship_type)
-            if index >= 0:
-                self.ship_type_combo.setCurrentIndex(index)
+            for i in range(self.ship_type_combo.count()):
+                item_data = self.ship_type_combo.itemData(i)
+                if item_data == ship_type:
+                    self.ship_type_combo.setCurrentIndex(i)
+                    break
+                # 表示名での一致も試行
+                item_text = self.ship_type_combo.itemText(i)
+                if item_text == ship_type:
+                    self.ship_type_combo.setCurrentIndex(i)
+                    break
 
             # 船体基礎情報を更新
             self.update_hull_info(hull_data)
 
             # スロット情報を取得し、開放状況に応じてUIを更新
             self.update_slot_availability()
-
-            # 性能表示も更新（ただし今は計算なしでダミーデータ）
-            # 性能計算部分はまだ実装していないためコメントアウト
-            # self.update_stats(hull_data)
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"船体データの設定中にエラーが発生しました: {e}")
@@ -1278,14 +1320,18 @@ class DesignView(QWidget):
                     self.current_hull = hull_data
                     self.selected_hull_label.setText(hull_data.get("name", "不明"))
 
+                    # 船体アイコンを表示
+                    hull_type = hull_data.get("type", "")
+                    if hull_type:
+                        hull_icon = self.ship_icon_manager.get_ship_icon(hull_type, QSize(32, 32))
+                        self.hull_icon_label.setPixmap(hull_icon.pixmap(32, 32))
+                    else:
+                        # デフォルトアイコン
+                        self.hull_icon_label.clear()
+                        self.hull_icon_label.setText("?")
+
                     # 艦級名を設定
                     self.design_name_edit.setText(design_data.get("design_name", ""))
-
-                    # 艦種を更新
-                    ship_type = design_data.get("ship_type", "")
-                    index = self.ship_type_combo.findText(ship_type)
-                    if index >= 0:
-                        self.ship_type_combo.setCurrentIndex(index)
 
                     # 船体基礎情報を更新
                     self.update_hull_info(hull_data)

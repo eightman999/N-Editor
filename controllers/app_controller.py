@@ -247,6 +247,16 @@ class AppController(QObject):
         # ステータス定義の読み込み
         self.status_definitions = self._load_status_definitions()
 
+        # アイコンマネージャーの初期化
+        try:
+            from utils.ship_icon_manager import ShipIconManager
+            self.ship_icon_manager = ShipIconManager()
+            self.ship_icon_manager.ensure_default_icons()
+            logger.info("アイコンマネージャーを初期化しました")
+        except Exception as e:
+            logger.warning(f"アイコンマネージャーの初期化に失敗: {e}")
+            self.ship_icon_manager = None
+
     def _load_status_definitions(self) -> List[Dict[str, str]]:
         """スーテータス一覧.txtからステータス定義を読み込む"""
         try:
@@ -2668,3 +2678,27 @@ class AppController(QObject):
                     
             return True
         return False
+
+    def get_ship_icon_manager(self):
+        """
+        アイコンマネージャーを取得
+        
+        Returns:
+            ShipIconManager: アイコンマネージャーのインスタンス
+        """
+        if not hasattr(self, 'ship_icon_manager') or self.ship_icon_manager is None:
+            try:
+                from utils.ship_icon_manager import ShipIconManager
+                self.ship_icon_manager = ShipIconManager()
+                self.ship_icon_manager.ensure_default_icons()
+            except Exception as e:
+                logger.error(f"アイコンマネージャーの初期化エラー: {e}")
+                return None
+        
+        return self.ship_icon_manager
+
+    def clear_icon_cache(self):
+        """アイコンキャッシュをクリア"""
+        if hasattr(self, 'ship_icon_manager') and self.ship_icon_manager:
+            self.ship_icon_manager.clear_cache()
+            logger.info("アイコンキャッシュをクリアしました")

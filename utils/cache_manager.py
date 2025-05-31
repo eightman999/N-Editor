@@ -158,17 +158,68 @@ class CacheManager:
         try:
             if file_type is None:
                 # 全キャッシュをクリア
-                import shutil
                 if os.path.exists(self.base_cache_dir):
-                    shutil.rmtree(self.base_cache_dir)
-                    logger.info(f"全キャッシュをクリアしました: {self.base_cache_dir}")
+                    import shutil
+                    try:
+                        # まず、すべてのファイルのパーミッションを変更
+                        for root, dirs, files in os.walk(self.base_cache_dir):
+                            for file in files:
+                                try:
+                                    os.chmod(os.path.join(root, file), 0o666)
+                                except Exception as e:
+                                    logger.warning(f"ファイルパーミッション変更エラー: {e}")
+                            for dir in dirs:
+                                try:
+                                    os.chmod(os.path.join(root, dir), 0o777)
+                                except Exception as e:
+                                    logger.warning(f"ディレクトリパーミッション変更エラー: {e}")
+                        
+                        # ディレクトリを削除
+                        shutil.rmtree(self.base_cache_dir)
+                        os.makedirs(self.base_cache_dir, exist_ok=True)
+                        logger.info(f"全キャッシュをクリアしました: {self.base_cache_dir}")
+                    except Exception as e:
+                        logger.error(f"キャッシュディレクトリの削除に失敗: {e}")
+                        # 個別のファイルを削除
+                        for root, dirs, files in os.walk(self.base_cache_dir):
+                            for file in files:
+                                try:
+                                    os.chmod(os.path.join(root, file), 0o666)
+                                    os.remove(os.path.join(root, file))
+                                except Exception as e:
+                                    logger.error(f"ファイル削除エラー: {e}")
             else:
                 # 特定のファイル種別のキャッシュをクリア
                 type_cache_dir = os.path.join(self.base_cache_dir, file_type)
                 if os.path.exists(type_cache_dir):
-                    import shutil
-                    shutil.rmtree(type_cache_dir)
-                    logger.info(f"{file_type} キャッシュをクリアしました: {type_cache_dir}")
+                    try:
+                        # まず、すべてのファイルのパーミッションを変更
+                        for root, dirs, files in os.walk(type_cache_dir):
+                            for file in files:
+                                try:
+                                    os.chmod(os.path.join(root, file), 0o666)
+                                except Exception as e:
+                                    logger.warning(f"ファイルパーミッション変更エラー: {e}")
+                            for dir in dirs:
+                                try:
+                                    os.chmod(os.path.join(root, dir), 0o777)
+                                except Exception as e:
+                                    logger.warning(f"ディレクトリパーミッション変更エラー: {e}")
+                        
+                        # ディレクトリを削除
+                        shutil.rmtree(type_cache_dir)
+                        os.makedirs(type_cache_dir, exist_ok=True)
+                        logger.info(f"{file_type} キャッシュをクリアしました: {type_cache_dir}")
+                    except Exception as e:
+                        logger.error(f"キャッシュディレクトリの削除に失敗: {e}")
+                        # 個別のファイルを削除
+                        for root, dirs, files in os.walk(type_cache_dir):
+                            for file in files:
+                                try:
+                                    os.chmod(os.path.join(root, file), 0o666)
+                                    os.remove(os.path.join(root, file))
+                                except Exception as e:
+                                    logger.error(f"ファイル削除エラー: {e}")
 
         except Exception as e:
             logger.error(f"キャッシュクリアエラー: {e}")
