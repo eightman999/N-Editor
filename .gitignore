@@ -16,3 +16,4 @@ config.yaml
 # Ignore
 EXAMPLE/
 app.log
+*.log

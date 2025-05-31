@@ -1005,15 +1005,16 @@ class MapViewer(QGraphicsView):
         if not self.fleet_data or not self.show_fleet_info:
             return
 
-            painter = QPainter(pixmap)
-            painter.setRenderHint(QPainter.Antialiasing)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
 
-        # プロビンスごとの艦隊情報を描画
-        for prov_id, fleets in self.fleet_data.items():
-            if prov_id in self.province_centroids:
-                self._draw_province_fleet_info(painter, prov_id, fleets)
-
-        painter.end()
+        try:
+            # プロビンスごとの艦隊情報を描画
+            for prov_id, fleets in self.fleet_data.items():
+                if prov_id in self.province_centroids:
+                    self._draw_province_fleet_info(painter, prov_id, fleets)
+        finally:
+            painter.end()
 
     def _draw_province_fleet_info(self, painter, prov_id, fleets):
         """プロビンスごとの艦隊情報を描画"""
@@ -1340,10 +1341,8 @@ class MapViewer(QGraphicsView):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            # 左クリックでドラッグ開始位置を記録し、アニメーションを停止
+            # 左クリックでドラッグ開始位置を記録
             self._last_drag_pos = event.pos()
-            if self._animation.state() == QPropertyAnimation.Running:
-                self._animation.stop()
         elif event.button() == Qt.RightButton:
             # 右クリックでプロビンス情報ダイアログを表示
             pos = self.mapToScene(event.pos())
@@ -1358,7 +1357,9 @@ class MapViewer(QGraphicsView):
                     0 <= adjusted_x < self.original_width and 0 <= y < self.original_height:
 
                 r, g, b = self.original_map_image_data[y, adjusted_x]
-                province_id = self._rgb_to_id_map_array[r * 256 * 256 + g * 256 + b]
+                # RGB値の計算を修正（オーバーフロー防止）
+                rgb_index = int(r) * 256 * 256 + int(g) * 256 + int(b)
+                province_id = self._rgb_to_id_map_array[rgb_index]
 
                 if province_id != -1:
                     # 艦隊情報がある場合は、アイコン版の詳細情報を表示
@@ -1415,41 +1416,17 @@ class MapViewer(QGraphicsView):
             delta = event.pos() - self._last_drag_pos
             self._last_drag_pos = event.pos()
 
-            # X方向のスクロールはカスタムプロパティで制御（マウスを右に動かすとマップが右に動くように）
-            # 修正点: 左右の移動方向を反転
+            # X方向のスクロール
             self.scrollOffsetX = self.scrollOffsetX - delta.x()
-
-            # Y方向のスクロールはQGraphicsViewの標準スクロールバーで制御
+            # Y方向のスクロール
             self.verticalScrollBar().setValue(self.verticalScrollBar().value() - delta.y())
-
-            # 慣性スクロールのために最後の移動量を記録
-            self._last_move_delta = delta
 
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
-            # ドラッグ終了時に慣性スクロールを開始
-            if self._animation.state() == QPropertyAnimation.Running:
-                self._animation.stop()
-
-            inertia_factor = 2.0  # 慣性の強さ (値を大きくすると長く滑る)
-
-            # 最後の移動量に基づいて慣性スクロールの目標値を計算
-            # 修正点: 慣性スクロールの方向も反転
-            target_x = self.scrollOffsetX - self._last_move_delta.x() * inertia_factor
-
-            self._animation.setStartValue(self.scrollOffsetX)
-            self._animation.setEndValue(target_x)
-            self._animation.start()
-
-            # 慣性スクロールのための最後の移動量をリセット
-            self._last_move_delta = QPoint(0, 0)
-
-        # QGraphicsViewのデフォルトのドラッグモードは使用しないため、中ボタンの処理は不要
-        # elif event.button() == Qt.MiddleButton:
-        #     self.setDragMode(QGraphicsView.NoDrag)
-
+            # ドラッグ終了時の処理は不要
+            pass
         super().mouseReleaseEvent(event)
 
     def leaveEvent(self, event):
