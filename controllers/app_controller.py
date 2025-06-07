@@ -2567,7 +2567,7 @@ class AppController(QObject):
 
             #コスト計算
             if weight > 0 and crew > 0:
-                cost = (weight * 1000 + crew * 10) / 1000000.0* dev_year
+                cost = (weight * 100 + crew * 100) / 1000000.0* dev_year
                 stats['build_cost_ic'] = cost
                 print(f"コスト: {stats['build_cost_ic']}")
 
