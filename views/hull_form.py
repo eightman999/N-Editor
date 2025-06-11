@@ -178,6 +178,10 @@ class HullForm(QWidget):
         self.width_spin.setSuffix(" m")
         physical_layout.addRow("全幅:", self.width_spin)
 
+        calc_button = QPushButton("排水量計算")
+        calc_button.clicked.connect(self.calculate_weight)
+        physical_layout.addRow(calc_button)
+
         # 人員
         self.crew_spin = QSpinBox()
         self.crew_spin.setRange(0, 10000)
@@ -585,6 +589,31 @@ class HullForm(QWidget):
             QMessageBox.information(self, "読み込み成功", f"船体データを読み込みました。\n{file_name}")
         except Exception as e:
             QMessageBox.critical(self, "読み込みエラー", f"データの読み込みに失敗しました。\n{e}")
+
+    def calculate_weight(self):
+        """艦種・寸法から概算排水量を計算"""
+        ship_type = self.type_combo.currentText().split()[0]
+        length = self.length_spin.value()
+        width = self.width_spin.value()
+
+        coeff_table = {
+            'DD': 0.35,
+            'DE': 0.35,
+            'FF': 0.3,
+            'CL': 0.5,
+            'CA': 0.7,
+            'CB': 0.75,
+            'BB': 1.0,
+            'BC': 0.9,
+            'CV': 1.2,
+            'CVL': 1.1,
+            'CVE': 1.0,
+            'SS': 0.4,
+        }
+
+        coeff = coeff_table.get(ship_type, 0.5)
+        displacement = length * width * coeff
+        self.weight_spin.setValue(round(displacement, 2))
 
     def import_from_csv(self):
         """CSVからのインポート"""

@@ -72,22 +72,27 @@ class EquipmentForm(QWidget):
 
         # 下部ボタン
         button_layout = QHBoxLayout()
-        
+
         # 保存ボタン
         save_button = QPushButton("保存")
         save_button.clicked.connect(self.save_equipment)
         button_layout.addWidget(save_button)
-        
+
         # 読み込みボタン
         load_button = QPushButton("読み込み")
         load_button.clicked.connect(self.load_equipment)
         button_layout.addWidget(load_button)
-        
+
+        # 継承新規作成ボタン
+        inherit_button = QPushButton("継承して新規")
+        inherit_button.clicked.connect(self.on_inherit_button_clicked)
+        button_layout.addWidget(inherit_button)
+
         # クリアボタン
         clear_button = QPushButton("クリア")
         clear_button.clicked.connect(self.clear_form)
         button_layout.addWidget(clear_button)
-        
+
         main_layout.addLayout(button_layout)
 
         # フォーム入力フィールドの保存用辞書
@@ -98,17 +103,44 @@ class EquipmentForm(QWidget):
         """ステータス表示用タブの作成"""
         # 単純加算タブ
         add_tab = QWidget()
-        add_layout = QFormLayout(add_tab)
+        add_layout = QVBoxLayout(add_tab)
+        add_control_layout = QHBoxLayout()
+        self.add_stat_combo = QComboBox()
+        add_control_layout.addWidget(self.add_stat_combo)
+        add_button = QPushButton("追加")
+        add_button.clicked.connect(lambda: self.add_stat_field('add'))
+        add_control_layout.addWidget(add_button)
+        add_layout.addLayout(add_control_layout)
+        self.add_form_layout = QFormLayout()
+        add_layout.addLayout(self.add_form_layout)
         self.stats_tabs.addTab(add_tab, "単純加算")
 
         # %調整タブ
         multiply_tab = QWidget()
-        multiply_layout = QFormLayout(multiply_tab)
+        multiply_layout = QVBoxLayout(multiply_tab)
+        mul_control_layout = QHBoxLayout()
+        self.mul_stat_combo = QComboBox()
+        mul_control_layout.addWidget(self.mul_stat_combo)
+        mul_button = QPushButton("追加")
+        mul_button.clicked.connect(lambda: self.add_stat_field('multiply'))
+        mul_control_layout.addWidget(mul_button)
+        multiply_layout.addLayout(mul_control_layout)
+        self.mul_form_layout = QFormLayout()
+        multiply_layout.addLayout(self.mul_form_layout)
         self.stats_tabs.addTab(multiply_tab, "%調整")
 
         # 全装備平均タブ
         average_tab = QWidget()
-        average_layout = QFormLayout(average_tab)
+        average_layout = QVBoxLayout(average_tab)
+        avg_control_layout = QHBoxLayout()
+        self.avg_stat_combo = QComboBox()
+        avg_control_layout.addWidget(self.avg_stat_combo)
+        avg_button = QPushButton("追加")
+        avg_button.clicked.connect(lambda: self.add_stat_field('average'))
+        avg_control_layout.addWidget(avg_button)
+        average_layout.addLayout(avg_control_layout)
+        self.avg_form_layout = QFormLayout()
+        average_layout.addLayout(self.avg_form_layout)
         self.stats_tabs.addTab(average_tab, "全装備平均")
 
         # ステータス項目のサンプル（実際にはゲームデータから取得）
@@ -121,33 +153,63 @@ class EquipmentForm(QWidget):
         # ステータス一覧ファイルから読み込み
         self.load_stats_definitions()
 
-        # 各タブにフィールドを追加
+        # コンボボックスに項目を追加
         for stat_name, stat_desc in self.stats_definitions.items():
-            # 単純加算タブ
-            add_field = QDoubleSpinBox()
-            add_field.setRange(-1000, 1000)
-            add_field.setDecimals(3)
-            add_field.setSingleStep(0.1)
-            add_layout.addRow(f"{stat_name} ({stat_desc}):", add_field)
-            self.stats_fields['add'][stat_name] = add_field
+            label = f"{stat_name} ({stat_desc})"
+            self.add_stat_combo.addItem(label, stat_name)
+            self.mul_stat_combo.addItem(label, stat_name)
+            self.avg_stat_combo.addItem(label, stat_name)
 
-            # %調整タブ
-            multiply_field = QDoubleSpinBox()
-            multiply_field.setRange(-100, 100)
-            multiply_field.setDecimals(3)
-            multiply_field.setSingleStep(0.1)
-            multiply_field.setValue(0)
-            multiply_layout.addRow(f"{stat_name} ({stat_desc}):", multiply_field)
-            self.stats_fields['multiply'][stat_name] = multiply_field
+        # 追加されたフィールドを保持
+        self.stats_fields = {
+            'add': {},
+            'multiply': {},
+            'average': {}
+        }
 
-            # 全装備平均タブ
-            average_field = QDoubleSpinBox()
-            average_field.setRange(-1000, 1000)
-            average_field.setDecimals(3)
-            average_field.setSingleStep(0.1)
-            average_field.setValue(0)
-            average_layout.addRow(f"{stat_name} ({stat_desc}):", average_field)
-            self.stats_fields['average'][stat_name] = average_field
+    def add_stat_field(self, mode):
+        """選択されたステータス項目をタブに追加"""
+        if mode == 'add':
+            combo = self.add_stat_combo
+            layout = self.add_form_layout
+        elif mode == 'multiply':
+            combo = self.mul_stat_combo
+            layout = self.mul_form_layout
+        else:
+            combo = self.avg_stat_combo
+            layout = self.avg_form_layout
+
+        stat_id = combo.currentData()
+        if not stat_id or stat_id in self.stats_fields[mode]:
+            return
+
+        field = QDoubleSpinBox()
+        if mode == 'multiply':
+            field.setRange(-100, 100)
+        else:
+            field.setRange(-1000, 1000)
+        field.setDecimals(3)
+        field.setSingleStep(0.1)
+        layout.addRow(combo.currentText() + ':', field)
+        self.stats_fields[mode][stat_id] = field
+
+    def _ensure_stat_field(self, mode, stat_id):
+        """指定したステータスフィールドを取得。存在しなければ追加する"""
+        if stat_id in self.stats_fields[mode]:
+            return self.stats_fields[mode][stat_id]
+        if mode == 'add':
+            combo = self.add_stat_combo
+        elif mode == 'multiply':
+            combo = self.mul_stat_combo
+        else:
+            combo = self.avg_stat_combo
+
+        index = combo.findData(stat_id)
+        if index >= 0:
+            combo.setCurrentIndex(index)
+            self.add_stat_field(mode)
+            return self.stats_fields[mode].get(stat_id)
+        return None
 
     def load_stats_definitions(self):
         """ステータス定義の読み込み"""
@@ -410,6 +472,15 @@ class EquipmentForm(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
+        # ステータスフィールドのクリア
+        for layout in [self.add_form_layout, self.mul_form_layout, self.avg_form_layout]:
+            while layout.count():
+                item = layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
+        for mode in self.stats_fields:
+            self.stats_fields[mode].clear()
+
         # フィールド辞書のクリア
         self.common_fields = {}
         self.specific_fields = {}
@@ -464,15 +535,14 @@ class EquipmentForm(QWidget):
                 data['specific'][field_name] = field.currentText()
 
         # ステータスの取得
-        for stat_name in self.stats_definitions.keys():
-            if stat_name in self.stats_fields['add']:
-                data['stats']['add_stats'][stat_name] = self.stats_fields['add'][stat_name].value()
+        for stat_name, field in self.stats_fields['add'].items():
+            data['stats']['add_stats'][stat_name] = field.value()
 
-            if stat_name in self.stats_fields['multiply']:
-                data['stats']['multiply_stats'][stat_name] = self.stats_fields['multiply'][stat_name].value()
+        for stat_name, field in self.stats_fields['multiply'].items():
+            data['stats']['multiply_stats'][stat_name] = field.value()
 
-            if stat_name in self.stats_fields['average']:
-                data['stats']['add_average_stats'][stat_name] = self.stats_fields['average'][stat_name].value()
+        for stat_name, field in self.stats_fields['average'].items():
+            data['stats']['add_average_stats'][stat_name] = field.value()
 
         return data
 
@@ -562,6 +632,12 @@ class EquipmentForm(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "読み込みエラー", f"データの読み込みに失敗しました。\n{e}")
 
+    def on_inherit_button_clicked(self):
+        """現在の装備を継承して新規装備作成モードに切り替える"""
+        data = self.get_form_data()
+        self.inherit_from_equipment(data)
+        QMessageBox.information(self, "継承", "データを引き継いで新規装備を作成します。\n名前とIDを入力してください。")
+
     def set_form_data(self, data):
         """フォームにデータを設定"""
         # 共通フィールドの設定
@@ -593,6 +669,21 @@ class EquipmentForm(QWidget):
                     index = field.findText(str(value))
                     if index >= 0:
                         field.setCurrentIndex(index)
+
+        # ステータス値の設定
+        stats = data.get('stats', {})
+        for stat_name, value in stats.get('add_stats', {}).items():
+            field = self._ensure_stat_field('add', stat_name)
+            if field:
+                field.setValue(float(value))
+        for stat_name, value in stats.get('multiply_stats', {}).items():
+            field = self._ensure_stat_field('multiply', stat_name)
+            if field:
+                field.setValue(float(value))
+        for stat_name, value in stats.get('add_average_stats', {}).items():
+            field = self._ensure_stat_field('average', stat_name)
+            if field:
+                field.setValue(float(value))
 
     def generate_specific_fields(self, equipment_type):
         """装備タイプ固有フィールドの生成"""
@@ -722,7 +813,11 @@ class EquipmentForm(QWidget):
             if '名前' in self.common_fields:
                 self.common_fields['名前'].clear()
             if 'ID' in self.common_fields:
-                self.common_fields['ID'].clear()
+                if self.app_controller:
+                    next_id = self.app_controller.get_next_equipment_id(equipment_type)
+                    self.common_fields['ID'].setText(next_id)
+                else:
+                    self.common_fields['ID'].clear()
 
             # 継承元の名前を表示
             if '名前' in equipment_data.get('common', {}):
