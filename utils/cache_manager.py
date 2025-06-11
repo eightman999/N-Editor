@@ -42,7 +42,8 @@ class CacheManager:
         対応するキャッシュファイルのフルパスを返す
 
         Args:
-            file_type: ファイル種別 (states, naval_oob, designs, strategic_regions, country_colors, equipments など)
+            file_type: ファイル種別 (states, naval_oob, designs, strategic_regions, country_colors, equipments, 
+                      hulls, templates, status_definitions, csv_data, parser_results など)
             original_file_path: パース対象の元ファイルのフルパス
             country_tag: 国家タグ（国別キャッシュが必要な場合）
 

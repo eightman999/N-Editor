@@ -1,18 +1,24 @@
 import os
 import json
 import yaml
+import time
+import logging
 from typing import Dict, List, Any, Optional, Union
+
+# ロガーの設定
+logger = logging.getLogger(__name__)
 
 
 class EquipmentModel:
     """装備データモデル"""
 
-    def __init__(self, data_dir: str = None):
+    def __init__(self, data_dir: str = None, cache_manager=None):
         """
         初期化
 
         Args:
             data_dir: データディレクトリのパス（デフォルトは'../data/equipments'）
+            cache_manager: キャッシュマネージャーのインスタンス
         """
         if data_dir is None:
             # デフォルトのデータディレクトリを設定
@@ -23,6 +29,9 @@ class EquipmentModel:
         # データディレクトリが存在しない場合は作成
         os.makedirs(self.data_dir, exist_ok=True)
 
+        # キャッシュマネージャー
+        self.cache_manager = cache_manager
+
         # 装備テンプレート（装備種別など）
         self.equipment_templates = self._load_equipment_templates()
 
@@ -31,32 +40,41 @@ class EquipmentModel:
 
     def _load_equipment_templates(self) -> Dict[str, Dict[str, Any]]:
         """
-        装備テンプレートの読み込み
+        装備テンプレートの読み込み（キャッシュ対応）
 
         Returns:
             Dict[str, Dict[str, Any]]: 装備テンプレート辞書
         """
+        start_time = time.time()
+        
+        # アプリのルートディレクトリを取得
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        yaml_template_file = os.path.join(root_dir, 'equipments_templates.yml')
+        
+        # キャッシュから読み込み試行
+        if self.cache_manager and os.path.exists(yaml_template_file):
+            cached_data = self.cache_manager.load("equipment_templates", yaml_template_file)
+            if cached_data is not None:
+                duration = time.time() - start_time
+                logger.debug(f"装備テンプレートをキャッシュから読み込み: {len(cached_data)}種類, 時間: {duration:.3f}秒")
+                return cached_data
+
         templates = {}
 
         try:
-            # アプリのルートディレクトリを取得
-            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
             # まず equipments_templates.yml を読み込む
-            yaml_template_file = os.path.join(root_dir, 'equipments_templates.yml')
-
             if os.path.exists(yaml_template_file):
-                print(f"装備テンプレートファイルを読み込み中: {yaml_template_file}")
+                logger.info(f"装備テンプレートファイルを読み込み中: {yaml_template_file}")
                 try:
                     with open(yaml_template_file, 'r', encoding='utf-8') as f:
                         yaml_data = yaml.safe_load(f)
 
                     # YAMLデータを解析して装備テンプレートを構築
                     self._parse_yaml_templates(yaml_data, templates)
-                    print(f"YAMLテンプレートから {len(templates)} 種類の装備テンプレートを読み込みました")
+                    logger.info(f"YAMLテンプレートから {len(templates)} 種類の装備テンプレートを読み込みました")
 
                 except Exception as e:
-                    print(f"YAMLテンプレートファイルの読み込みエラー: {e}")
+                    logger.error(f"YAMLテンプレートファイルの読み込みエラー: {e}")
 
             # 次に paste.txt もチェック（互換性のため）
             paste_template_file = os.path.join(root_dir, 'paste.txt')
@@ -89,11 +107,18 @@ class EquipmentModel:
                     print(f"paste.txtテンプレートファイルの読み込みエラー: {e}")
 
             if not templates:
-                print("警告: 装備テンプレートファイルが見つからないか、読み込みに失敗しました")
+                logger.warning("警告: 装備テンプレートファイルが見つからないか、読み込みに失敗しました")
+
+            # キャッシュに保存
+            if templates and self.cache_manager:
+                self.cache_manager.save("equipment_templates", yaml_template_file, templates)
 
         except Exception as e:
-            print(f"装備テンプレート読み込みエラー: {e}")
+            logger.error(f"装備テンプレート読み込みエラー: {e}")
 
+        duration = time.time() - start_time
+        logger.info(f"装備テンプレート読み込み完了: {len(templates)}種類, 時間: {duration:.3f}秒")
+        
         return templates
 
     def _parse_yaml_templates(self, yaml_data: dict, templates: dict):
@@ -302,7 +327,7 @@ class EquipmentModel:
 
     def get_all_equipment(self, equipment_type: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        全装備データまたは指定タイプの装備データを取得
+        全装備データまたは指定タイプの装備データを取得（キャッシュ対応）
 
         Args:
             equipment_type: 装備タイプ（指定しない場合は全装備）
@@ -310,7 +335,28 @@ class EquipmentModel:
         Returns:
             List[Dict[str, Any]]: 装備データリスト
         """
+        start_time = time.time()
+        
+        # キャッシュキーを生成
+        cache_key = f"{self.data_dir}:{equipment_type if equipment_type else 'all'}"
+        
+        # キャッシュから読み込み試行
+        if self.cache_manager:
+            cached_data = self.cache_manager.load("equipment_all", cache_key)
+            if cached_data is not None:
+                duration = time.time() - start_time
+                logger.debug(f"装備データをキャッシュから読み込み: {len(cached_data)}件, タイプ: {equipment_type or 'all'}, 時間: {duration:.3f}秒")
+                
+                # メモリキャッシュも更新
+                for equipment_data in cached_data:
+                    equipment_id = equipment_data.get('common', {}).get('ID', '')
+                    if equipment_id:
+                        self.equipment_cache[equipment_id] = equipment_data
+                        
+                return cached_data
+
         result = []
+        file_count = 0
 
         if equipment_type:
             # 特定タイプの装備のみ
@@ -321,6 +367,7 @@ class EquipmentModel:
                     for file_name in os.listdir(type_dir):
                         if file_name.endswith('.json'):
                             file_path = os.path.join(type_dir, file_name)
+                            file_count += 1
                             try:
                                 with open(file_path, 'r', encoding='utf-8') as f:
                                     data = json.load(f)
@@ -332,7 +379,7 @@ class EquipmentModel:
 
                                 result.append(data)
                             except Exception as e:
-                                print(f"装備データ読み込みエラー: {e}")
+                                logger.error(f"装備データ読み込みエラー ({file_path}): {e}")
         else:
             # 全装備
             for type_dir in os.listdir(self.data_dir):
@@ -343,6 +390,7 @@ class EquipmentModel:
                 for file_name in os.listdir(dir_path):
                     if file_name.endswith('.json'):
                         file_path = os.path.join(dir_path, file_name)
+                        file_count += 1
                         try:
                             with open(file_path, 'r', encoding='utf-8') as f:
                                 data = json.load(f)
@@ -354,7 +402,14 @@ class EquipmentModel:
 
                             result.append(data)
                         except Exception as e:
-                            print(f"装備データ読み込みエラー: {e}")
+                            logger.error(f"装備データ読み込みエラー ({file_path}): {e}")
+
+        # キャッシュに保存
+        if result and self.cache_manager:
+            self.cache_manager.save("equipment_all", cache_key, result)
+            
+        duration = time.time() - start_time
+        logger.info(f"装備データ読み込み完了: {len(result)}件, タイプ: {equipment_type or 'all'}, ファイル数: {file_count}, 時間: {duration:.3f}秒")
 
         return result
 

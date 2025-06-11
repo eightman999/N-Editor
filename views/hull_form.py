@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                              QLabel, QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox,
                              QPushButton, QGroupBox, QFileDialog, QMessageBox, QScrollArea)
 from PyQt5.QtCore import Qt, pyqtSignal
+from utils.web_search_widget import WebSearchButton
 import os
 import json
 import csv
@@ -24,6 +25,16 @@ class HullForm(QWidget):
         # メインレイアウト
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
+        
+        # 上部レイアウト（Web検索ボタン用）
+        top_layout = QHBoxLayout()
+        top_layout.addStretch()
+        
+        # Web検索ボタン
+        self.web_search_button = WebSearchButton(self, "warship hull design")
+        top_layout.addWidget(self.web_search_button)
+        
+        main_layout.addLayout(top_layout)
 
         # スクロールエリア
         scroll_area = QScrollArea()

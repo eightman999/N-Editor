@@ -3,20 +3,25 @@ import json
 import csv
 import re
 import time
+import logging
 from typing import Dict, List, Any, Optional, Union
 
 from tools.japanese_tools import convert_name
+
+# ロガーの設定
+logger = logging.getLogger(__name__)
 
 
 class HullModel:
     """船体データモデル"""
 
-    def __init__(self, data_dir: str = None):
+    def __init__(self, data_dir: str = None, cache_manager=None):
         """
         初期化
 
         Args:
             data_dir: データディレクトリのパス（デフォルトは'../data/hulls'）
+            cache_manager: キャッシュマネージャーのインスタンス
         """
         if data_dir is None:
             # デフォルトのデータディレクトリを設定
@@ -26,6 +31,9 @@ class HullModel:
 
         # データディレクトリが存在しない場合は作成
         os.makedirs(self.data_dir, exist_ok=True)
+
+        # キャッシュマネージャー
+        self.cache_manager = cache_manager
 
         # キャッシュ（ID -> 船体データ）
         self.hull_cache = {}
@@ -250,18 +258,40 @@ class HullModel:
 
     def get_all_hulls(self) -> List[Dict[str, Any]]:
         """
-        全船体データを取得
+        全船体データを取得（キャッシュ対応）
 
         Returns:
             List[Dict[str, Any]]: 船体データリスト
         """
-        result = []
+        start_time = time.time()
+        
+        # キャッシュキーを生成（データディレクトリ全体の状態をキーにする）
+        cache_key = self.data_dir
+        
+        # キャッシュから読み込み試行
+        if self.cache_manager:
+            cached_data = self.cache_manager.load("hulls_all", cache_key)
+            if cached_data is not None:
+                duration = time.time() - start_time
+                logger.debug(f"全船体データをキャッシュから読み込み: {len(cached_data)}件, 時間: {duration:.3f}秒")
+                
+                # メモリキャッシュも更新
+                for hull_data in cached_data:
+                    hull_id = hull_data.get('id', '')
+                    if hull_id:
+                        self.hull_cache[hull_id] = hull_data
+                        
+                return cached_data
 
-        # 全船体
+        # キャッシュミスの場合はファイルから読み込み
+        result = []
+        file_count = 0
+
         if os.path.exists(self.data_dir):
             for file_name in os.listdir(self.data_dir):
                 if file_name.endswith('.json'):
                     file_path = os.path.join(self.data_dir, file_name)
+                    file_count += 1
                     try:
                         with open(file_path, 'r', encoding='utf-8') as f:
                             data = json.load(f)
@@ -273,8 +303,15 @@ class HullModel:
 
                         result.append(data)
                     except Exception as e:
-                        print(f"船体データ読み込みエラー: {e}")
+                        logger.error(f"船体データ読み込みエラー ({file_path}): {e}")
 
+        # キャッシュに保存
+        if result and self.cache_manager:
+            self.cache_manager.save("hulls_all", cache_key, result)
+            
+        duration = time.time() - start_time
+        logger.info(f"全船体データ読み込み完了: {len(result)}件, ファイル数: {file_count}, 時間: {duration:.3f}秒")
+        
         return result
 
     def delete_hull(self, hull_id: str) -> bool:
@@ -388,7 +425,7 @@ class HullModel:
 
     def import_from_csv(self, file_path: str) -> List[Dict[str, Any]]:
         """
-        CSVから船体データをインポート（全行の連続的な読み込み）
+        CSVから船体データをインポート（全行の連続的な読み込み、キャッシュ対応）
 
         Args:
             file_path: CSVファイルのパス
@@ -396,6 +433,16 @@ class HullModel:
         Returns:
             List[Dict[str, Any]]: インポートされた船体データのリスト
         """
+        start_time = time.time()
+        
+        # キャッシュから読み込み試行
+        if self.cache_manager:
+            cached_data = self.cache_manager.load("csv_import", file_path)
+            if cached_data is not None:
+                duration = time.time() - start_time
+                logger.debug(f"CSVインポートデータをキャッシュから読み込み: {len(cached_data)}件, 時間: {duration:.3f}秒")
+                return cached_data
+
         imported_hulls = []
 
         try:
@@ -439,11 +486,16 @@ class HullModel:
                         # 個別の行のエラーで処理を中断せず、次の行に進む
                         continue
 
-            print(f"CSVのインポートが完了しました。合計: {len(imported_hulls)}件の船体データをインポートしました。")
+            # キャッシュに保存
+            if imported_hulls and self.cache_manager:
+                self.cache_manager.save("csv_import", file_path, imported_hulls)
+            
+            duration = time.time() - start_time
+            logger.info(f"CSVのインポートが完了しました。合計: {len(imported_hulls)}件の船体データをインポート, 時間: {duration:.3f}秒")
             return imported_hulls
 
         except Exception as e:
-            print(f"CSVインポートエラー: {e}")
+            logger.error(f"CSVインポートエラー: {e}")
             return imported_hulls
 
     def _convert_csv_row_to_hull_data(self, row: Dict[str, str]) -> Optional[Dict[str, Any]]:

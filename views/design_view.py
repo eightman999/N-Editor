@@ -10,6 +10,7 @@ from PyQt5.QtGui import QColor, QPalette
 from utils.path_utils import get_data_dir
 from utils.ship_type_mapping import ship_type_mapping
 from utils.ship_icon_manager import ShipIconManager
+from utils.web_search_widget import WebSearchButton
 
 
 class DesignView(QWidget):
@@ -41,6 +42,25 @@ class DesignView(QWidget):
         # 船体データが渡された場合は初期化
         if hull_data:
             self.on_hull_selected(hull_data)
+    
+    def update_search_query(self, ship_type_text):
+        """艦種選択に基づいて検索クエリを更新"""
+        if ship_type_text and ship_type_text != "選択してください":
+            # 艦種名を英語に変換
+            ship_type_mapping = {
+                "戦艦": "battleship",
+                "巡洋戦艦": "battlecruiser", 
+                "重巡洋艦": "heavy cruiser",
+                "軽巡洋艦": "light cruiser",
+                "駆逐艦": "destroyer",
+                "空母": "aircraft carrier",
+                "軽空母": "light carrier",
+                "潜水艦": "submarine"
+            }
+            
+            english_type = ship_type_mapping.get(ship_type_text, ship_type_text.lower())
+            search_query = f"{english_type} warship design"
+            self.web_search_button.set_default_search(search_query)
 
     def initUI(self):
         # メインレイアウト
@@ -67,6 +87,13 @@ class DesignView(QWidget):
 
         # スペーサー
         top_layout.addStretch()
+        
+        # Web検索ボタン
+        self.web_search_button = WebSearchButton(self, "warship design")
+        top_layout.addWidget(self.web_search_button)
+        
+        # 艦種変更時に検索クエリを更新
+        self.ship_type_combo.currentTextChanged.connect(self.update_search_query)
 
         # 船体選択
         hull_layout = QHBoxLayout()
