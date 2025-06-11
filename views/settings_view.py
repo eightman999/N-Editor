@@ -68,14 +68,16 @@ class SettingsView(QWidget):
         app_layout = QFormLayout()
 
         self.language_combo = QComboBox()
-        self.language_combo.addItems(["日本語", "English"])
-        app_layout.addRow("言語:", self.language_combo)
+        from utils.translator import translator
+        for code, name in translator.get_available_languages().items():
+            self.language_combo.addItem(name, userData=code)
+        app_layout.addRow(translator.translate("language_label") + ":", self.language_combo)
 
         self.theme_combo = QComboBox()
         self.theme_combo.addItems(["Windows95", "Modern", "Dark"])
-        app_layout.addRow("テーマ:", self.theme_combo)
+        app_layout.addRow(translator.translate("theme_label") + ":", self.theme_combo)
 
-        self.auto_save_check = QCheckBox("自動保存を有効にする")
+        self.auto_save_check = QCheckBox(translator.translate("auto_save"))
         app_layout.addRow(self.auto_save_check)
 
         app_group.setLayout(app_layout)
@@ -88,14 +90,15 @@ class SettingsView(QWidget):
         self.width_spin = QSpinBox()
         self.width_spin.setRange(800, 2560)
         self.width_spin.setValue(1080)
-        window_layout.addRow("幅:", self.width_spin)
+        from utils.translator import translator
+        window_layout.addRow(translator.translate("width_label") + ":", self.width_spin)
 
         self.height_spin = QSpinBox()
         self.height_spin.setRange(600, 1440)
         self.height_spin.setValue(720)
-        window_layout.addRow("高さ:", self.height_spin)
+        window_layout.addRow(translator.translate("height_label") + ":", self.height_spin)
 
-        self.fullscreen_check = QCheckBox("全画面表示で起動")
+        self.fullscreen_check = QCheckBox(translator.translate("fullscreen_label"))
         window_layout.addRow(self.fullscreen_check)
 
         window_group.setLayout(window_layout)
@@ -250,7 +253,9 @@ class SettingsView(QWidget):
         try:
             # 一般設定
             language = self.app_settings.get_setting("language", "ja")
-            self.language_combo.setCurrentText("日本語" if language == "ja" else "English")
+            index = self.language_combo.findData(language)
+            if index != -1:
+                self.language_combo.setCurrentIndex(index)
 
             theme = self.app_settings.get_setting("theme", "light")
             if theme in ["Windows95", "Modern", "Dark"]:
@@ -331,8 +336,13 @@ class SettingsView(QWidget):
 
         try:
             # 一般設定
-            language = "ja" if self.language_combo.currentText() == "日本語" else "en"
-            self.app_settings.set_setting("language", language)
+            language = self.language_combo.currentData()
+            from utils.translator import translator
+            if language:
+                self.app_settings.set_setting("language", language)
+                translator.set_language(language)
+            else:
+                self.app_settings.set_setting("language", "en")
             self.app_settings.set_setting("theme", self.theme_combo.currentText())
 
             # ウィンドウ設定

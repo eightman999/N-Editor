@@ -3,6 +3,7 @@ import sys
 import logging
 import platform
 from logging.handlers import RotatingFileHandler
+from utils.translator import translator
 
 # ロガーの設定
 logging.basicConfig(
@@ -266,6 +267,9 @@ def main():
         # 設定の初期化
         app_settings = AppSettings()
         logger.info("AppSettings initialized")
+
+        # 翻訳の初期化
+        translator.set_language(app_settings.get_setting("language", "en"))
 
         # コントローラーの初期化
         controller = AppController(app_settings)

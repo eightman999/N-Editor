@@ -1,0 +1,9 @@
+{
+  "language_name": "English",
+  "language_label": "Language",
+  "theme_label": "Theme",
+  "width_label": "Width",
+  "height_label": "Height",
+  "fullscreen_label": "Start in fullscreen",
+  "auto_save": "Enable auto save"
+}
