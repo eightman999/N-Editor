@@ -5,6 +5,7 @@ from typing import List, Dict, Tuple, Optional
 from PIL import Image, ImageDraw
 import hashlib
 import time
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,9 @@ class FlagSpriteManager:
             return 1, 1, self.flag_size[0], self.flag_size[1]
         
         # 正方形に近い形状を目指す
-        cols = int(flag_count ** 0.5) + 1
+        cols = int(math.sqrt(flag_count))
+        if cols * cols < flag_count:
+            cols += 1
         rows = (flag_count + cols - 1) // cols  # 切り上げ除算
         
         sheet_width = cols * self.flag_size[0]
