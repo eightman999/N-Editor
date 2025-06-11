@@ -1,8 +1,12 @@
 import re
 import sys
 import os
+import threading
 from ply import yacc
 import ply.lex as lex
+
+# Thread-local storage for parser and lexer instances
+_thread_local = threading.local()
 
 # --- カスタム例外の定義 ---
 class ParserError(Exception):
@@ -65,8 +69,7 @@ def t_error(t):
     print(f"Illegal character '{t.value[0]}' at line {t.lexer.lineno}, position {t.lexer.lexpos}")
     t.lexer.skip(1)
 
-# レクサーの構築
-lexer = lex.lex()
+
 
 # --- パーサー (Parser) の定義 ---
 
@@ -180,7 +183,9 @@ class StateParser:
 
     def parse(self):
         try:
-            raw_parsed_data = parser.parse(self.content, lexer=lexer)
+            parser_instance, lexer_instance = _get_thread_parser()
+            lexer_instance.lineno = 1
+            raw_parsed_data = parser_instance.parse(self.content, lexer=lexer_instance)
 
             final_data = {}
 
@@ -311,7 +316,7 @@ class StateParser:
         except Exception as e:
             raise ParserError(f"An unexpected error occurred during parsing: {e}")
 
-# パーサーの構築
+# パーサーの構築設定
 # Find the absolute path to the directory containing this script
 current_dir = os.path.dirname(os.path.abspath(__file__))
 output_dir = current_dir
@@ -328,21 +333,29 @@ try:
     error_logger = yacc.NullLogger() if hasattr(yacc, 'NullLogger') else SimpleNullLogger()
 except AttributeError:
     class SimpleNullLogger:
-        def write(self, *args, **kwargs): pass
-        def flush(self, *args, **kwargs): pass
+        def write(self, *args, **kwargs):
+            pass
+        def flush(self, *args, **kwargs):
+            pass
     error_logger = SimpleNullLogger()
 
-try:
-    parser = yacc.yacc(
+
+def _create_parser_and_lexer():
+    """Create a new parser and lexer instance."""
+    lexer_instance = lex.lex()
+    parser_instance = yacc.yacc(
         outputdir=output_dir,
         tabmodule=tab_module,
         debug=False,
         write_tables=not is_frozen(),
         debuglog=None,
-        errorlog=error_logger
+        errorlog=error_logger,
     )
-except Exception as e:
-    print(f"Error creating StateParser: {e}")
-    if is_frozen():
-        print(f"PLY YACC Error in frozen app (StateParser): {e}")
-    raise 
+    return parser_instance, lexer_instance
+
+
+def _get_thread_parser():
+    """Return parser and lexer instances specific to the current thread."""
+    if not hasattr(_thread_local, "parser"):
+        _thread_local.parser, _thread_local.lexer = _create_parser_and_lexer()
+    return _thread_local.parser, _thread_local.lexer
