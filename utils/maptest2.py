@@ -76,6 +76,9 @@ class MapViewer(QGraphicsView):
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
         self.setRenderHint(QPainter.Antialiasing, False)
+        self.setOptimizationFlag(QGraphicsView.DontSavePainterState, True)
+        self.setOptimizationFlag(QGraphicsView.DontAdjustForAntialiasing, True)
+        self.setViewportUpdateMode(QGraphicsView.MinimalViewportUpdate)
 
         # スクロールモードを無効にし、手動でスクロールを制御
         self.setDragMode(QGraphicsView.NoDrag)
@@ -95,6 +98,8 @@ class MapViewer(QGraphicsView):
 
         self.current_filter = "provinces"
         self.base_qimage_cache = {}
+        self._pixmap_cache = {}
+        self._render_cache_dirty = True
 
         self._rgb_to_id_map_array = np.full(256 * 256 * 256, -1, dtype=np.int32)
 
@@ -109,7 +114,23 @@ class MapViewer(QGraphicsView):
         self.show_mod_fleets = False  # MOD内の艦隊を表示するフラグ
 
         # app_controllerを追加
-        self.app_controller = parent.app_controller if parent else None
+        self.app_controller = None
+        if parent and hasattr(parent, 'app_controller'):
+            self.app_controller = parent.app_controller
+            self.logger.debug("app_controllerを親ウィジェットから取得しました")
+        elif parent and hasattr(parent, 'parent') and hasattr(parent.parent(), 'app_controller'):
+            # 親の親からapp_controllerを取得（ウィジェット階層を遡る）
+            self.app_controller = parent.parent().app_controller
+            self.logger.debug("app_controllerを親の親ウィジェットから取得しました")
+        else:
+            self.logger.warning("app_controllerを取得できませんでした。キャッシュ機能は利用できません。")
+        
+        # cache_managerの初期化状態を確認
+        if self.app_controller and hasattr(self.app_controller, 'cache_manager'):
+            if self.app_controller.cache_manager:
+                self.logger.debug("cache_managerが利用可能です")
+            else:
+                self.logger.debug("cache_managerは初期化されていません")
 
         # デバウンス処理用のタイマー追加
         self._move_timer = QTimer(self)
@@ -508,38 +529,39 @@ class MapViewer(QGraphicsView):
         start_time = time.time()
         
         # キャッシュマネージャーが利用可能かチェック
-        if not self.app_controller or not self.app_controller.cache_manager:
-            self.logger.warning("キャッシュマネージャーが利用できません。直接計算を実行します。")
+        if not self.app_controller:
+            self.logger.warning("app_controllerが利用できません。直接計算を実行します。")
+            self.calculate_province_centroids()
+            return
+        elif not self.app_controller.cache_manager:
+            self.logger.warning("cache_managerが利用できません。直接計算を実行します。")
             self.calculate_province_centroids()
             return
         
         cache_manager = self.app_controller.cache_manager
         
-        # 現在のファイルの更新時刻を取得
-        current_bmp_mtime = os.path.getmtime(provinces_bmp_path) if os.path.exists(provinces_bmp_path) else 0
-        current_csv_mtime = os.path.getmtime(definition_csv_path) if os.path.exists(definition_csv_path) else 0
+        # 複数ファイル依存キャッシュキーを生成（provinces.bmp + definition.csv）
+        cache_key_file = f"{provinces_bmp_path}+{definition_csv_path}"
         
-        # キャッシュから読み込み試行
+        # キャッシュから読み込み試行（新しいタイムスタンプベース機能を使用）
         try:
-            cached_data = cache_manager.load("province_centroids", provinces_bmp_path)
+            cached_data = cache_manager.load("province_centroids", cache_key_file)
             
             if cached_data is not None and isinstance(cached_data, dict):
-                cached_bmp_mtime = cached_data.get('bmp_mtime', 0)
-                cached_csv_mtime = cached_data.get('csv_mtime', 0)
                 cached_centroids = cached_data.get('centroids')
                 
-                # キャッシュの有効性チェック
-                if (cached_bmp_mtime >= current_bmp_mtime and 
-                    cached_csv_mtime >= current_csv_mtime and 
-                    cached_centroids is not None):
+                # 複数ファイルの追加チェック（定義ファイルの存在確認）
+                if (cached_centroids is not None and 
+                    os.path.exists(provinces_bmp_path) and 
+                    os.path.exists(definition_csv_path)):
                     
-                    # キャッシュが有効
+                    # 新しいキャッシュシステムで有効性が確認済み
                     self.province_centroids = cached_centroids
                     cache_load_time = time.time() - start_time
                     self.logger.info(f"プロヴィンス中心座標をキャッシュから読み込み完了: {len(self.province_centroids)}個のプロヴィンス, 所要時間: {cache_load_time:.3f}秒")
                     return
                 else:
-                    self.logger.info("キャッシュが古いため、再計算を実行します")
+                    self.logger.info("キャッシュが古いまたは依存ファイルが不完全なため、再計算を実行します")
             else:
                 self.logger.info("キャッシュが見つからないため、計算を実行します")
                 
@@ -551,17 +573,19 @@ class MapViewer(QGraphicsView):
         self.calculate_province_centroids()
         calculation_time = time.time() - calculation_start
         
-        # 計算結果をキャッシュに保存
+        # 計算結果をキャッシュに保存（新しいタイムスタンプベース機能を使用）
         cache_data = {
             'centroids': self.province_centroids,
-            'bmp_mtime': current_bmp_mtime,
-            'csv_mtime': current_csv_mtime,
             'calculation_time': calculation_time,
-            'timestamp': time.time()
+            'timestamp': time.time(),
+            'dependencies': {
+                'provinces_bmp': provinces_bmp_path,
+                'definition_csv': definition_csv_path
+            }
         }
         
         try:
-            cache_manager.save("province_centroids", provinces_bmp_path, cache_data)
+            cache_manager.save("province_centroids", cache_key_file, cache_data)
             total_time = time.time() - start_time
             self.logger.info(f"プロヴィンス中心座標の計算とキャッシュ保存完了: {len(self.province_centroids)}個のプロヴィンス, 計算時間: {calculation_time:.3f}秒, 総時間: {total_time:.3f}秒")
         except Exception as e:
@@ -677,7 +701,7 @@ class MapViewer(QGraphicsView):
             return
             
         painter = QPainter(target_pixmap)
-        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.Antialiasing, False)
         
         # 中心点を赤い小さな円で描画
         painter.setPen(QPen(QColor(255, 0, 0), 2))
@@ -788,6 +812,24 @@ class MapViewer(QGraphicsView):
             print("マップデータが読み込まれていません")
             return
 
+        # キャッシュキーを生成
+        cache_key = f"{self.current_filter}_{self.show_fleet_info}_{hash(str(sorted(self.fleet_data.keys())) if self.fleet_data else '')}"
+        
+        # キャッシュされたPixmapがあり、変更がない場合は再利用
+        if not self._render_cache_dirty and cache_key in self._pixmap_cache:
+            current_pixmap = self._pixmap_cache[cache_key]
+            self._update_scene_with_pixmap(current_pixmap)
+        else:
+            current_pixmap = self._generate_map_pixmap()
+            self._pixmap_cache[cache_key] = current_pixmap
+            self._render_cache_dirty = False
+            self._update_scene_with_pixmap(current_pixmap)
+
+        end_time = time.time()
+        self.logger.debug(f"マップの描画が完了: 所要時間 {end_time - start_time:.2f}秒")
+
+    def _generate_map_pixmap(self):
+        """マップのPixmapを生成"""
         # 現在の表示位置を保存
         current_center = self.map_image_item.pos() if self.map_image_item else None
         current_scale = self.map_image_item.scale() if self.map_image_item else 1.0
@@ -870,9 +912,18 @@ class MapViewer(QGraphicsView):
             self.logger.debug(
                 f"艦隊情報の描画をスキップ: show_fleet_info={self.show_fleet_info}, fleet_data={bool(self.fleet_data)}")
 
+        return current_pixmap
+
+    def _update_scene_with_pixmap(self, pixmap):
+        """シーンを指定されたPixmapで更新"""
+        # 現在の表示位置を保存
+        current_center = self.map_image_item.pos() if self.map_image_item else None
+        current_scale = self.map_image_item.scale() if self.map_image_item else 1.0
+        current_rotation = self.map_image_item.rotation() if self.map_image_item else 0.0
+
         # シーンをクリアし、新しいマップアイテムを追加
         self.scene.clear()
-        self.map_image_item = self.scene.addPixmap(current_pixmap)
+        self.map_image_item = self.scene.addPixmap(pixmap)
         
         # 保存した表示位置を復元
         if current_center is not None:
@@ -888,12 +939,20 @@ class MapViewer(QGraphicsView):
         # マップアイテムの位置を更新してループ描画を適用
         self.update_map_item_position()
 
-        end_time = time.time()
-        self.logger.debug(f"マップの描画が完了: 所要時間 {end_time - start_time:.2f}秒")
+    def invalidate_render_cache(self):
+        """描画キャッシュを無効化"""
+        self._render_cache_dirty = True
+        self._pixmap_cache.clear()
+
+    def on_filter_changed(self):
+        """フィルターが変更された時の処理（軽量化版）"""
+        self.invalidate_render_cache()
+        self.current_filter = self.filter_combo.currentData()
+        self.render_map()
 
     def draw_state_boundaries(self, target_pixmap: QPixmap):
         painter = QPainter(target_pixmap)
-        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.Antialiasing, False)
         painter.setPen(QPen(QColor(0, 0, 0, 200), 2))  # 線の太さを2に増やし、より見やすく
 
         for state_id, boundaries in self.state_boundaries.items():
@@ -904,7 +963,7 @@ class MapViewer(QGraphicsView):
 
     def draw_naval_bases(self, target_pixmap: QPixmap):
         painter = QPainter(target_pixmap)
-        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.Antialiasing, False)
 
         # 固定の円のサイズを使用
         circle_radius = 8
@@ -940,7 +999,7 @@ class MapViewer(QGraphicsView):
             return
 
         painter = QPainter(target_pixmap)
-        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.Antialiasing, False)
 
         # 固定の円のサイズを使用
         circle_radius = 8
@@ -1434,10 +1493,9 @@ class MapViewer(QGraphicsView):
         self.tooltip_label.hide()
         self.hovered_province = None
 
-    def on_filter_changed(self, index):
-        """フィルターが変更された時の処理"""
-        self.current_filter = self.filter_combo.currentData()
-        self.render_map()
+    def on_filter_changed_legacy(self, index):
+        """レガシー：フィルターが変更された時の処理（使用されていない）"""
+        self.on_filter_changed()
 
     def zoom_in(self):
         self.scale(1.25, 1.25)
@@ -1668,7 +1726,7 @@ class MapViewer(QGraphicsView):
         return self.state_owners.get(state_id)
 
     def move_to_province(self, province_id):
-        """指定されたプロビンスIDの位置に地図を移動する（型エラー修正版）"""
+        """指定されたプロビンスIDの位置に地図を移動する（修正版）"""
         if province_id in self.province_centroids and self.province_centroids[province_id] is not None:
             # プロビンスの中心座標を取得
             center_x, center_y = self.province_centroids[province_id]
@@ -1684,46 +1742,45 @@ class MapViewer(QGraphicsView):
             viewport_center_x = self.viewport().width() / 2
             viewport_center_y = self.viewport().height() / 2
             
-            # Y軸の計算（既存実装を維持）
+            # Y軸の計算（スケール適用後のシーン座標系で計算）
             target_y = (center_y * current_scale) - viewport_center_y
             
-            # X軸の計算（original_widthの加算を削除し、正確な計算に変更）
-            base_target_x = (center_x * current_scale) - viewport_center_x
+            # 現在のscrollOffsetXを取得（ループ処理済みの値）
+            current_scroll_x = self._scroll_offset_x
             
-            # ループを考慮して、現在の表示位置に最も近いプロビンス位置を選択
-            # 修正: int型でmapToSceneを呼び出し
-            try:
-                current_center_scene = self.mapToScene(int(viewport_center_x), int(viewport_center_y))
-                current_center_x = current_center_scene.x()
-            except Exception as e:
-                # フォールバック: エラー時は基本計算を使用
-                self.logger.warning(f"mapToScene エラー: {e}, フォールバック計算を使用")
-                current_center_x = center_x
+            # 現在の表示中心のシーン座標（ループを考慮しない座標系）
+            current_scene_center_x = (current_scroll_x + viewport_center_x) / current_scale
             
             # プロビンスの可能な表示位置（ループ考慮）
             possible_positions = []
             for i in range(-5, 6):  # -5から+5までのループ位置を考慮
-                pos_x = center_x + (i * self.original_width)
-                target_scroll = (pos_x * current_scale) - viewport_center_x
-                distance = abs(pos_x - current_center_x)
-                possible_positions.append((target_scroll, distance))
+                # ループ位置でのプロビンス座標
+                loop_center_x = center_x + (i * self.original_width)
+                # その位置に移動するのに必要なscrollOffsetX
+                required_scroll_x = (loop_center_x * current_scale) - viewport_center_x
+                # 現在位置からの距離
+                distance = abs(loop_center_x - current_scene_center_x)
+                possible_positions.append((required_scroll_x, distance, i))
             
             # 現在位置に最も近い位置を選択
-            best_target_x = min(possible_positions, key=lambda x: x[1])[0]
+            best_scroll_x, _, best_loop_index = min(possible_positions, key=lambda x: x[1])
             
-            # スクロール位置を設定
-            self.scrollOffsetX = best_target_x
+            # scrollOffsetXの直接設定（setterの剰余演算を回避）
+            self._scroll_offset_x = best_scroll_x % self.original_width if self.original_width > 0 else best_scroll_x
+            self.update_map_item_position()  # マップアイテムの位置を手動更新
+            
+            # Y軸スクロール
             self.verticalScrollBar().setValue(int(target_y))
             
             self.logger.info(f"プロビンス {province_id} の中心 ({center_x}, {center_y}) に移動 (スケール: {current_scale})")
-            self.logger.debug(f"計算結果: target_x={best_target_x}, target_y={target_y}")
+            self.logger.debug(f"計算結果: scroll_x={best_scroll_x}, loop_index={best_loop_index}, target_y={target_y}")
             return True
         else:
             self.logger.warning(f"プロビンス {province_id} の中心座標が見つかりません")
             return False
 
     def move_to_province_with_zoom(self, province_id, zoom_level=3.0):
-        """指定されたプロビンスIDの位置に地図を移動し、指定されたズームレベルに設定する"""
+        """指定されたプロビンスIDの位置に地図を移動し、指定されたズームレベルに設定する（修正版）"""
         if province_id not in self.province_centroids or self.province_centroids[province_id] is None:
             self.logger.warning(f"プロビンス {province_id} の中心座標が見つかりません")
             return False
@@ -1733,10 +1790,17 @@ class MapViewer(QGraphicsView):
         
         # 目標ズームレベルに設定（絶対値指定）
         if abs(current_scale - zoom_level) > 0.1:  # 現在と異なる場合のみ変更
+            # ズーム前にプロビンス座標を記録
+            center_x, center_y = self.province_centroids[province_id]
+            
+            # ズーム実行
             self.set_absolute_zoom_level(zoom_level)
-        
-        # プロビンスに移動
-        return self.move_to_province(province_id)
+            
+            # ズーム後の新しいスケールでプロビンスに移動
+            return self.move_to_province(province_id)
+        else:
+            # ズームレベルが変わらない場合は単純に移動
+            return self.move_to_province(province_id)
 
     def set_absolute_zoom_level(self, target_zoom_level):
         """指定されたズームレベルに絶対値で設定する"""
@@ -1802,9 +1866,43 @@ class MapViewer(QGraphicsView):
                 self.logger.warning(f"プロビンス {province_id} への移動に失敗")
                 
         except Exception as e:
-            self.logger.error(f"デバウンス移動処理中にエラー: {e}")
+            self.logger.error(f"デバウンス移動実行中にエラー: {e}")
         finally:
             self._pending_move_data = None
+    
+    def test_coordinate_consistency(self, province_id):
+        """座標系の一貫性をテストする"""
+        if province_id not in self.province_centroids or self.province_centroids[province_id] is None:
+            self.logger.warning(f"プロビンス {province_id} の座標データなし")
+            return False
+            
+        center_x, center_y = self.province_centroids[province_id]
+        current_scale = self.transform().m11()
+        
+        self.logger.info(f"=== プロビンス {province_id} 座標系テスト ===")
+        self.logger.info(f"プロビンス中心座標: ({center_x}, {center_y})")
+        self.logger.info(f"現在のスケール: {current_scale}")
+        self.logger.info(f"マップサイズ: {self.original_width} x {self.original_height}")
+        self.logger.info(f"現在のscrollOffsetX: {self._scroll_offset_x}")
+        
+        # ビューポート情報
+        viewport_width = self.viewport().width()
+        viewport_height = self.viewport().height()
+        viewport_center_x = viewport_width / 2
+        viewport_center_y = viewport_height / 2
+        
+        self.logger.info(f"ビューポートサイズ: {viewport_width} x {viewport_height}")
+        self.logger.info(f"ビューポート中心: ({viewport_center_x}, {viewport_center_y})")
+        
+        # 移動計算のシミュレーション
+        current_scene_center_x = (self._scroll_offset_x + viewport_center_x) / current_scale
+        self.logger.info(f"現在のシーン中心X座標: {current_scene_center_x}")
+        
+        # プロビンス移動に必要なscrollOffsetX計算
+        required_scroll_x = (center_x * current_scale) - viewport_center_x
+        self.logger.info(f"プロビンス移動に必要なscrollOffsetX: {required_scroll_x}")
+        
+        return True
 
     def get_current_zoom_level(self):
         """現在のズームレベルを取得"""

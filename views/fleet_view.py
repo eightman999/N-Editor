@@ -53,6 +53,10 @@ class FleetView(QWidget):
         self.current_country = None
         self.countries = {}  # 国家データを保持
         self.app_controller = parent.app_controller if parent else None
+        
+        # マップ初期化状態を追跡するフラグを追加
+        self._map_initialized = False
+        self._current_mod_path = None
 
         # アイコンマネージャーを追加
         self.ship_icon_manager = ShipIconManager()
@@ -178,7 +182,7 @@ class FleetView(QWidget):
         formation_layout.addWidget(self.port_tree, 1)
 
         # 下部のマップエリア
-        self.map_widget = MapViewer()
+        self.map_widget = MapViewer(self)
 
         # スプリッターに追加（マップの比率を下げる）
         splitter = QSplitter(Qt.Vertical)
@@ -524,7 +528,15 @@ class FleetView(QWidget):
                 try:
                     current_mod = self.app_controller.get_current_mod()
                     if current_mod and "path" in current_mod:
-                        self.map_widget.load_map_data(current_mod["path"])
+                        # 重複実行を防ぐ：既に同じMODで初期化済みの場合はスキップ
+                        if not self._map_initialized or self._current_mod_path != current_mod["path"]:
+                            self.map_widget.load_map_data(current_mod["path"])
+                            self._map_initialized = True
+                            self._current_mod_path = current_mod["path"]
+                            self.logger.info(f"マップデータを読み込みました: {current_mod['path']}")
+                        else:
+                            self.logger.debug(f"マップデータは既に読み込み済み: {current_mod['path']}")
+                        
                         # 選択された国家の海軍基地を赤色で描画
                         if hasattr(self.map_widget, 'map_image_item') and hasattr(self.map_widget.map_image_item,
                                                                                   'pixmap'):
@@ -532,7 +544,6 @@ class FleetView(QWidget):
                                 if tag != "ALL":  # 全国家モードの場合は基地を描画しない
                                     self.map_widget.draw_selected_country_naval_bases(
                                         self.map_widget.map_image_item.pixmap(), tag)
-                                self.logger.info(f"マップデータを読み込みました: {current_mod['path']}")
                             except Exception as e:
                                 self.logger.warning(f"マップ描画エラー: {e}")
                     else:
@@ -1549,6 +1560,10 @@ class FleetView(QWidget):
         """MODが変更された時の処理"""
         self.logger.info(f"MODが変更されました: {mod_path}")
         try:
+            # マップ初期化状態をリセット（新しいMODのため）
+            self._map_initialized = False
+            self._current_mod_path = None
+            
             # 国家リストを再読み込み
             self.load_countries()
             # 艦隊データをクリア
@@ -1565,6 +1580,8 @@ class FleetView(QWidget):
             if MAP_VIEWER_AVAILABLE and mod_path:
                 try:
                     self.map_widget.load_map_data(mod_path)
+                    self._map_initialized = True
+                    self._current_mod_path = mod_path
                     self.logger.info(f"マップデータを再読み込み: {mod_path}")
                 except Exception as e:
                     self.logger.warning(f"マップデータ再読み込みエラー: {e}")

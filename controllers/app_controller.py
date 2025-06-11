@@ -583,27 +583,32 @@ class AppController(QObject):
 
     def _parse_state_file_worker(self, file_path):
         """
-        個別のstateファイルを解析するワーカー関数（キャッシュ対応）
+        個別のstateファイルを解析するワーカー関数（永続キャッシュ対応）
         """
+        start_time = time.time()
         try:
             # キャッシュからデータを読み込み試行
             cached_data = None
             if self.cache_manager:
                 cached_data = self.cache_manager.load("states", file_path)
                 if cached_data is not None:
-                    self.logger.debug(f"キャッシュからstateデータを読み込み: {file_path}")
+                    cache_time = time.time() - start_time
+                    self.logger.info(f"永続キャッシュからstateデータを読み込み: {os.path.basename(file_path)} ({cache_time:.3f}秒)")
                     return cached_data
 
             # キャッシュミスまたは古い場合は通常のパース処理を実行
+            parse_start = time.time()
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             parser = StateParser(content)
             parsed_data = parser.parse()
+            parse_time = time.time() - parse_start
             
             # パース成功後、キャッシュに保存
             if parsed_data and self.cache_manager:
                 self.cache_manager.save("states", file_path, parsed_data)
-                self.logger.debug(f"stateデータをキャッシュに保存: {file_path}")
+                total_time = time.time() - start_time
+                self.logger.info(f"stateファイルを解析して永続キャッシュに保存: {os.path.basename(file_path)} (パース: {parse_time:.3f}秒, 総時間: {total_time:.3f}秒)")
             
             return parsed_data
             
@@ -613,27 +618,32 @@ class AppController(QObject):
 
     def _parse_strategic_region_file_worker(self, file_path):
         """
-        個別のstrategic regionファイルを解析するワーカー関数（キャッシュ対応）
+        個別のstrategic regionファイルを解析するワーカー関数（永続キャッシュ対応）
         """
+        start_time = time.time()
         try:
             # キャッシュからデータを読み込み試行
             cached_data = None
             if self.cache_manager:
                 cached_data = self.cache_manager.load("strategic_regions", file_path)
                 if cached_data is not None:
-                    self.logger.debug(f"キャッシュからstrategic regionデータを読み込み: {file_path}")
+                    cache_time = time.time() - start_time
+                    self.logger.info(f"永続キャッシュからstrategic regionデータを読み込み: {os.path.basename(file_path)} ({cache_time:.3f}秒)")
                     return cached_data
 
             # キャッシュミスまたは古い場合は通常のパース処理を実行
+            parse_start = time.time()
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             parser = StrategicRegionParser(content)
             parsed_data = parser.parse()
+            parse_time = time.time() - parse_start
             
             # パース成功後、キャッシュに保存
             if parsed_data and self.cache_manager:
                 self.cache_manager.save("strategic_regions", file_path, parsed_data)
-                self.logger.debug(f"strategic regionデータをキャッシュに保存: {file_path}")
+                total_time = time.time() - start_time
+                self.logger.info(f"strategic regionファイルを解析して永続キャッシュに保存: {os.path.basename(file_path)} (パース: {parse_time:.3f}秒, 総時間: {total_time:.3f}秒)")
             
             return parsed_data
             
@@ -1159,49 +1169,50 @@ class AppController(QObject):
 
     def get_nations(self, mod_path):
         """
-        MODから国家情報を取得（キャッシュ対応）
+        MODから国家情報を取得（統合キャッシュシステム + 国旗スプライトシート対応）
         """
         try:
-            # キャッシュキーとしてmod_pathのハッシュまたは特定ファイルを使用
+            # 必要なディレクトリパス
             country_tags_dir = os.path.join(mod_path, "common", "country_tags")
+            flags_dir = os.path.join(mod_path, "gfx", "flags")
+            
+            # ディレクトリが存在しない場合は空リストを返す
+            if not os.path.exists(country_tags_dir):
+                logger.error(f"国家タグディレクトリが見つかりません: {country_tags_dir}")
+                return []
+
+            # キャッシュキー用のファイルリストを生成（country_tagsディレクトリの全.txtファイル）
+            cache_key_files = []
+            for filename in os.listdir(country_tags_dir):
+                if filename.endswith(".txt"):
+                    cache_key_files.append(os.path.join(country_tags_dir, filename))
+            
+            if not cache_key_files:
+                logger.warning(f"国家タグファイルが見つかりません: {country_tags_dir}")
+                return []
+            
+            # 複数ファイル依存のキャッシュキーを生成（'+' で結合）
+            combined_cache_key = "+".join(sorted(cache_key_files))
             
             # キャッシュからデータを読み込み試行
             cached_data = None
-            if self.cache_manager and os.path.exists(country_tags_dir):
-                # ディレクトリ全体のキャッシュキーを生成（代表的なファイルを使用）
-                cache_key_file = os.path.join(country_tags_dir, "00_countries.txt")
-                if not os.path.exists(cache_key_file):
-                    # 最初に見つかったファイルを使用
-                    for filename in os.listdir(country_tags_dir):
-                        if filename.endswith(".txt"):
-                            cache_key_file = os.path.join(country_tags_dir, filename)
-                            break
-                
-                if os.path.exists(cache_key_file):
-                    cached_data = self.cache_manager.load("country_tags", cache_key_file)
-                    if cached_data is not None:
-                        self.logger.debug(f"キャッシュから国家データを読み込み: {country_tags_dir}")
-                        return cached_data
+            if self.cache_manager:
+                cached_data = self.cache_manager.load("nations_cache", combined_cache_key)
+                if cached_data is not None:
+                    logger.debug(f"キャッシュから国家データを読み込み: {len(cached_data)}件")
+                    
+                    # 国旗スプライトシートの確認・生成
+                    self._ensure_flag_sprite_sheet(cached_data)
+                    return cached_data
 
             # キャッシュミスまたは古い場合は通常の処理を実行
             nations = []
             logger.info(f"国家情報の取得を開始: MODパス={mod_path}")
 
-            # 国旗ディレクトリ
-            flags_dir = os.path.join(mod_path, "gfx", "flags")
-
-            # ディレクトリが存在しない場合は空リストを返す
-            if not os.path.exists(country_tags_dir):
-                logger.error(f"国家タグディレクトリが見つかりません: {country_tags_dir}")
-                return nations
-
             # 国家タグファイルを探索
-            for filename in os.listdir(country_tags_dir):
-                if not filename.endswith(".txt"):
-                    continue
-
-                file_path = os.path.join(country_tags_dir, filename)
-
+            for file_path in cache_key_files:
+                filename = os.path.basename(file_path)
+                
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
@@ -1228,10 +1239,19 @@ class AppController(QObject):
                 except Exception as e:
                     logger.error(f"国家タグファイル '{filename}' の解析エラー: {e}")
 
+            # 重複タグを除去（後から読み込まれたものを優先）
+            unique_nations = {}
+            for nation in nations:
+                unique_nations[nation["tag"]] = nation
+            nations = list(unique_nations.values())
+
             # パース成功後、キャッシュに保存
-            if nations and self.cache_manager and os.path.exists(cache_key_file):
-                self.cache_manager.save("country_tags", cache_key_file, nations)
-                self.logger.debug(f"国家データをキャッシュに保存: {country_tags_dir}")
+            if nations and self.cache_manager:
+                self.cache_manager.save("nations_cache", combined_cache_key, nations)
+                logger.debug(f"国家データをキャッシュに保存: {len(nations)}件")
+
+            # 国旗スプライトシートの生成
+            self._ensure_flag_sprite_sheet(nations)
 
             logger.info(f"国家情報の取得完了: {len(nations)}件の国家を処理")
             return nations
@@ -1239,6 +1259,46 @@ class AppController(QObject):
         except Exception as e:
             logger.error(f"国家情報取得中にエラーが発生しました: {e}")
             return []
+
+    def _ensure_flag_sprite_sheet(self, nations):
+        """
+        国旗スプライトシートが存在しない、または古い場合に生成する
+        
+        Args:
+            nations: 国家情報のリスト
+        """
+        try:
+            if not hasattr(self, '_flag_sprite_manager'):
+                from utils.flag_sprite_manager import FlagSpriteManager
+                # キャッシュディレクトリにflags専用サブディレクトリを作成
+                flags_cache_dir = os.path.join(
+                    self.cache_manager.base_cache_dir if self.cache_manager else "cache",
+                    "flags"
+                )
+                self._flag_sprite_manager = FlagSpriteManager(flags_cache_dir)
+            
+            # スプライトシートのキャッシュが有効かチェック
+            if not self._flag_sprite_manager.is_cache_valid(nations):
+                logger.info("国旗スプライトシートを生成中...")
+                success = self._flag_sprite_manager.generate_sprite_sheet(nations)
+                if success:
+                    logger.info("国旗スプライトシート生成完了")
+                else:
+                    logger.warning("国旗スプライトシート生成に失敗")
+            else:
+                logger.debug("国旗スプライトシートキャッシュは有効")
+                
+        except Exception as e:
+            logger.error(f"国旗スプライトシート処理エラー: {e}")
+
+    def get_flag_sprite_manager(self):
+        """
+        国旗スプライトマネージャーのインスタンスを取得
+        
+        Returns:
+            FlagSpriteManager: スプライトマネージャー、初期化されていない場合はNone
+        """
+        return getattr(self, '_flag_sprite_manager', None)
 
     # 設計関連機能（残りのメソッドも同様に実装...）
 
@@ -1261,8 +1321,11 @@ class AppController(QObject):
             file_name = f"{design_id}.json"
             file_path = os.path.join(base_dir, file_name)
 
-            # JSONに変換して保存
+            # ヘッダー付きでJSONに変換して保存
             with open(file_path, 'w', encoding='utf-8') as f:
+                # ヘッダーを最初に書き込み
+                f.write("@config.design\n")
+                # JSONデータを書き込み
                 json.dump(design_data, f, ensure_ascii=False, indent=2)
 
             print(f"設計データ '{design_id}' を保存しました。")
@@ -1297,9 +1360,13 @@ class AppController(QObject):
                 print(f"設計ID '{design_id}' のデータが見つかりません。")
                 return None
 
-            # JSONから読み込み
-            with open(file_path, 'r', encoding='utf-8') as f:
-                design_data = json.load(f)
+            # ヘッダーチェック付きで読み込み
+            from utils.design_file_validator import load_design_file_with_validation
+            design_data = load_design_file_with_validation(file_path)
+            
+            if design_data is None:
+                print(f"設計ID '{design_id}' のファイルはヘッダーチェックに失敗しました。")
+                return None
 
             # print(f"設計ID '{design_id}' のデータを読み込みました。")
             return design_data
@@ -1324,17 +1391,26 @@ class AppController(QObject):
             if not os.path.exists(designs_dir):
                 return designs
 
-            # ディレクトリ内のJSONファイルを全て読み込む
-            for file_name in os.listdir(designs_dir):
-                if file_name.endswith('.json'):
-                    file_path = os.path.join(designs_dir, file_name)
-                    try:
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            design_data = json.load(f)
+            # ヘッダーチェック付きで有効な設計ファイルを取得
+            from utils.design_file_validator import get_design_files_with_validation, load_design_file_with_validation
+            
+            valid_files = get_design_files_with_validation(designs_dir)
+            skipped_count = 0
+            
+            # 有効な設計ファイルのみを読み込む
+            for file_path in valid_files:
+                try:
+                    design_data = load_design_file_with_validation(file_path)
+                    if design_data is not None:
                         designs.append(design_data)
-                    except Exception as e:
-                        print(f"設計ファイル '{file_name}' の読み込みエラー: {e}")
+                    else:
+                        skipped_count += 1
+                        print(f"設計ファイルをスキップしました（ヘッダー不正）: {os.path.basename(file_path)}")
+                except Exception as e:
+                    skipped_count += 1
+                    print(f"設計ファイル '{os.path.basename(file_path)}' の読み込みエラー: {e}")
 
+            print(f"設計データ読み込み完了: {len(designs)}個のファイルを読み込み、{skipped_count}個をスキップしました")
             return designs
 
         except Exception as e:

@@ -53,10 +53,29 @@ def setup_qt_plugin_path():
             if hasattr(sys, 'frozen'):
                 plugin_path = os.path.join(sys._MEIPASS, 'PyQt5', 'Qt', 'plugins')
             else:
-                plugin_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                           '.venv', 'lib', f'python{sys.version_info.major}.{sys.version_info.minor}',
-                                           'site-packages',
-                                           'PyQt5', 'Qt5', 'plugins')
+                # macOSの複数パスを試行
+                possible_paths = [
+                    os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 '.venv', 'lib', f'python{sys.version_info.major}.{sys.version_info.minor}',
+                                 'site-packages', 'PyQt5', 'Qt5', 'plugins'),
+                    os.path.join(sys.prefix, 'lib', f'python{sys.version_info.major}.{sys.version_info.minor}',
+                                 'site-packages', 'PyQt5', 'Qt5', 'plugins'),
+                    '/opt/homebrew/lib/python*/site-packages/PyQt5/Qt5/plugins',
+                    '/usr/local/lib/python*/site-packages/PyQt5/Qt5/plugins'
+                ]
+                
+                plugin_path = None
+                for path in possible_paths:
+                    if '*' in path:
+                        # ワイルドカードパスの展開
+                        import glob
+                        matches = glob.glob(path)
+                        if matches:
+                            plugin_path = matches[0]
+                            break
+                    elif os.path.exists(path):
+                        plugin_path = path
+                        break
 
         else:
             # Linux環境
@@ -74,9 +93,12 @@ def setup_qt_plugin_path():
             logger.info(f"Qt plugin path set to: {plugin_path}")
         else:
             logger.warning(f"Qt plugin path not found. Tried: {plugin_path if plugin_path else 'None'}")
-            # 環境変数をクリア（システムデフォルトを使用）
-            if "QT_QPA_PLATFORM_PLUGIN_PATH" in os.environ:
-                del os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"]
+            # macOSの場合は追加の環境変数設定を試行
+            if platform.system() == "Darwin":
+                os.environ.setdefault("QT_QPA_PLATFORM", "cocoa")
+                # システムのQtプラグインパスを設定
+                if "QT_QPA_PLATFORM_PLUGIN_PATH" in os.environ:
+                    del os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"]
 
     except Exception as e:
         logger.error(f"Error setting up Qt plugin path: {e}")
