@@ -339,7 +339,8 @@ class DesignView(QWidget):
                 elif stat_id == 'manpower':
                     # 総人員数
                     # 人員の表示
-                    value_text = f"{int(value)}名({int(value/all_crew*100)}%)"
+                    percentage = int(value/all_crew*100) if all_crew > 0 else 0
+                    value_text = f"{int(value)}名({percentage}%)"
                     value_widget = QLabel(value_text)
                 elif stat_id in ['lg_attack', 'hg_attack', 'lg_armor_piercing', 'hg_armor_piercing', 'anti_air_attack']:
                     # 砲系統ステータスの表示（小数点1位まで）
@@ -758,13 +759,17 @@ class DesignView(QWidget):
             design_table.setHorizontalHeaderLabels(["ID", "艦級名", "船体", "艦種"])
             design_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)  # 艦級名列を拡大
 
-            # 設計データをテーブルに追加
+            # 設計データをテーブルに追加（ヘッダーチェック付き）
             designs = []
+            from utils.design_file_validator import load_design_file_with_validation
+            skipped_count = 0
+            
             for file_name in design_files:
                 try:
                     file_path = os.path.join(base_dir, file_name)
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        design_data = json.load(f)
+                    design_data = load_design_file_with_validation(file_path)
+                    
+                    if design_data is not None:
                         designs.append(design_data)
 
                         # テーブルに行を追加
@@ -774,8 +779,15 @@ class DesignView(QWidget):
                         design_table.setItem(row, 1, QTableWidgetItem(design_data.get("design_name", "")))
                         design_table.setItem(row, 2, QTableWidgetItem(design_data.get("hull_name", "")))
                         design_table.setItem(row, 3, QTableWidgetItem(design_data.get("ship_type", "")))
+                    else:
+                        skipped_count += 1
+                        print(f"設計ファイルをスキップしました（ヘッダー不正）: {file_name}")
                 except Exception as e:
+                    skipped_count += 1
                     print(f"設計データ読み込みエラー ({file_name}): {e}")
+            
+            if skipped_count > 0:
+                print(f"設計読み込み完了: {len(designs)}個のファイルを読み込み、{skipped_count}個をスキップしました")
 
             dialog_layout.addWidget(design_table)
 

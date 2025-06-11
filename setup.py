@@ -80,7 +80,7 @@ def initialize_database():
 
     # 初期設定の保存
     cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-                   ("version", "1.0.0"))
+                   ("version", "0.0.2"))
 
     cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
                    ("created_at", "2025-05-15"))
@@ -95,7 +95,7 @@ def create_default_config():
     """デフォルト設定ファイルを作成する"""
     default_config = {
         "app_name": "Naval Design System",
-        "version": "1.0.0",
+        "version": "0.0.2",
         "data_paths": {
             "equipment": "data/equipments",
             "hull": "data/hulls",

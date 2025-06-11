@@ -123,8 +123,13 @@ class NationView(QWidget):
         self.display_nations(nations)
 
     def display_nations(self, nations):
-        """国家リストを表示"""
+        """国家リストを表示（スプライトシート最適化版）"""
         self.nation_list.clear()
+        
+        # 国旗スプライトマネージャーを取得
+        flag_sprite_manager = None
+        if self.app_controller:
+            flag_sprite_manager = self.app_controller.get_flag_sprite_manager()
         
         # リストに追加
         for nation in nations:
@@ -135,28 +140,10 @@ class NationView(QWidget):
             # リストアイテムの作成
             item = QListWidgetItem()
 
-            # 国旗画像の設定（存在する場合）
-            if flag_path and os.path.exists(flag_path):
-                try:
-                    # TGAファイルの読み込み
-                    # 注: PyQt5は直接TGAをサポートしていないため、
-                    # 実際の実装ではPILなどを使った変換が必要
-                    from PIL import Image
-                    import io
-
-                    img = Image.open(flag_path)
-                    img_data = io.BytesIO()
-                    img.save(img_data, format='PNG')
-                    pixmap = QPixmap()
-                    pixmap.loadFromData(img_data.getvalue())
-                    pixmap = pixmap.scaled(32, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-
-                    item.setIcon(QIcon(pixmap))
-                except ImportError:
-                    # PILがインストールされていない場合
-                    print("PILライブラリがインストールされていません。国旗画像の表示にはPillowが必要です。")
-                except Exception as e:
-                    print(f"国旗画像の読み込みエラー: {e}")
+            # 国旗画像の設定
+            flag_icon = self._load_flag_icon(tag, flag_path, flag_sprite_manager)
+            if flag_icon:
+                item.setIcon(flag_icon)
 
             # テキスト設定
             item.setText(f"{tag}: {name}")
@@ -165,6 +152,139 @@ class NationView(QWidget):
             self.nation_list.addItem(item)
 
         self.nation_list.sortItems()  # アルファベット順にソート
+
+    def _load_flag_icon(self, nation_tag, flag_path, flag_sprite_manager):
+        """
+        国旗アイコンを読み込む（スプライトシート優先、フォールバック付き）
+        
+        Args:
+            nation_tag: 国家タグ
+            flag_path: 元の国旗ファイルパス
+            flag_sprite_manager: スプライトマネージャー
+            
+        Returns:
+            QIcon: 国旗アイコン、読み込み失敗時はNone
+        """
+        try:
+            # 1. スプライトシートから国旗を取得を試行
+            if flag_sprite_manager:
+                flag_img = flag_sprite_manager.extract_flag(nation_tag)
+                if flag_img:
+                    # PIL ImageをQPixmapに変換
+                    pixmap = self._pil_to_qpixmap(flag_img)
+                    if pixmap:
+                        return QIcon(pixmap)
+            
+            # 2. フォールバック: 個別ファイルから直接読み込み
+            if flag_path and os.path.exists(flag_path):
+                return self._load_flag_from_file(flag_path)
+            
+            # 3. デフォルト国旗アイコンを生成
+            return self._create_default_flag_icon(nation_tag)
+            
+        except Exception as e:
+            print(f"国旗アイコン読み込みエラー ({nation_tag}): {e}")
+            return self._create_default_flag_icon(nation_tag)
+
+    def _pil_to_qpixmap(self, pil_image):
+        """
+        PIL ImageをQPixmapに変換
+        
+        Args:
+            pil_image: PIL Image
+            
+        Returns:
+            QPixmap: 変換されたPixmap、失敗時はNone
+        """
+        try:
+            import io
+            
+            # PIL ImageをPNG形式でバイトデータに変換
+            img_data = io.BytesIO()
+            pil_image.save(img_data, format='PNG')
+            
+            # QPixmapに読み込み
+            pixmap = QPixmap()
+            if pixmap.loadFromData(img_data.getvalue()):
+                return pixmap
+            
+            return None
+            
+        except Exception as e:
+            print(f"PIL -> QPixmap変換エラー: {e}")
+            return None
+
+    def _load_flag_from_file(self, flag_path):
+        """
+        ファイルから直接国旗を読み込み（従来の方法）
+        
+        Args:
+            flag_path: 国旗ファイルのパス
+            
+        Returns:
+            QIcon: 国旗アイコン、失敗時はNone
+        """
+        try:
+            from PIL import Image
+            import io
+
+            img = Image.open(flag_path)
+            
+            # RGBA形式に変換
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
+            
+            # サイズを調整
+            img = img.resize((32, 20), Image.LANCZOS)
+            
+            # QPixmapに変換
+            pixmap = self._pil_to_qpixmap(img)
+            if pixmap:
+                return QIcon(pixmap)
+                
+        except ImportError:
+            # PILがインストールされていない場合
+            print("PILライブラリがインストールされていません。国旗画像の表示にはPillowが必要です。")
+        except Exception as e:
+            print(f"国旗画像の個別読み込みエラー: {e}")
+        
+        return None
+
+    def _create_default_flag_icon(self, nation_tag):
+        """
+        デフォルト国旗アイコンを作成
+        
+        Args:
+            nation_tag: 国家タグ
+            
+        Returns:
+            QIcon: デフォルトアイコン
+        """
+        try:
+            # グレーの背景でテキストを描画
+            pixmap = QPixmap(32, 20)
+            pixmap.fill(Qt.gray)
+            
+            from PyQt5.QtGui import QPainter, QFont
+            painter = QPainter(pixmap)
+            painter.setPen(Qt.white)
+            
+            # フォントサイズを調整
+            font = QFont()
+            font.setPixelSize(8)
+            painter.setFont(font)
+            
+            # 国家タグを描画（最初の2文字）
+            text = nation_tag[:2] if len(nation_tag) >= 2 else nation_tag
+            painter.drawText(pixmap.rect(), Qt.AlignCenter, text)
+            painter.end()
+            
+            return QIcon(pixmap)
+            
+        except Exception as e:
+            print(f"デフォルト国旗作成エラー ({nation_tag}): {e}")
+            # 最後の手段として空のアイコンを返す
+            return QIcon()
 
     def display_cached_nations(self):
         """キャッシュされた国家データを表示"""

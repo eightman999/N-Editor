@@ -191,7 +191,7 @@ class SyncManager(QObject):
 
     def _create_gitignore(self):
         """Naval Design System用の.gitignoreファイルを作成"""
-        gitignore_content = """# Naval Design System - Generated .gitignore
+        gitignore_content = r"""# Naval Design System - Generated .gitignore
 # このファイルはNaval Design Systemによって自動生成されました
 # 必要に応じて手動で編集してください
 
