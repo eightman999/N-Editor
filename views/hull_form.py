@@ -58,6 +58,10 @@ class HullForm(QWidget):
         self.id_edit = QLineEdit()
         basic_layout.addRow("ID:", self.id_edit)
 
+        # description
+        self.description_edit = QLineEdit()
+        basic_layout.addRow("description:", self.description_edit)
+
         # 種別（TYPE）
         self.type_combo = QComboBox()
         # TYPEリストの追加（HOI4の艦艇種別）
@@ -413,6 +417,7 @@ class HullForm(QWidget):
         return {
             "name": self.name_edit.text(),
             "id": self.id_edit.text(),
+            "description": self.description_edit.text(),
             "type": self.type_combo.currentText(),
             "class": self.class_edit.text(),
             "year": self.year_spin.value(),
@@ -449,6 +454,7 @@ class HullForm(QWidget):
         # 基本情報
         self.name_edit.setText(data.get("name", ""))
         self.id_edit.setText(data.get("id", ""))
+        self.description_edit.setText(data.get("description", ""))
 
         # 種別(TYPE)
         type_index = self.type_combo.findText(data.get("type", ""))
@@ -547,6 +553,7 @@ class HullForm(QWidget):
         """フォームのクリア"""
         self.name_edit.clear()
         self.id_edit.clear()
+        self.description_edit.clear()
         self.type_combo.setCurrentIndex(0)
         self.class_edit.clear()
         self.year_spin.setValue(1936)

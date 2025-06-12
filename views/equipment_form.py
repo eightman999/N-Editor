@@ -694,13 +694,13 @@ class EquipmentForm(QWidget):
         try:
             # 共通フィールド
             common_fields = [
-                '名前', 'ID', '重量', '人員', '開発年', '開発国',
+                '名前', 'ID', 'description', '重量', '人員', '開発年', '開発国',
                 '必要資源_鉄', '必要資源_クロム', '必要資源_アルミ',
                 '必要資源_タングステン', '必要資源_ゴム'
             ]
 
             for field_name in common_fields:
-                if field_name in ['名前', 'ID', '開発国']:
+                if field_name in ['名前', 'ID', 'description', '開発国']:
                     field = QLineEdit()
                 elif field_name in ['重量']:
                     field = QDoubleSpinBox()

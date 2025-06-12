@@ -21,6 +21,7 @@ def is_frozen():
 tokens = (
     'ID',           # 識別子 (例: id, name, owner, infrastructure, ABA, THIS)
     'NUMBER',       # 数値 (整数または浮動小数点数)
+    'DATE',         # 日付 (例: 1938.3.12)
     'STRING',       # 引用符で囲まれた文字列 (例: "STATE_367")
     'EQUALS',       # =
     'LBRACE',       # {
@@ -34,12 +35,17 @@ t_EQUALS = r'='
 t_LBRACE = r'{'
 t_RBRACE = r'}'
 t_STRING = r'"[^\n"]*"'
-t_DOT = r'\.' # ドットの正規表現
+t_DOT = r'\.'  # ドットの正規表現
 t_SPACE = r'\s+'
 
 # PLYのレクサーは、定義順が早いもの、またはより長いパターンを優先します。
+def t_DATE(t):
+    r'\d{4}\.\d{1,2}\.\d{1,2}'  # 日付形式 (例: 1938.3.12)
+    t.value = str(t.value)  # 日付は文字列として保持
+    return t
+
 def t_NUMBER(t):
-    r'[-+]?\d+\.\d*|[-+]?\d+' # 浮動小数点数または整数
+    r'[-+]?\d+\.\d*|[-+]?\d+'  # 浮動小数点数または整数
     if '.' in t.value:
         t.value = float(t.value)
     else:
@@ -57,7 +63,7 @@ t_ignore = ' \t\r'
 # コメントの無視
 def t_COMMENT(t):
     r'\#.*'
-    pass # コメントは何もしない
+    pass  # コメントは何もしない
 
 # 改行の処理 (行数を追跡するため)
 def t_newline(t):
@@ -100,10 +106,11 @@ def p_statements(p):
                     result[key] = value
         p[0] = result
 
-# 新しいルール: キーはID、NUMBER、またはQUALIFIED_ID
+# 新しいルール: キーはID、NUMBER、DATE、またはQUALIFIED_ID
 def p_KEY(p):
     '''KEY : ID
            | NUMBER
+           | DATE
            | QUALIFIED_ID'''
     p[0] = p[1]
 
@@ -114,18 +121,16 @@ def p_QUALIFIED_ID(p):
 
 def p_statement(p):
     '''statement : KEY EQUALS value
-                 | QUALIFIED_ID EQUALS ID
                  | KEY EQUALS LBRACE add_to_array_content RBRACE'''
     if len(p) == 4:
         p[0] = {p[1]: p[3]}
-    elif len(p) == 5:
+    else:  # len(p) == 6
         p[0] = {p[1]: p[4]}
-    else:
-        p[0] = {p[1]: p[3]}
 
 def p_value(p):
     '''value : ID
              | NUMBER
+             | DATE
              | STRING
              | LBRACE block_content_inside RBRACE'''
     if len(p) == 2:
@@ -151,15 +156,23 @@ def p_value_list(p):
                   | value_list SPACE value_item'''
     if len(p) == 2:
         p[0] = [p[1]]
-    else:
+    elif len(p) == 3:
+        # value_list value_item
         if isinstance(p[1], list):
             p[0] = p[1] + [p[2]]
         else:
             p[0] = [p[1], p[2]]
+    else:
+        # value_list SPACE value_item
+        if isinstance(p[1], list):
+            p[0] = p[1] + [p[3]]
+        else:
+            p[0] = [p[1], p[3]]
 
 def p_value_item(p):
     '''value_item : ID
                   | NUMBER
+                  | DATE
                   | STRING
                   | QUALIFIED_ID'''
     p[0] = p[1]
@@ -171,10 +184,23 @@ def p_add_to_array_content(p):
 # エラーハンドリング
 def p_error(p):
     if p:
-        print(f"Syntax error at token '{p.value}' (type: {p.type}) at line {p.lineno}, index {p.lexpos}")
+        # より詳細なエラー情報を提供
+        error_msg = f"Syntax error at token '{p.value}' (type: {p.type}) at line {p.lineno}, position {p.lexpos}"
+        
+        # パーサースタックの状態情報も表示（デバッグ用）
+        if hasattr(p.lexer, 'lexdata'):
+            # エラー位置周辺のコンテキストを表示
+            start = max(0, p.lexpos - 50)
+            end = min(len(p.lexer.lexdata), p.lexpos + 50)
+            context = p.lexer.lexdata[start:end]
+            error_msg += f"\nContext: ...{context}..."
+        
+        print(error_msg)
+        raise SyntaxError(f"Parsing failed due to syntax error: {error_msg}")
     else:
-        print("Syntax error at EOF (Unexpected end of file).")
-    raise SyntaxError("Parsing failed due to syntax error.")
+        error_msg = "Syntax error at EOF (Unexpected end of file)."
+        print(error_msg)
+        raise SyntaxError(f"Parsing failed due to syntax error: {error_msg}")
 
 class StateParser:
     def __init__(self, content):
@@ -304,10 +330,16 @@ class StateParser:
 
                 processed_history_keys = ['owner', 'add_core_of', 'add_claim_by', 'buildings', 'victory_points', 'add_to_array']
                 for key, value in history_data.items():
-                    if key not in processed_history_keys and isinstance(value, dict):
-                        if 'other_history_blocks' not in final_data:
-                            final_data['other_history_blocks'] = {}
-                        final_data['other_history_blocks'][key] = value
+                    if key not in processed_history_keys:
+                        # 日付キー（例: "1938.3.12"）の処理
+                        if isinstance(key, str) and '.' in key and key.replace('.', '').isdigit():
+                            if 'dated_events' not in final_data:
+                                final_data['dated_events'] = {}
+                            final_data['dated_events'][key] = value
+                        elif isinstance(value, dict):
+                            if 'other_history_blocks' not in final_data:
+                                final_data['other_history_blocks'] = {}
+                            final_data['other_history_blocks'][key] = value
 
             return final_data
 

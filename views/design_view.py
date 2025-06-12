@@ -1074,41 +1074,201 @@ class DesignView(QWidget):
             traceback.print_exc()
 
     def remove_internal_slot(self):
-        """内部スロットの削除"""
+        """内部スロットの削除（選択可能）"""
         try:
             # 内部スロットがない場合は何もしない
             if not self.internal_slots:
                 QMessageBox.information(self, "情報", "削除する内部スロットがありません。")
                 return
 
-            # 最後のスロットを削除
-            slot_info = self.internal_slots.pop()
+            # 削除対象選択ダイアログを表示
+            dialog = QDialog(self)
+            dialog.setWindowTitle("削除するスロットを選択")
+            dialog.setMinimumWidth(400)
+            dialog.setMinimumHeight(300)
 
-            # UIから削除
-            self.internal_slots_grid.removeWidget(slot_info["label"])
-            self.internal_slots_grid.removeWidget(slot_info["category_button"])
-            self.internal_slots_grid.removeWidget(slot_info["equipment_combo"])
+            layout = QVBoxLayout(dialog)
+            layout.addWidget(QLabel("削除したい内部スロットを選択してください:"))
 
-            # ウィジェットを削除
-            slot_info["label"].deleteLater()
-            slot_info["category_button"].deleteLater()
-            slot_info["equipment_combo"].deleteLater()
+            # スロット一覧を表示
+            slot_list = QListWidget()
+            slot_list.setSelectionMode(QListWidget.MultiSelection)
+            
+            for i, slot_info in enumerate(self.internal_slots):
+                slot_id = slot_info["id"]
+                slot_num = i + 1
+                
+                # カテゴリー情報取得
+                categories = []
+                if hasattr(self, 'slot_category_selections') and slot_id in self.slot_category_selections:
+                    categories = self.slot_category_selections[slot_id]
+                
+                # 装備情報取得
+                equipment_combo = slot_info["equipment_combo"]
+                equipment_text = equipment_combo.currentText()
+                equipment_info = "なし"
+                if equipment_text != "選択する":
+                    equipment_info = equipment_text
+                
+                # 表示テキスト作成
+                display_text = f"内部 {slot_num} ({slot_id})"
+                if categories:
+                    display_text += f" - カテゴリー: {', '.join(categories[:2])}"
+                    if len(categories) > 2:
+                        display_text += f" (+{len(categories)-2}個)"
+                
+                if equipment_info != "なし":
+                    # 装備名のみ表示（長すぎる場合は省略）
+                    eq_name = equipment_info.split(' (')[0] if ' (' in equipment_info else equipment_info
+                    if len(eq_name) > 20:
+                        eq_name = eq_name[:17] + "..."
+                    display_text += f" - 装備: {eq_name}"
+                
+                item = QListWidgetItem(display_text)
+                item.setData(Qt.UserRole, i)  # インデックスを保存
+                slot_list.addItem(item)
 
-            # 辞書からも削除
-            slot_id = slot_info["id"]
-            if slot_id in self.slot_category_combos:
-                del self.slot_category_combos[slot_id]
-            if slot_id in self.slot_combos:
-                del self.slot_combos[slot_id]
+            layout.addWidget(slot_list)
 
-            print(f"内部スロット {slot_id} を削除しました。")
+            # ボタンレイアウト
+            button_layout = QHBoxLayout()
+            
+            select_all_button = QPushButton("全選択")
+            def select_all():
+                for i in range(slot_list.count()):
+                    slot_list.item(i).setSelected(True)
+            select_all_button.clicked.connect(select_all)
+            button_layout.addWidget(select_all_button)
 
-            # スロット削除後にステータス表示を更新
-            current_design_data = self.get_current_design_data()
-            self.update_stats_display(current_design_data)
+            clear_selection_button = QPushButton("選択解除")
+            def clear_selection():
+                slot_list.clearSelection()
+            clear_selection_button.clicked.connect(clear_selection)
+            button_layout.addWidget(clear_selection_button)
+
+            button_layout.addStretch()
+
+            ok_button = QPushButton("削除")
+            cancel_button = QPushButton("キャンセル")
+
+            def on_delete():
+                selected_items = slot_list.selectedItems()
+                if not selected_items:
+                    QMessageBox.warning(dialog, "警告", "削除するスロットを選択してください。")
+                    return
+
+                # 確認ダイアログ
+                reply = QMessageBox.question(
+                    dialog, 
+                    "確認", 
+                    f"{len(selected_items)}個のスロットを削除しますか？\n削除後は元に戻せません。",
+                    QMessageBox.Yes | QMessageBox.No, 
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    # 選択されたインデックスを降順でソート（後ろから削除するため）
+                    selected_indices = [item.data(Qt.UserRole) for item in selected_items]
+                    selected_indices.sort(reverse=True)
+                    
+                    # 削除実行
+                    deleted_count = 0
+                    for index in selected_indices:
+                        if 0 <= index < len(self.internal_slots):
+                            slot_info = self.internal_slots[index]
+                            
+                            # UIから削除
+                            self.internal_slots_grid.removeWidget(slot_info["label"])
+                            self.internal_slots_grid.removeWidget(slot_info["category_button"])
+                            self.internal_slots_grid.removeWidget(slot_info["equipment_combo"])
+
+                            # ウィジェットを削除
+                            slot_info["label"].deleteLater()
+                            slot_info["category_button"].deleteLater()
+                            slot_info["equipment_combo"].deleteLater()
+
+                            # 辞書からも削除
+                            slot_id = slot_info["id"]
+                            if slot_id in self.slot_category_combos:
+                                del self.slot_category_combos[slot_id]
+                            if slot_id in self.slot_combos:
+                                del self.slot_combos[slot_id]
+                            if hasattr(self, 'slot_category_selections') and slot_id in self.slot_category_selections:
+                                del self.slot_category_selections[slot_id]
+
+                            # リストから削除
+                            del self.internal_slots[index]
+                            deleted_count += 1
+                    
+                    # スロット番号を再計算して表示を更新
+                    self._refresh_internal_slots_display()
+                    
+                    # ステータス表示を更新
+                    current_design_data = self.get_current_design_data()
+                    self.update_stats_display(current_design_data)
+                    
+                    QMessageBox.information(dialog, "完了", f"{deleted_count}個のスロットを削除しました。")
+                    dialog.accept()
+
+            ok_button.clicked.connect(on_delete)
+            cancel_button.clicked.connect(dialog.reject)
+
+            button_layout.addWidget(ok_button)
+            button_layout.addWidget(cancel_button)
+            
+            layout.addLayout(button_layout)
+            
+            dialog.exec_()
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"内部スロット削除中にエラーが発生しました: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _refresh_internal_slots_display(self):
+        """内部スロットの表示を再描画"""
+        try:
+            # 既存のレイアウトをクリア
+            while self.internal_slots_grid.count():
+                child = self.internal_slots_grid.takeAt(0)
+                if child.widget():
+                    child.widget().deleteLater()
+            
+            # スロットを再配置
+            for i, slot_info in enumerate(self.internal_slots):
+                row = i // 2  # 2列表示
+                col = (i % 2) * 3  # 各スロットは3セル使用
+                
+                # スロット番号を更新
+                slot_num = i + 1
+                slot_info["label"].setText(f"内部 {slot_num}:")
+                
+                # 新しいスロットIDを生成
+                old_slot_id = slot_info["id"]
+                new_slot_id = f"INT{slot_num}"
+                slot_info["id"] = new_slot_id
+                
+                # 辞書のキーを更新
+                if old_slot_id in self.slot_category_combos:
+                    self.slot_category_combos[new_slot_id] = self.slot_category_combos.pop(old_slot_id)
+                if old_slot_id in self.slot_combos:
+                    self.slot_combos[new_slot_id] = self.slot_combos.pop(old_slot_id)
+                if hasattr(self, 'slot_category_selections') and old_slot_id in self.slot_category_selections:
+                    self.slot_category_selections[new_slot_id] = self.slot_category_selections.pop(old_slot_id)
+                
+                # カテゴリーボタンのクリックイベントを更新
+                slot_info["category_button"].clicked.disconnect()
+                slot_info["category_button"].clicked.connect(
+                    lambda _, s_id=new_slot_id: self.show_category_selection_dialog(s_id)
+                )
+                
+                # ウィジェットを再配置
+                self.internal_slots_grid.addWidget(slot_info["label"], row, col)
+                self.internal_slots_grid.addWidget(slot_info["category_button"], row, col + 1)
+                self.internal_slots_grid.addWidget(slot_info["equipment_combo"], row, col + 2)
+            
+        except Exception as e:
+            print(f"内部スロット表示更新エラー: {e}")
             import traceback
             traceback.print_exc()
 
