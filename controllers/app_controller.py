@@ -607,7 +607,7 @@ class AppController(QObject):
                 cached_data = self.cache_manager.load("states", file_path)
                 if cached_data is not None:
                     cache_time = time.time() - start_time
-                    self.logger.info(f"永続キャッシュからstateデータを読み込み: {os.path.basename(file_path)} ({cache_time:.3f}秒)")
+                    self.logger.debug(f"永続キャッシュからstateデータを読み込み: {os.path.basename(file_path)} ({cache_time:.3f}秒)")
                     return cached_data
 
             # キャッシュミスまたは古い場合は通常のパース処理を実行
@@ -642,7 +642,7 @@ class AppController(QObject):
                 cached_data = self.cache_manager.load("strategic_regions", file_path)
                 if cached_data is not None:
                     cache_time = time.time() - start_time
-                    self.logger.info(f"永続キャッシュからstrategic regionデータを読み込み: {os.path.basename(file_path)} ({cache_time:.3f}秒)")
+                    self.logger.debug(f"永続キャッシュからstrategic regionデータを読み込み: {os.path.basename(file_path)} ({cache_time:.3f}秒)")
                     return cached_data
 
             # キャッシュミスまたは古い場合は通常のパース処理を実行
