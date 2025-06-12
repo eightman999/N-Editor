@@ -2152,7 +2152,7 @@ class AppController(QObject):
         try:
             ship_list = []
             current_mod = self.get_current_mod()
-            logger.info(
+            logger.debug(
                 f"MOD艦艇データの更新を開始: 国家タグ={nation_tag}, MOD={current_mod.get('name') if current_mod else 'None'}")
 
             if not current_mod or not current_mod.get("path"):
@@ -2229,7 +2229,11 @@ class AppController(QObject):
                 except Exception as e:
                     logger.error(f"艦艇ファイル '{filename}' の読み込みエラー: {e}")
 
-            logger.info(f"MOD艦艇データの更新完了: {len(ship_list)}件の艦艇を処理")
+            # 件数が多い場合のみINFOレベルで表示、少数の場合はDEBUGレベル
+            if len(ship_list) >= 10:
+                logger.info(f"MOD艦艇データの更新完了: {len(ship_list)}件の艦艇を処理 ({nation_tag})")
+            else:
+                logger.debug(f"MOD艦艇データの更新完了: {len(ship_list)}件の艦艇を処理 ({nation_tag})")
             return ship_list
 
         except Exception as e:
