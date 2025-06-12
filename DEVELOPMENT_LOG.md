@@ -2,6 +2,38 @@
 
 ## 2025年6月12日 (木)
 
+### ✅ FlagSpriteManagerのMOD別ファイル分離機能実装
+**時刻**: 18:50
+**概要**: 国旗スプライトシートのファイルがMOD間で上書きされる問題を修正し、MOD別にファイルを分離保存する機能を実装
+
+**実装内容**:
+- **FlagSpriteManager修正**: `__init__`メソッドにmod_nameパラメータを追加
+- **ファイル名にMOD名追加**: `flags_sprite.png` → `{mod_name}_flags_sprite.png`、`flags_coords.json` → `{mod_name}_flags_coords.json`
+- **AppController統合**: 現在選択中のMOD名をFlagSpriteManagerに自動で渡す機能追加
+- **MOD変更時の自動クリア**: MOD切り替え時にFlagSpriteManagerインスタンスを自動でリセット
+
+**技術詳細**:
+```python
+# Before: 全MODで同じファイル名（上書きされる）
+self.sprite_sheet_path = os.path.join(cache_dir, "flags_sprite.png")
+self.coords_file_path = os.path.join(cache_dir, "flags_coords.json")
+
+# After: MOD名を含む個別ファイル名
+self.sprite_sheet_path = os.path.join(cache_dir, f"{mod_name}_flags_sprite.png")
+self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
+```
+
+**影響範囲**:
+- utils/flag_sprite_manager.py: コンストラクタとファイルパス生成ロジック
+- controllers/app_controller.py: FlagSpriteManager初期化とMOD変更時のクリア処理
+
+**期待効果**:
+- 複数MOD使用時の国旗スプライトシート保護
+- MOD切り替え時のキャッシュ再利用による性能向上
+- 各MOD固有の国旗データ保持
+
+---
+
 ### ✅ FleetViewログ重複問題修正
 **時刻**: 15:00
 **概要**: FleetViewでログが重複出力される問題を修正し、頻繁なログをDEBUGレベルに調整

@@ -561,6 +561,10 @@ class AppController(QObject):
 
         # キャッシュマネージャーを初期化
         self._initialize_cache_manager()
+        
+        # 国旗スプライトマネージャーをクリア（MOD変更時）
+        if hasattr(self, '_flag_sprite_manager'):
+            delattr(self, '_flag_sprite_manager')
 
         # MOD変更シグナルを発射
         self.mod_changed.emit(mod_path)
@@ -741,6 +745,10 @@ class AppController(QObject):
         # 最終的にAppControllerのMOD設定を更新
         self.app_settings.set_current_mod(mod_path, mod_name)
         self.current_mod = {"path": mod_path, "name": mod_name}
+        
+        # 国旗スプライトマネージャーをクリア（MOD変更時）
+        if hasattr(self, '_flag_sprite_manager'):
+            delattr(self, '_flag_sprite_manager')
 
         self.background_task_progress.emit(f"MODロード: {mod_name}", 100) # 最終進捗
         logger.info(f"MOD '{mod_name}' のロードが完了しました。")
@@ -806,6 +814,9 @@ class AppController(QObject):
             self.app_settings.set_setting("current_mod_name", None)
             self.current_mod = None
             self.mod_data_cache = None  # MODキャッシュもクリア
+            # 国旗スプライトマネージャーもクリア
+            if hasattr(self, '_flag_sprite_manager'):
+                delattr(self, '_flag_sprite_manager')
             print("MOD設定をクリアしました")
             # クリア時もシグナルを発射
             self.mod_changed.emit("")
@@ -815,6 +826,10 @@ class AppController(QObject):
             if mod_name:
                 self.app_settings.set_setting("current_mod_name", mod_name)
             self.current_mod = {"path": mod_path, "name": mod_name}
+            
+            # 国旗スプライトマネージャーをクリア（MOD変更時）
+            if hasattr(self, '_flag_sprite_manager'):
+                delattr(self, '_flag_sprite_manager')
             
             # MOD設計データキャッシュを初期化
             try:
@@ -1419,7 +1434,12 @@ class AppController(QObject):
                     self.cache_manager.base_cache_dir if self.cache_manager else "cache",
                     "flags"
                 )
-                self._flag_sprite_manager = FlagSpriteManager(flags_cache_dir)
+                # 現在のMOD名を取得（デフォルトは"vanilla"）
+                mod_name = "vanilla"
+                if self.current_mod and self.current_mod.get("name"):
+                    mod_name = self.current_mod["name"]
+                
+                self._flag_sprite_manager = FlagSpriteManager(flags_cache_dir, mod_name)
             
             # スプライトシートのキャッシュが有効かチェック
             if not self._flag_sprite_manager.is_cache_valid(nations):
