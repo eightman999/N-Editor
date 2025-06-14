@@ -3045,3 +3045,279 @@ class AppController(QObject):
         if hasattr(self, 'ship_icon_manager') and self.ship_icon_manager:
             self.ship_icon_manager.clear_cache()
             logger.info("アイコンキャッシュをクリアしました")
+
+    # HOI4エクスポート用データ取得メソッド
+    def get_all_designs(self) -> List[Dict[str, Any]]:
+        """全ての設計データを取得（エクスポート用）
+        
+        Returns:
+            List[Dict[str, Any]]: 設計データのリスト
+        """
+        try:
+            designs = []
+            data_dir = get_data_dir()
+            designs_dir = os.path.join(data_dir, 'designs')
+            
+            if not os.path.exists(designs_dir):
+                logger.warning(f"設計ディレクトリが存在しません: {designs_dir}")
+                return designs
+            
+            # 設計ファイルを検索
+            for root, dirs, files in os.walk(designs_dir):
+                for file in files:
+                    if file.endswith('.json'):
+                        file_path = os.path.join(root, file)
+                        try:
+                            design_data = self.load_design_from_file(file_path)
+                            if design_data:
+                                designs.append(design_data)
+                        except Exception as e:
+                            logger.warning(f"設計ファイル読み込みエラー ({file}): {e}")
+            
+            logger.info(f"設計データ取得完了: {len(designs)}件")
+            return designs
+            
+        except Exception as e:
+            logger.error(f"全設計データ取得エラー: {e}")
+            return []
+
+    def get_all_hulls(self) -> List[Dict[str, Any]]:
+        """全ての船体データを取得（エクスポート用）
+        
+        Returns:
+            List[Dict[str, Any]]: 船体データのリスト
+        """
+        try:
+            hulls = []
+            data_dir = get_data_dir()
+            hulls_dir = os.path.join(data_dir, 'hulls')
+            
+            if not os.path.exists(hulls_dir):
+                logger.warning(f"船体ディレクトリが存在しません: {hulls_dir}")
+                return hulls
+            
+            # 船体ファイルを検索
+            for root, dirs, files in os.walk(hulls_dir):
+                for file in files:
+                    if file.endswith('.json'):
+                        file_path = os.path.join(root, file)
+                        try:
+                            hull_data = self.load_hull_from_file(file_path)
+                            if hull_data:
+                                hulls.append(hull_data)
+                        except Exception as e:
+                            logger.warning(f"船体ファイル読み込みエラー ({file}): {e}")
+            
+            logger.info(f"船体データ取得完了: {len(hulls)}件")
+            return hulls
+            
+        except Exception as e:
+            logger.error(f"全船体データ取得エラー: {e}")
+            return []
+
+    def load_design_from_file(self, file_path: str) -> Optional[Dict[str, Any]]:
+        """ファイルから設計データを読み込み
+        
+        Args:
+            file_path (str): 設計ファイルパス
+            
+        Returns:
+            Optional[Dict[str, Any]]: 設計データ（失敗時はNone）
+        """
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                design_data = json.load(f)
+            
+            # 必要なフィールドが存在するかチェック
+            if 'design_name' not in design_data:
+                design_data['design_name'] = os.path.splitext(os.path.basename(file_path))[0]
+            
+            # ファイルパス情報を追加
+            design_data['file_path'] = file_path
+            
+            return design_data
+            
+        except Exception as e:
+            logger.error(f"設計ファイル読み込みエラー ({file_path}): {e}")
+            return None
+
+    def load_hull_from_file(self, file_path: str) -> Optional[Dict[str, Any]]:
+        """ファイルから船体データを読み込み
+        
+        Args:
+            file_path (str): 船体ファイルパス
+            
+        Returns:
+            Optional[Dict[str, Any]]: 船体データ（失敗時はNone）
+        """
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                hull_data = json.load(f)
+            
+            # 必要なフィールドが存在するかチェック
+            if 'name' not in hull_data:
+                hull_data['name'] = os.path.splitext(os.path.basename(file_path))[0]
+            
+            if 'id' not in hull_data:
+                hull_data['id'] = hull_data['name'].lower().replace(' ', '_')
+            
+            # ファイルパス情報を追加
+            hull_data['file_path'] = file_path
+            
+            return hull_data
+            
+        except Exception as e:
+            logger.error(f"船体ファイル読み込みエラー ({file_path}): {e}")
+            return None
+
+    def get_design_for_export(self, design_id: str) -> Optional[Dict[str, Any]]:
+        """エクスポート用の設計データを取得
+        
+        Args:
+            design_id (str): 設計ID
+            
+        Returns:
+            Optional[Dict[str, Any]]: エクスポート用設計データ（失敗時はNone）
+        """
+        try:
+            # 設計データを読み込み
+            design_data = self.load_design(design_id)
+            if not design_data:
+                return None
+            
+            # HOI4エクスポート用に構造を統一
+            export_data = {
+                'design_name': design_data.get('design_name', ''),
+                'hull_id': design_data.get('hull_id', ''),
+                'modules': {},
+                'upgrades': design_data.get('upgrades', {}),
+                'name_group': design_data.get('name_group', ''),
+            }
+            
+            # メインスロットの処理
+            main_slots = design_data.get('main_slots', {})
+            for slot_type, module_id in main_slots.items():
+                if module_id:
+                    export_data['modules'][slot_type] = module_id
+            
+            # 内部スロットの処理
+            internal_slots = design_data.get('internal_slots', [])
+            for slot_data in internal_slots:
+                slot_id = slot_data.get('slot_id', '')
+                equipment_id = slot_data.get('equipment_id', '')
+                if slot_id and equipment_id:
+                    export_data['modules'][slot_id] = equipment_id
+            
+            # 性能計算
+            try:
+                from utils.stats_calculator import StatsCalculator
+                calculator = StatsCalculator(self)
+                export_data['calculated_stats'] = calculator.calculate_design_stats(export_data)
+            except Exception as e:
+                logger.warning(f"性能計算エラー ({design_id}): {e}")
+                export_data['calculated_stats'] = {}
+            
+            return export_data
+            
+        except Exception as e:
+            logger.error(f"エクスポート用設計データ取得エラー ({design_id}): {e}")
+            return None
+
+    def get_hull_for_export(self, hull_id: str) -> Optional[Dict[str, Any]]:
+        """エクスポート用の船体データを取得
+        
+        Args:
+            hull_id (str): 船体ID
+            
+        Returns:
+            Optional[Dict[str, Any]]: エクスポート用船体データ（失敗時はNone）
+        """
+        try:
+            # 船体データを読み込み
+            hull_data = self.load_hull(hull_id)
+            if not hull_data:
+                return None
+            
+            # HOI4エクスポート用に構造を統一
+            export_data = {
+                'hull_id': hull_data.get('id', ''),
+                'name': hull_data.get('name', ''),
+                'type': hull_data.get('type', ''),
+                'year': hull_data.get('year', 1940),
+                'slots': {},
+                'base_stats': hull_data.get('base_stats', {})
+            }
+            
+            # スロット情報の変換
+            slots = hull_data.get('slots', [])
+            for slot in slots:
+                slot_id = slot.get('id', '')
+                if slot_id:
+                    export_data['slots'][slot_id] = {
+                        'required': slot.get('required', False),
+                        'categories': slot.get('categories', []),
+                        'default_module': slot.get('default_module', 'empty'),
+                        'gfx': slot.get('gfx', '')
+                    }
+            
+            return export_data
+            
+        except Exception as e:
+            logger.error(f"エクスポート用船体データ取得エラー ({hull_id}): {e}")
+            return None
+
+    def get_equipment_data(self, equipment_id: str) -> Optional[Dict[str, Any]]:
+        """装備データを取得（モジュール性能計算用）
+        
+        Args:
+            equipment_id (str): 装備ID
+            
+        Returns:
+            Optional[Dict[str, Any]]: 装備データ（失敗時はNone）
+        """
+        try:
+            # equipments_templates.ymlから装備データを読み込み
+            templates_file = 'equipments_templates.yml'
+            if os.path.exists(templates_file):
+                import yaml
+                with open(templates_file, 'r', encoding='utf-8') as f:
+                    templates = yaml.safe_load(f)
+                
+                # 装備IDでデータを検索
+                for category, equipments in templates.items():
+                    if isinstance(equipments, dict) and equipment_id in equipments:
+                        return equipments[equipment_id]
+            
+            # ファイルが存在しない場合はデフォルト値を返す
+            return self._get_default_equipment_stats(equipment_id)
+            
+        except Exception as e:
+            logger.warning(f"装備データ取得エラー ({equipment_id}): {e}")
+            return self._get_default_equipment_stats(equipment_id)
+
+    def _get_default_equipment_stats(self, equipment_id: str) -> Dict[str, Any]:
+        """デフォルト装備性能を取得
+        
+        Args:
+            equipment_id (str): 装備ID
+            
+        Returns:
+            Dict[str, Any]: デフォルト装備性能
+        """
+        # 装備IDから性能を推定
+        equipment_lower = equipment_id.lower()
+        
+        if 'gun' in equipment_lower or 'battery' in equipment_lower:
+            return {'stats': {'lg_attack': 15}}
+        elif 'torpedo' in equipment_lower:
+            return {'stats': {'torpedo_attack': 20}}
+        elif 'anti_air' in equipment_lower:
+            return {'stats': {'anti_air_attack': 10}}
+        elif 'armor' in equipment_lower:
+            return {'stats': {'armor_value': 10}}
+        elif 'engine' in equipment_lower:
+            return {'stats': {'naval_speed': 2}}
+        elif 'radar' in equipment_lower:
+            return {'stats': {'lg_attack': 5, 'anti_air_attack': 5}}
+        else:
+            return {'stats': {}}

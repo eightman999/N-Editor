@@ -26,6 +26,7 @@ from views.nation_view import NationView
 from views.nation_details_view import NationDetailsView
 from views.ship_list_view import ShipListView
 from views.naval_export_dialog import NavalExportDialog
+from views.hoi4_export_dialog import HOI4ExportDialog
 from utils.conflict_resolution_dialog import ConflictResolutionDialog
 from controllers.naval_export_controller import NavalExportController
 
@@ -842,6 +843,11 @@ class NavalDesignSystem(QMainWindow):
         naval_export_action.triggered.connect(self.show_naval_export_dialog)
         export_menu.addAction(naval_export_action)
 
+        # HOI4形式エクスポート
+        hoi4_export_action = QAction("HOI4 MOD形式エクスポート", self)
+        hoi4_export_action.triggered.connect(self.show_hoi4_export_dialog)
+        export_menu.addAction(hoi4_export_action)
+
         # コンフリクト関連のデバッグアクション
         debug_menu.addSeparator()
         
@@ -1452,4 +1458,24 @@ class NavalDesignSystem(QMainWindow):
                 self, 
                 "エラー", 
                 f"海軍エクスポートダイアログの表示に失敗しました:\n{str(e)}"
+            )
+
+    def show_hoi4_export_dialog(self):
+        """HOI4形式エクスポートダイアログを表示"""
+        try:
+            # HOI4エクスポートダイアログを表示
+            dialog = HOI4ExportDialog(self, self.app_controller)
+            result = dialog.exec_()
+            
+            if result == QDialog.Accepted:
+                self.statusBar().showMessage("HOI4形式エクスポートが完了しました", 5000)
+            else:
+                self.statusBar().showMessage("HOI4形式エクスポートがキャンセルされました", 3000)
+                
+        except Exception as e:
+            self.logger.error(f"HOI4エクスポートダイアログ表示中にエラー: {str(e)}")
+            QMessageBox.critical(
+                self, 
+                "エラー", 
+                f"HOI4エクスポートダイアログの表示に失敗しました:\n{str(e)}"
             )
