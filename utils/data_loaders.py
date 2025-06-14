@@ -1,14 +1,20 @@
 import csv
 import os
+import time
+import logging
 from typing import List, Dict, Any
 
+# ロガーの設定
+logger = logging.getLogger(__name__)
 
-def load_status_definitions(file_path: str) -> List[Dict[str, str]]:
+
+def load_status_definitions(file_path: str, cache_manager=None) -> List[Dict[str, str]]:
     """
-    ステータス定義CSVファイルを読み込む
+    ステータス定義CSVファイルを読み込む（キャッシュ対応）
 
     Args:
         file_path: CSVファイルのパス
+        cache_manager: キャッシュマネージャーのインスタンス
 
     Returns:
         ステータス定義のリスト [{'id': str, 'japanese': str, 'english': str}, ...]
@@ -17,8 +23,18 @@ def load_status_definitions(file_path: str) -> List[Dict[str, str]]:
         FileNotFoundError: ファイルが見つからない場合
         ValueError: CSV形式が不正な場合
     """
+    start_time = time.time()
+    
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"ステータス定義ファイルが見つかりません: {file_path}")
+
+    # キャッシュから読み込み試行
+    if cache_manager:
+        cached_data = cache_manager.load("status_definitions", file_path)
+        if cached_data is not None:
+            duration = time.time() - start_time
+            logger.debug(f"ステータス定義をキャッシュから読み込み: {len(cached_data)}件, 時間: {duration:.3f}秒")
+            return cached_data
 
     definitions = []
     try:
@@ -34,9 +50,16 @@ def load_status_definitions(file_path: str) -> List[Dict[str, str]]:
                     'english': row['english'].strip()
                 })
 
+        # キャッシュに保存
+        if definitions and cache_manager:
+            cache_manager.save("status_definitions", file_path, definitions)
+
     except Exception as e:
         raise ValueError(f"CSV読み込みエラー: {e}")
 
+    duration = time.time() - start_time
+    logger.info(f"ステータス定義読み込み完了: {len(definitions)}件, 時間: {duration:.3f}秒")
+    
     return definitions
 
 

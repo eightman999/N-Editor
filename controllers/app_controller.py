@@ -26,6 +26,7 @@ from views.nation_details_view import NationDetailsView
 from utils.path_utils import get_data_dir
 from utils.cache_manager import CacheManager  # 追加: キャッシュマネージャー
 from utils.sync_manager import SyncManager  # 追加: 同期マネージャー
+from utils.mod_data_cache_manager import MODDataCacheManager  # MOD設計データキャッシュ
 
 # パーサーのインポート (コメントアウトを解除または追加)
 from parser.StateParser import StateParser
@@ -214,6 +215,9 @@ class AppController(QObject):
         # 同期マネージャーの初期化
         self.sync_manager = SyncManager(self.app_settings)
         self.sync_manager.sync_completed.connect(self.on_sync_completed)
+        
+        # MOD設計データキャッシュ（MOD設定時に初期化）
+        self.mod_data_cache = None
 
         # マップデータ格納用辞書を初期化
         self.states = {}
@@ -222,6 +226,10 @@ class AppController(QObject):
         # QThreadPoolの初期化
         self.threadpool = QThreadPool()
         logger.info(f"QThreadPool initialized with max thread count: {self.threadpool.maxThreadCount()}")
+        
+        # 国家・国旗データのプリロード状態管理
+        self._nations_preload_completed = False
+        self._preload_lock = False
 
         # 装備モデルの初期化（データディレクトリをapp_settingsから取得）
         self.equipment_model = EquipmentModel(data_dir=self.app_settings.equipment_dir)
@@ -466,6 +474,12 @@ class AppController(QObject):
         # ホーム画面を表示
         self.main_window.show_view("home")
         self.main_window.show()
+        
+        # プリロードが未完了の場合、起動時にも開始
+        if not self._nations_preload_completed:
+            # 少し遅らせてプリロード開始（UI表示完了後）
+            from PyQt5.QtCore import QTimer
+            QTimer.singleShot(2000, self.start_nations_preload)
 
         # 前回開いていたMODがあれば状態を復元
         current_mod = self.app_settings.get_current_mod()
@@ -547,6 +561,10 @@ class AppController(QObject):
 
         # キャッシュマネージャーを初期化
         self._initialize_cache_manager()
+        
+        # 国旗スプライトマネージャーをクリア（MOD変更時）
+        if hasattr(self, '_flag_sprite_manager'):
+            delattr(self, '_flag_sprite_manager')
 
         # MOD変更シグナルを発射
         self.mod_changed.emit(mod_path)
@@ -593,7 +611,7 @@ class AppController(QObject):
                 cached_data = self.cache_manager.load("states", file_path)
                 if cached_data is not None:
                     cache_time = time.time() - start_time
-                    self.logger.info(f"永続キャッシュからstateデータを読み込み: {os.path.basename(file_path)} ({cache_time:.3f}秒)")
+                    self.logger.debug(f"永続キャッシュからstateデータを読み込み: {os.path.basename(file_path)} ({cache_time:.3f}秒)")
                     return cached_data
 
             # キャッシュミスまたは古い場合は通常のパース処理を実行
@@ -628,7 +646,7 @@ class AppController(QObject):
                 cached_data = self.cache_manager.load("strategic_regions", file_path)
                 if cached_data is not None:
                     cache_time = time.time() - start_time
-                    self.logger.info(f"永続キャッシュからstrategic regionデータを読み込み: {os.path.basename(file_path)} ({cache_time:.3f}秒)")
+                    self.logger.debug(f"永続キャッシュからstrategic regionデータを読み込み: {os.path.basename(file_path)} ({cache_time:.3f}秒)")
                     return cached_data
 
             # キャッシュミスまたは古い場合は通常のパース処理を実行
@@ -727,6 +745,10 @@ class AppController(QObject):
         # 最終的にAppControllerのMOD設定を更新
         self.app_settings.set_current_mod(mod_path, mod_name)
         self.current_mod = {"path": mod_path, "name": mod_name}
+        
+        # 国旗スプライトマネージャーをクリア（MOD変更時）
+        if hasattr(self, '_flag_sprite_manager'):
+            delattr(self, '_flag_sprite_manager')
 
         self.background_task_progress.emit(f"MODロード: {mod_name}", 100) # 最終進捗
         logger.info(f"MOD '{mod_name}' のロードが完了しました。")
@@ -791,6 +813,10 @@ class AppController(QObject):
             self.app_settings.set_setting("current_mod_path", None)
             self.app_settings.set_setting("current_mod_name", None)
             self.current_mod = None
+            self.mod_data_cache = None  # MODキャッシュもクリア
+            # 国旗スプライトマネージャーもクリア
+            if hasattr(self, '_flag_sprite_manager'):
+                delattr(self, '_flag_sprite_manager')
             print("MOD設定をクリアしました")
             # クリア時もシグナルを発射
             self.mod_changed.emit("")
@@ -800,9 +826,142 @@ class AppController(QObject):
             if mod_name:
                 self.app_settings.set_setting("current_mod_name", mod_name)
             self.current_mod = {"path": mod_path, "name": mod_name}
+            
+            # 国旗スプライトマネージャーをクリア（MOD変更時）
+            if hasattr(self, '_flag_sprite_manager'):
+                delattr(self, '_flag_sprite_manager')
+            
+            # MOD設計データキャッシュを初期化
+            try:
+                self.mod_data_cache = MODDataCacheManager(mod_path)
+                self.logger.info(f"MOD設計データキャッシュを初期化: {mod_path}")
+            except Exception as e:
+                self.logger.error(f"MOD設計データキャッシュ初期化エラー: {e}")
+                self.mod_data_cache = None
+            
             print(f"MOD設定を更新しました: path={mod_path}, name={mod_name}")
             # 設定時もシグナルを発射
             self.mod_changed.emit(mod_path)
+            
+            # 初回起動時の国家・国旗データプリロードを開始
+            if not self._nations_preload_completed:
+                self.start_nations_preload()
+
+    def start_nations_preload(self):
+        """全MODの国家・国旗データプリロードを開始"""
+        if self._preload_lock:
+            self.logger.debug("プリロード処理が既に実行中です")
+            return
+            
+        self._preload_lock = True
+        self.logger.info("全MODの国家・国旗データプリロードを開始します")
+        
+        # バックグラウンドでプリロード実行
+        worker = Worker(self._preload_all_nations_background)
+        worker.signals.result.connect(self._on_preload_completed)
+        worker.signals.error.connect(self._on_preload_error)
+        self.threadpool.start(worker)
+
+    def _preload_all_nations_background(self):
+        """全MODの国家・国旗データをバックグラウンドでプリロード"""
+        try:
+            start_time = time.time()
+            processed_mods = 0
+            total_nations = 0
+            
+            # 利用可能なMODパスを取得
+            mod_paths = self._discover_available_mods()
+            self.logger.info(f"プリロード対象MOD数: {len(mod_paths)}")
+            
+            for mod_path, mod_name in mod_paths:
+                try:
+                    self.logger.debug(f"プリロード中: {mod_name} ({mod_path})")
+                    
+                    # 国家データを取得（キャッシュ生成）
+                    nations = self.get_nations(mod_path)
+                    if nations:
+                        total_nations += len(nations)
+                        processed_mods += 1
+                        self.logger.debug(f"プリロード完了: {mod_name} - {len(nations)}国家")
+                    
+                except Exception as e:
+                    self.logger.warning(f"MOD '{mod_name}' のプリロードエラー: {e}")
+                    continue
+            
+            process_time = time.time() - start_time
+            result = {
+                'processed_mods': processed_mods,
+                'total_nations': total_nations,
+                'process_time': process_time
+            }
+            
+            self.logger.info(f"プリロード完了: {processed_mods}MOD, {total_nations}国家, {process_time:.2f}秒")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"プリロード処理中にエラーが発生: {e}")
+            raise e
+
+    def _discover_available_mods(self):
+        """利用可能なMODを自動検索"""
+        mod_paths = []
+        
+        try:
+            # 設定済みMODリストから取得
+            if self.app_settings:
+                saved_mods = self.app_settings.get_mods()
+                for mod_data in saved_mods:
+                    mod_path = mod_data.get('path')
+                    mod_name = mod_data.get('name', os.path.basename(mod_path))
+                    if mod_path and os.path.exists(mod_path):
+                        mod_paths.append((mod_path, mod_name))
+            
+            # 一般的なMODディレクトリも検索
+            common_mod_dirs = [
+                os.path.expanduser("~/Documents/Paradox Interactive/Hearts of Iron IV/mod"),
+                os.path.expanduser("~/.local/share/Paradox Interactive/Hearts of Iron IV/mod"),
+                "/Applications/Hearts of Iron IV/mod"  # macOS Steam版
+            ]
+            
+            for mod_dir in common_mod_dirs:
+                if os.path.exists(mod_dir):
+                    self.logger.debug(f"MODディレクトリを検索: {mod_dir}")
+                    for item in os.listdir(mod_dir):
+                        item_path = os.path.join(mod_dir, item)
+                        if os.path.isdir(item_path):
+                            # descriptor.modファイルの存在確認
+                            descriptor_path = os.path.join(item_path, "descriptor.mod")
+                            if os.path.exists(descriptor_path):
+                                # 既存リストに含まれていない場合のみ追加
+                                if not any(existing_path == item_path for existing_path, _ in mod_paths):
+                                    mod_paths.append((item_path, item))
+            
+            self.logger.info(f"発見したMOD数: {len(mod_paths)}")
+            return mod_paths
+            
+        except Exception as e:
+            self.logger.error(f"MOD検索中にエラーが発生: {e}")
+            return []
+
+    def _on_preload_completed(self, result):
+        """プリロード完了時の処理"""
+        self._nations_preload_completed = True
+        self._preload_lock = False
+        
+        if result:
+            processed_mods = result.get('processed_mods', 0)
+            total_nations = result.get('total_nations', 0)
+            process_time = result.get('process_time', 0)
+            
+            self.logger.info(f"国家・国旗プリロード完了: {processed_mods}MOD, {total_nations}国家, {process_time:.2f}秒")
+            print(f"✅ 国家・国旗データのプリロードが完了しました ({processed_mods}MOD, {total_nations}国家)")
+
+    def _on_preload_error(self, error_tuple):
+        """プリロードエラー時の処理"""
+        self._preload_lock = False
+        error_type, error_value, error_traceback = error_tuple
+        self.logger.error(f"国家・国旗プリロードエラー: {error_value}")
+        print(f"⚠️ 国家・国旗プリロード中にエラーが発生: {error_value}")
 
     # 装備関連機能
 
@@ -1275,7 +1434,12 @@ class AppController(QObject):
                     self.cache_manager.base_cache_dir if self.cache_manager else "cache",
                     "flags"
                 )
-                self._flag_sprite_manager = FlagSpriteManager(flags_cache_dir)
+                # 現在のMOD名を取得（デフォルトは"vanilla"）
+                mod_name = "vanilla"
+                if self.current_mod and self.current_mod.get("name"):
+                    mod_name = self.current_mod["name"]
+                
+                self._flag_sprite_manager = FlagSpriteManager(flags_cache_dir, mod_name)
             
             # スプライトシートのキャッシュが有効かチェック
             if not self._flag_sprite_manager.is_cache_valid(nations):
@@ -1330,6 +1494,15 @@ class AppController(QObject):
 
             print(f"設計データ '{design_id}' を保存しました。")
             
+            # 関連キャッシュをクリア（変更されたファイルのキャッシュを無効化）
+            if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                # 設計関連のキャッシュをクリア
+                self.mod_cache_manager.clear_design_cache(design_id)
+                # 設計一覧キャッシュもクリア（新しいファイルが追加された可能性があるため）
+                self.mod_cache_manager.clear_cache('designs')
+                # 設計統計キャッシュもクリア（設計が変更されたため）
+                self.mod_cache_manager.clear_cache('design_stats')
+            
             # 自動同期実行
             self.sync_manager.auto_sync_on_save()
             
@@ -1343,7 +1516,7 @@ class AppController(QObject):
 
     def load_design(self, design_id):
         """
-        船体設計データの読み込み
+        船体設計データの読み込み（キャッシュ機能付き）
 
         Args:
             design_id (str): 設計ID
@@ -1360,13 +1533,24 @@ class AppController(QObject):
                 print(f"設計ID '{design_id}' のデータが見つかりません。")
                 return None
 
-            # ヘッダーチェック付きで読み込み
+            # キャッシュから設計データを読み込み試行
+            if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                cached_data = self.mod_cache_manager.load_design_cache(file_path)
+                if cached_data is not None:
+                    # キャッシュヒット
+                    return cached_data
+
+            # キャッシュミス：ファイルから読み込み
             from utils.design_file_validator import load_design_file_with_validation
             design_data = load_design_file_with_validation(file_path)
             
             if design_data is None:
                 print(f"設計ID '{design_id}' のファイルはヘッダーチェックに失敗しました。")
                 return None
+
+            # 読み込み成功時はキャッシュに保存
+            if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                self.mod_cache_manager.save_design_cache(file_path, design_data)
 
             # print(f"設計ID '{design_id}' のデータを読み込みました。")
             return design_data
@@ -1377,7 +1561,7 @@ class AppController(QObject):
 
     def get_all_designs(self):
         """
-        全ての船体設計データを取得
+        全ての船体設計データを取得（キャッシュ機能付き）
 
         Returns:
             list: 設計データのリスト
@@ -1391,7 +1575,14 @@ class AppController(QObject):
             if not os.path.exists(designs_dir):
                 return designs
 
-            # ヘッダーチェック付きで有効な設計ファイルを取得
+            # キャッシュから設計一覧を読み込み試行
+            if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                cached_designs = self.mod_cache_manager.load_cached_data('designs')
+                if cached_designs is not None:
+                    print(f"設計データキャッシュヒット: {len(cached_designs)}個の設計")
+                    return cached_designs
+
+            # キャッシュミス：ファイルから読み込み
             from utils.design_file_validator import get_design_files_with_validation, load_design_file_with_validation
             
             valid_files = get_design_files_with_validation(designs_dir)
@@ -1400,15 +1591,30 @@ class AppController(QObject):
             # 有効な設計ファイルのみを読み込む
             for file_path in valid_files:
                 try:
+                    # 個別ファイルのキャッシュも活用
+                    if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                        cached_data = self.mod_cache_manager.load_design_cache(file_path)
+                        if cached_data is not None:
+                            designs.append(cached_data)
+                            continue
+                    
+                    # キャッシュミス：ファイルから読み込み
                     design_data = load_design_file_with_validation(file_path)
                     if design_data is not None:
                         designs.append(design_data)
+                        # 個別ファイルキャッシュに保存
+                        if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                            self.mod_cache_manager.save_design_cache(file_path, design_data)
                     else:
                         skipped_count += 1
                         print(f"設計ファイルをスキップしました（ヘッダー不正）: {os.path.basename(file_path)}")
                 except Exception as e:
                     skipped_count += 1
                     print(f"設計ファイル '{os.path.basename(file_path)}' の読み込みエラー: {e}")
+
+            # 設計一覧をキャッシュに保存
+            if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                self.mod_cache_manager.save_cached_data('designs', designs)
 
             print(f"設計データ読み込み完了: {len(designs)}個のファイルを読み込み、{skipped_count}個をスキップしました")
             return designs
@@ -1419,7 +1625,7 @@ class AppController(QObject):
 
     def delete_design(self, design_id):
         """
-        船体設計データの削除
+        船体設計データの削除（キャッシュクリア機能付き）
 
         Args:
             design_id (str): 設計ID
@@ -1438,6 +1644,16 @@ class AppController(QObject):
 
             # ファイルを削除
             os.remove(file_path)
+            
+            # 関連キャッシュをクリア
+            if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                # 設計関連のキャッシュをクリア
+                self.mod_cache_manager.clear_design_cache(design_id)
+                # 設計一覧キャッシュもクリア（削除されたファイルが含まれている可能性があるため）
+                self.mod_cache_manager.clear_cache('designs')
+                # 設計統計キャッシュもクリア（削除された設計の統計が含まれている可能性があるため）
+                self.mod_cache_manager.clear_cache('design_stats')
+            
             print(f"設計ID '{design_id}' のデータを削除しました。")
             return True
 
@@ -1586,42 +1802,49 @@ class AppController(QObject):
             return []
 
     def get_nation_mod_designs(self, nation_tag):
-        """MODから国家の設計データを取得"""
+        """MODから国家の設計データを取得（永続キャッシュ対応）"""
         try:
+            start_time = time.time()
             design_list = []
             current_mod = self.get_current_mod()
-            logger.info(
+            self.logger.info(
                 f"MOD設計データの取得を開始: 国家タグ={nation_tag}, MOD={current_mod.get('name') if current_mod else 'None'}")
 
             if not current_mod or not current_mod.get("path"):
-                logger.warning("MODが選択されていません")
+                self.logger.warning("MODが選択されていません")
                 return design_list
+
+            # MOD設計データキャッシュを使用
+            if self.mod_data_cache:
+                cache_key = f"designs_{nation_tag}"
+                try:
+                    cached_data = self.mod_data_cache.get_cached_data('designs', cache_key)
+                    if cached_data is not None:
+                        load_time = time.time() - start_time
+                        self.logger.info(f"キャッシュから設計データを読み込み: {len(cached_data)}件, 所要時間: {load_time:.3f}秒")
+                        return cached_data
+                except Exception as e:
+                    self.logger.warning(f"キャッシュ読み込みエラー: {e}")
 
             # MODの設計データディレクトリ
             design_dir = os.path.join(current_mod["path"], "common", "scripted_effects")
 
             if not os.path.exists(design_dir):
-                logger.warning(f"設計データディレクトリが見つかりません: {design_dir}")
+                self.logger.warning(f"設計データディレクトリが見つかりません: {design_dir}")
                 return design_list
 
+            # ファイルを直接パース
+            file_count = 0
             for filename in os.listdir(design_dir):
                 if not filename.endswith('.txt'):
                     continue
 
                 file_path = os.path.join(design_dir, filename)
-                logger.info(f"設計ファイルを処理中: {file_path}")
+                file_count += 1
+                self.logger.debug(f"設計ファイルを処理中: {file_path}")
 
                 try:
-                    # キャッシュからデータを読み込み試行
-                    cached_data = None
-                    if self.cache_manager:
-                        cached_data = self.cache_manager.load("designs", file_path, nation_tag)
-                        if cached_data is not None:
-                            logger.debug(f"キャッシュから設計データを読み込み: {file_path}")
-                            design_list.extend(cached_data)
-                            continue
-
-                    # キャッシュミスまたは古い場合は通常のパース処理を実行
+                    # ファイルを読み込みしてパース
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
 
@@ -1631,30 +1854,33 @@ class AppController(QObject):
 
                     # 指定された国家の設計データを取得
                     if nation_tag in designs_by_country:
-                        country_designs = []
                         for design_id, design_data in designs_by_country[nation_tag].items():
                             design_info = {
                                 'id': design_id,
                                 'name': design_id,
                                 'data': design_data
                             }
-                            country_designs.append(design_info)
                             design_list.append(design_info)
-                            logger.info(f"設計データを追加: ID={design_id}")
-
-                        # パース成功後、キャッシュに保存
-                        if country_designs and self.cache_manager:
-                            self.cache_manager.save("designs", file_path, country_designs, nation_tag)
-                            logger.debug(f"設計データをキャッシュに保存: {file_path}")
+                            self.logger.debug(f"設計データを追加: ID={design_id}")
 
                 except Exception as e:
-                    logger.error(f"設計ファイル '{filename}' の読み込みエラー: {e}")
+                    self.logger.error(f"設計ファイル '{filename}' の読み込みエラー: {e}")
 
-            logger.info(f"MOD設計データの取得完了: {len(design_list)}件の設計を処理")
+            # 全データをキャッシュに保存
+            if design_list and self.mod_data_cache:
+                try:
+                    cache_key = f"designs_{nation_tag}"
+                    self.mod_data_cache.save_cached_data('designs', cache_key, design_list)
+                    self.logger.debug(f"設計データをキャッシュに保存: {len(design_list)}件")
+                except Exception as e:
+                    self.logger.warning(f"キャッシュ保存エラー: {e}")
+
+            parse_time = time.time() - start_time
+            self.logger.info(f"MOD設計データの取得完了: {len(design_list)}件, {file_count}ファイル処理, 所要時間: {parse_time:.3f}秒")
             return design_list
 
         except Exception as e:
-            logger.error(f"MOD設計データ取得中にエラーが発生しました: {e}")
+            self.logger.error(f"MOD設計データ取得中にエラーが発生しました: {e}")
             return []
 
     def get_nation_mod_formations(self, nation_tag):
@@ -1998,7 +2224,7 @@ class AppController(QObject):
         try:
             ship_list = []
             current_mod = self.get_current_mod()
-            logger.info(
+            logger.debug(
                 f"MOD艦艇データの更新を開始: 国家タグ={nation_tag}, MOD={current_mod.get('name') if current_mod else 'None'}")
 
             if not current_mod or not current_mod.get("path"):
@@ -2075,7 +2301,11 @@ class AppController(QObject):
                 except Exception as e:
                     logger.error(f"艦艇ファイル '{filename}' の読み込みエラー: {e}")
 
-            logger.info(f"MOD艦艇データの更新完了: {len(ship_list)}件の艦艇を処理")
+            # 件数が多い場合のみINFOレベルで表示、少数の場合はDEBUGレベル
+            if len(ship_list) >= 10:
+                logger.info(f"MOD艦艇データの更新完了: {len(ship_list)}件の艦艇を処理 ({nation_tag})")
+            else:
+                logger.debug(f"MOD艦艇データの更新完了: {len(ship_list)}件の艦艇を処理 ({nation_tag})")
             return ship_list
 
         except Exception as e:
@@ -2109,11 +2339,35 @@ class AppController(QObject):
                 self.cache_manager = CacheManager(mod_name)
                 self.logger.info(f"CacheManager初期化完了: {mod_name}")
                 
+                # MODDataCacheManagerも初期化
+                from utils.mod_data_cache_manager import MODDataCacheManager
+                self.mod_cache_manager = MODDataCacheManager(mod_path)
+                self.logger.info(f"MODDataCacheManager初期化完了: {mod_name}")
+                
+                # モデルにキャッシュマネージャーを設定
+                if hasattr(self, 'equipment_model') and self.equipment_model:
+                    self.equipment_model.cache_manager = self.cache_manager
+                    
+                if hasattr(self, 'hull_model') and self.hull_model:
+                    self.hull_model.cache_manager = self.cache_manager
+                    
+                self.logger.info("モデルにキャッシュマネージャーを設定しました")
+                
             else:
                 # バニラまたはMODが未選択の場合
                 if not hasattr(self, 'cache_manager') or self.cache_manager is None:
                     self.cache_manager = CacheManager("_vanilla_")
                     self.logger.info("CacheManager初期化完了: バニラモード")
+                    
+                    # バニラの場合はMODDataCacheManagerは初期化しない
+                    self.mod_cache_manager = None
+                    
+                    # モデルにキャッシュマネージャーを設定
+                    if hasattr(self, 'equipment_model') and self.equipment_model:
+                        self.equipment_model.cache_manager = self.cache_manager
+                        
+                    if hasattr(self, 'hull_model') and self.hull_model:
+                        self.hull_model.cache_manager = self.cache_manager
                 
         except Exception as e:
             self.logger.error(f"CacheManager初期化エラー: {e}")
@@ -2307,7 +2561,7 @@ class AppController(QObject):
 
     def get_design_stats(self, design_data: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        設計データから実際のステータス値を取得（統合ロジック修正版）
+        設計データから実際のステータス値を取得（キャッシュ機能付き統合ロジック修正版）
         """
         print(f"=== get_design_stats 開始 ===")
         print(f"design_data: {design_data is not None}")
@@ -2324,6 +2578,14 @@ class AppController(QObject):
         if not design_data:
             print("design_dataがNoneのため、デフォルト値を返します")
             return stats
+
+        # 設計IDからキャッシュを確認
+        design_id = design_data.get('id')
+        if design_id and hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+            cached_stats = self.mod_cache_manager.load_design_stats_cache(design_id)
+            if cached_stats is not None:
+                print(f"設計統計キャッシュヒット: {design_id}")
+                return cached_stats
 
         # 船体データを取得
         hull_data = design_data.get('hull', {})
@@ -2460,6 +2722,11 @@ class AppController(QObject):
         # 0以外の値のみ表示
         non_zero_stats = {k: v for k, v in stats.items() if v != 0}
         print(f"0以外のステータス: {non_zero_stats}")
+
+        # 計算結果をキャッシュに保存
+        if design_id and hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+            self.mod_cache_manager.save_design_stats_cache(design_id, stats)
+            print(f"設計統計キャッシュ保存: {design_id}")
 
         return stats
 

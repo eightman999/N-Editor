@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import (QWidget, QFormLayout, QLineEdit, QComboBox,
                              QHBoxLayout, QPushButton, QLabel, QGroupBox,
                              QScrollArea, QMessageBox, QFileDialog, QApplication, QDialog, QListWidget, QListWidgetItem)
 from PyQt5.QtCore import Qt, pyqtSignal
+from utils.web_search_widget import WebSearchButton
 
 class EquipmentForm(QWidget):
     """装備データ登録用フォーム"""
@@ -18,6 +19,25 @@ class EquipmentForm(QWidget):
         self.init_ui()
         self.load_equipment_templates()
         self.inherited_data = None  # 継承元のデータを保持する変数を追加
+    
+    def update_search_query(self, equipment_type_text):
+        """装備タイプ選択に基づいて検索クエリを更新"""
+        if equipment_type_text and hasattr(self, 'web_search_button'):
+            # 装備タイプ名を英語の検索クエリに変換
+            equipment_mapping = {
+                "主砲": "naval gun main armament",
+                "副砲": "naval gun secondary armament", 
+                "高射砲": "anti-aircraft gun naval",
+                "魚雷": "torpedo naval weapon",
+                "装甲": "naval armor protection",
+                "機関": "naval engine propulsion",
+                "レーダー": "naval radar",
+                "射撃管制": "naval fire control",
+                "艦載機": "naval aircraft carrier"
+            }
+            
+            english_query = equipment_mapping.get(equipment_type_text, f"{equipment_type_text} naval equipment")
+            self.web_search_button.set_default_search(english_query)
 
     def init_ui(self):
         """UIの初期化"""
@@ -35,9 +55,17 @@ class EquipmentForm(QWidget):
         self.select_category_button = QPushButton("カテゴリ選択")
         self.select_category_button.clicked.connect(self.show_category_selection_dialog)
         type_layout.addWidget(self.select_category_button)
+        
+        # スペーサー
+        type_layout.addStretch()
+        
+        # Web検索ボタン
+        self.web_search_button = WebSearchButton(self, "naval equipment")
+        type_layout.addWidget(self.web_search_button)
 
         # 装備タイプ変更時の処理を接続
         self.equipment_type_combo.currentIndexChanged.connect(self.on_equipment_type_changed)
+        self.equipment_type_combo.currentTextChanged.connect(self.update_search_query)
 
         main_layout.addLayout(type_layout)
 
@@ -666,13 +694,13 @@ class EquipmentForm(QWidget):
         try:
             # 共通フィールド
             common_fields = [
-                '名前', 'ID', '重量', '人員', '開発年', '開発国',
+                '名前', 'ID', 'description', '重量', '人員', '開発年', '開発国',
                 '必要資源_鉄', '必要資源_クロム', '必要資源_アルミ',
                 '必要資源_タングステン', '必要資源_ゴム'
             ]
 
             for field_name in common_fields:
-                if field_name in ['名前', 'ID', '開発国']:
+                if field_name in ['名前', 'ID', 'description', '開発国']:
                     field = QLineEdit()
                 elif field_name in ['重量']:
                     field = QDoubleSpinBox()

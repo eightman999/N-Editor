@@ -6,9 +6,9 @@ _tabversion = '3.10'
 
 _lr_method = 'LALR'
 
-_lr_signature = 'DOT EQUALS ID LBRACE NUMBER RBRACE SPACE STRINGstate_file : KEY EQUALS LBRACE statements RBRACEstatements : statement\n| statements statementKEY : ID\n| NUMBER\n| QUALIFIED_IDQUALIFIED_ID : ID DOT IDstatement : KEY EQUALS value\n| QUALIFIED_ID EQUALS ID\n| KEY EQUALS LBRACE add_to_array_content RBRACEvalue : ID\n| NUMBER\n| STRING\n| LBRACE block_content_inside RBRACEblock_content_inside : statements\n| value_list\n| emptyempty :value_list : value_item\n| value_list value_item\n| value_list SPACE value_itemvalue_item : ID\n| NUMBER\n| STRING\n| QUALIFIED_IDadd_to_array_content : QUALIFIED_ID EQUALS ID'
+_lr_signature = 'DATE DOT EQUALS ID LBRACE NUMBER RBRACE SPACE STRINGstate_file : KEY EQUALS LBRACE statements RBRACEstatements : statement\n| statements statementKEY : ID\n| NUMBER\n| DATE\n| QUALIFIED_IDQUALIFIED_ID : ID DOT IDstatement : KEY EQUALS value\n| KEY EQUALS LBRACE add_to_array_content RBRACEvalue : ID\n| NUMBER\n| DATE\n| STRING\n| LBRACE block_content_inside RBRACEblock_content_inside : statements\n| value_list\n| emptyempty :value_list : value_item\n| value_list value_item\n| value_list SPACE value_itemvalue_item : ID\n| NUMBER\n| DATE\n| STRING\n| QUALIFIED_IDadd_to_array_content : QUALIFIED_ID EQUALS ID'
     
-_lr_action_items = {'ID':([0,7,8,9,11,12,14,16,17,18,19,20,21,22,23,26,27,28,29,31,32,33,34,35,36,37,38,39,40,41,42,43,],[3,9,3,-7,3,-2,20,-3,23,-8,27,-11,-12,-13,-9,-25,-22,3,39,-19,-23,-24,-10,-14,42,-20,39,-22,-23,-25,-9,-21,]),'NUMBER':([0,8,9,11,12,14,16,18,19,20,21,22,23,26,27,28,29,31,32,33,34,35,37,38,39,40,41,42,43,],[4,4,-7,4,-2,21,-3,-8,32,-11,-12,-13,-9,-25,-22,4,40,-19,-23,-24,-10,-14,-20,40,-22,-23,-25,-9,-21,]),'$end':([1,15,],[0,-1,]),'EQUALS':([2,3,4,5,9,10,13,26,27,32,],[6,-4,-5,-6,-7,14,17,36,-4,-5,]),'DOT':([3,27,39,],[7,7,7,]),'LBRACE':([6,14,],[8,19,]),'SPACE':([9,26,27,29,31,32,33,37,39,40,41,43,],[-7,-25,-22,38,-19,-23,-24,-20,-22,-23,-25,-21,]),'STRING':([9,14,19,26,27,29,31,32,33,37,38,39,40,41,43,],[-7,22,33,-25,-22,33,-19,-23,-24,-20,33,-22,-23,-25,-21,]),'RBRACE':([9,11,12,16,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,37,39,40,41,42,43,],[-7,15,-2,-3,-8,-18,-11,-12,-13,-9,34,35,-25,-22,-15,-16,-17,-19,-23,-24,-10,-14,-20,-22,-23,-25,-9,-21,]),}
+_lr_action_items = {'ID':([0,8,9,10,12,13,14,16,17,18,19,20,21,22,25,26,27,28,30,31,32,33,34,35,36,37,38,39,40,41,42,44,],[3,10,3,-8,3,-2,19,-3,-9,26,-11,-12,-13,-14,-27,-23,3,39,-20,-24,-25,-26,-10,-15,43,-21,39,-23,-24,-25,-27,-22,]),'NUMBER':([0,9,10,12,13,14,16,17,18,19,20,21,22,25,26,27,28,30,31,32,33,34,35,37,38,39,40,41,42,44,],[4,4,-8,4,-2,20,-3,-9,31,-11,-12,-13,-14,-27,-23,4,40,-20,-24,-25,-26,-10,-15,-21,40,-23,-24,-25,-27,-22,]),'DATE':([0,9,10,12,13,14,16,17,18,19,20,21,22,25,26,27,28,30,31,32,33,34,35,37,38,39,40,41,42,44,],[5,5,-8,5,-2,21,-3,-9,32,-11,-12,-13,-14,-27,-23,5,41,-20,-24,-25,-26,-10,-15,-21,41,-23,-24,-25,-27,-22,]),'$end':([1,15,],[0,-1,]),'EQUALS':([2,3,4,5,6,10,11,25,26,31,32,],[7,-4,-5,-6,-7,-8,14,36,-4,-5,-6,]),'DOT':([3,26,39,],[8,8,8,]),'LBRACE':([7,14,],[9,18,]),'SPACE':([10,25,26,28,30,31,32,33,37,39,40,41,42,44,],[-8,-27,-23,38,-20,-24,-25,-26,-21,-23,-24,-25,-27,-22,]),'STRING':([10,14,18,25,26,28,30,31,32,33,37,38,39,40,41,42,44,],[-8,22,33,-27,-23,33,-20,-24,-25,-26,-21,33,-23,-24,-25,-27,-22,]),'RBRACE':([10,12,13,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,37,39,40,41,42,43,44,],[-8,15,-2,-3,-9,-19,-11,-12,-13,-14,34,35,-27,-23,-16,-17,-18,-20,-24,-25,-26,-10,-15,-21,-23,-24,-25,-27,-28,-22,]),}
 
 _lr_action = {}
 for _k, _v in _lr_action_items.items():
@@ -17,7 +17,7 @@ for _k, _v in _lr_action_items.items():
       _lr_action[_x][_k] = _y
 del _lr_action_items
 
-_lr_goto_items = {'state_file':([0,],[1,]),'KEY':([0,8,11,19,28,],[2,10,10,10,10,]),'QUALIFIED_ID':([0,8,11,19,28,29,38,],[5,13,13,26,13,41,41,]),'statements':([8,19,],[11,28,]),'statement':([8,11,19,28,],[12,16,12,16,]),'value':([14,],[18,]),'add_to_array_content':([19,],[24,]),'block_content_inside':([19,],[25,]),'value_list':([19,],[29,]),'empty':([19,],[30,]),'value_item':([19,29,38,],[31,37,43,]),}
+_lr_goto_items = {'state_file':([0,],[1,]),'KEY':([0,9,12,18,27,],[2,11,11,11,11,]),'QUALIFIED_ID':([0,9,12,18,27,28,38,],[6,6,6,25,6,42,42,]),'statements':([9,18,],[12,27,]),'statement':([9,12,18,27,],[13,16,13,16,]),'value':([14,],[17,]),'add_to_array_content':([18,],[23,]),'block_content_inside':([18,],[24,]),'value_list':([18,],[28,]),'empty':([18,],[29,]),'value_item':([18,28,38,],[30,37,44,]),}
 
 _lr_goto = {}
 for _k, _v in _lr_goto_items.items():
@@ -27,30 +27,32 @@ for _k, _v in _lr_goto_items.items():
 del _lr_goto_items
 _lr_productions = [
   ("S' -> state_file","S'",1,None,None,None),
-  ('state_file -> KEY EQUALS LBRACE statements RBRACE','state_file',5,'p_state_file','StateParser.py',75),
-  ('statements -> statement','statements',1,'p_statements','StateParser.py',79),
-  ('statements -> statements statement','statements',2,'p_statements','StateParser.py',80),
-  ('KEY -> ID','KEY',1,'p_KEY','StateParser.py',102),
-  ('KEY -> NUMBER','KEY',1,'p_KEY','StateParser.py',103),
-  ('KEY -> QUALIFIED_ID','KEY',1,'p_KEY','StateParser.py',104),
-  ('QUALIFIED_ID -> ID DOT ID','QUALIFIED_ID',3,'p_QUALIFIED_ID','StateParser.py',109),
-  ('statement -> KEY EQUALS value','statement',3,'p_statement','StateParser.py',113),
-  ('statement -> QUALIFIED_ID EQUALS ID','statement',3,'p_statement','StateParser.py',114),
-  ('statement -> KEY EQUALS LBRACE add_to_array_content RBRACE','statement',5,'p_statement','StateParser.py',115),
-  ('value -> ID','value',1,'p_value','StateParser.py',124),
-  ('value -> NUMBER','value',1,'p_value','StateParser.py',125),
-  ('value -> STRING','value',1,'p_value','StateParser.py',126),
-  ('value -> LBRACE block_content_inside RBRACE','value',3,'p_value','StateParser.py',127),
-  ('block_content_inside -> statements','block_content_inside',1,'p_block_content_inside','StateParser.py',135),
-  ('block_content_inside -> value_list','block_content_inside',1,'p_block_content_inside','StateParser.py',136),
-  ('block_content_inside -> empty','block_content_inside',1,'p_block_content_inside','StateParser.py',137),
-  ('empty -> <empty>','empty',0,'p_empty','StateParser.py',142),
-  ('value_list -> value_item','value_list',1,'p_value_list','StateParser.py',146),
-  ('value_list -> value_list value_item','value_list',2,'p_value_list','StateParser.py',147),
-  ('value_list -> value_list SPACE value_item','value_list',3,'p_value_list','StateParser.py',148),
-  ('value_item -> ID','value_item',1,'p_value_item','StateParser.py',158),
-  ('value_item -> NUMBER','value_item',1,'p_value_item','StateParser.py',159),
-  ('value_item -> STRING','value_item',1,'p_value_item','StateParser.py',160),
-  ('value_item -> QUALIFIED_ID','value_item',1,'p_value_item','StateParser.py',161),
-  ('add_to_array_content -> QUALIFIED_ID EQUALS ID','add_to_array_content',3,'p_add_to_array_content','StateParser.py',165),
+  ('state_file -> KEY EQUALS LBRACE statements RBRACE','state_file',5,'p_state_file','StateParser.py',84),
+  ('statements -> statement','statements',1,'p_statements','StateParser.py',88),
+  ('statements -> statements statement','statements',2,'p_statements','StateParser.py',89),
+  ('KEY -> ID','KEY',1,'p_KEY','StateParser.py',111),
+  ('KEY -> NUMBER','KEY',1,'p_KEY','StateParser.py',112),
+  ('KEY -> DATE','KEY',1,'p_KEY','StateParser.py',113),
+  ('KEY -> QUALIFIED_ID','KEY',1,'p_KEY','StateParser.py',114),
+  ('QUALIFIED_ID -> ID DOT ID','QUALIFIED_ID',3,'p_QUALIFIED_ID','StateParser.py',119),
+  ('statement -> KEY EQUALS value','statement',3,'p_statement','StateParser.py',123),
+  ('statement -> KEY EQUALS LBRACE add_to_array_content RBRACE','statement',5,'p_statement','StateParser.py',124),
+  ('value -> ID','value',1,'p_value','StateParser.py',131),
+  ('value -> NUMBER','value',1,'p_value','StateParser.py',132),
+  ('value -> DATE','value',1,'p_value','StateParser.py',133),
+  ('value -> STRING','value',1,'p_value','StateParser.py',134),
+  ('value -> LBRACE block_content_inside RBRACE','value',3,'p_value','StateParser.py',135),
+  ('block_content_inside -> statements','block_content_inside',1,'p_block_content_inside','StateParser.py',143),
+  ('block_content_inside -> value_list','block_content_inside',1,'p_block_content_inside','StateParser.py',144),
+  ('block_content_inside -> empty','block_content_inside',1,'p_block_content_inside','StateParser.py',145),
+  ('empty -> <empty>','empty',0,'p_empty','StateParser.py',150),
+  ('value_list -> value_item','value_list',1,'p_value_list','StateParser.py',154),
+  ('value_list -> value_list value_item','value_list',2,'p_value_list','StateParser.py',155),
+  ('value_list -> value_list SPACE value_item','value_list',3,'p_value_list','StateParser.py',156),
+  ('value_item -> ID','value_item',1,'p_value_item','StateParser.py',173),
+  ('value_item -> NUMBER','value_item',1,'p_value_item','StateParser.py',174),
+  ('value_item -> DATE','value_item',1,'p_value_item','StateParser.py',175),
+  ('value_item -> STRING','value_item',1,'p_value_item','StateParser.py',176),
+  ('value_item -> QUALIFIED_ID','value_item',1,'p_value_item','StateParser.py',177),
+  ('add_to_array_content -> QUALIFIED_ID EQUALS ID','add_to_array_content',3,'p_add_to_array_content','StateParser.py',181),
 ]

@@ -65,6 +65,7 @@ class FleetView(QWidget):
         # ロガーの設定
         self.logger = logging.getLogger('FleetView')
         self.logger.setLevel(logging.DEBUG)
+        self.logger.propagate = False  # 親ロガーへの伝播を無効化して重複を防止
 
         # ログディレクトリの作成
         self.log_dir = "logs"
@@ -1206,7 +1207,7 @@ class FleetView(QWidget):
 
             # 艦隊表示を更新
             if self.show_fleet_btn.isChecked():
-                self.logger.info("艦隊表示を更新")
+                self.logger.debug("艦隊表示を更新")
                 self.update_fleet_display()
 
         except Exception as e:
@@ -1225,14 +1226,14 @@ class FleetView(QWidget):
                 if pattern.match(filename):
                     found_files.append(filename)
                     file_path = os.path.join(units_path, filename)
-                    self.logger.info(f"艦隊ファイルを処理: {filename}")
+                    self.logger.debug(f"艦隊ファイルを処理: {filename}")
                     
                     try:
                         with open(file_path, 'r', encoding='utf-8') as f:
                             from parser.NavalOOBParser import NavalOOBParser
                             parser = NavalOOBParser(f.read())
                             fleets = parser.extract_fleets()
-                            self.logger.info(f"艦隊データを抽出: {len(fleets)}件")
+                            self.logger.debug(f"艦隊データを抽出: {len(fleets)}件")
 
                             # ファイル名から日付を抽出
                             date_match = re.search(r'(\d{4})', filename)
@@ -1343,11 +1344,15 @@ class FleetView(QWidget):
                         self.logger.error(f"ファイル {filename} のパース中にエラーが発生しました: {str(e)}")
                         continue
 
-            self.logger.info(f"艦隊ファイルの検索結果: {len(found_files)}件")
+            # 艦隊ファイルが多い場合のみINFO表示、少数の場合はDEBUG表示
+            if len(found_files) >= 3:
+                self.logger.info(f"艦隊ファイルの検索結果: {len(found_files)}件")
+            else:
+                self.logger.debug(f"艦隊ファイルの検索結果: {len(found_files)}件")
             
             # 艦隊表示を更新
             if self.show_fleet_btn.isChecked():
-                self.logger.info("艦隊表示を更新")
+                self.logger.debug("艦隊表示を更新")
                 self.update_fleet_display()
 
         except Exception as e:
@@ -1618,7 +1623,7 @@ class FleetView(QWidget):
         try:
             # 艦隊データをプロビンスごとに整理
             fleet_data_by_province = {}
-            self.logger.info("艦隊表示の更新を開始")
+            self.logger.debug("艦隊表示の更新を開始")
             
             # 編集可能な艦隊ツリーからデータを収集
             for i in range(self.fleet_tree.topLevelItemCount()):
@@ -1752,7 +1757,7 @@ class FleetView(QWidget):
                     self.current_country,
                     self.show_mod_fleet_btn.isChecked()
                 )
-                self.logger.info("艦隊表示の更新が完了")
+                self.logger.debug("艦隊表示の更新が完了")
             else:
                 self.logger.warning("map_widgetが設定されていません")
             

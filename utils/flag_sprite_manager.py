@@ -14,23 +14,25 @@ class FlagSpriteManager:
     複数の小さな国旗画像を1枚の大きな画像に統合し、メモリ使用量と読み込み時間を削減
     """
 
-    def __init__(self, cache_dir: str):
+    def __init__(self, cache_dir: str, mod_name: str = "vanilla"):
         """
         FlagSpriteManagerを初期化
 
         Args:
             cache_dir: キャッシュディレクトリのパス
+            mod_name: MOD名（ファイル名の接頭辞として使用）
         """
         self.cache_dir = cache_dir
-        self.sprite_sheet_path = os.path.join(cache_dir, "flags_sprite.png")
-        self.coords_file_path = os.path.join(cache_dir, "flags_coords.json")
+        self.mod_name = mod_name
+        self.sprite_sheet_path = os.path.join(cache_dir, f"{mod_name}_flags_sprite.png")
+        self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
         self.flag_size = (32, 20)  # 国旗サイズを32x20に統一
         
         # スプライトシートとメタデータのキャッシュ
         self._sprite_sheet = None
         self._coords_cache = None
         
-        logger.info(f"FlagSpriteManager初期化: キャッシュディレクトリ={cache_dir}")
+        logger.info(f"FlagSpriteManager初期化: キャッシュディレクトリ={cache_dir}, MOD名={mod_name}")
 
     def _calculate_sprite_dimensions(self, flag_count: int) -> Tuple[int, int, int, int]:
         """

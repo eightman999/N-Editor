@@ -43,6 +43,21 @@ class MODDataCacheManager:
             'cache_key': 'modules_cache',
             'directories': ["common/units/equipment/modules"],
             'file_patterns': ['*.txt']
+        },
+        'designs': {
+            'cache_key': 'designs_cache',
+            'directories': ["designs"],
+            'file_patterns': ['*.json']
+        },
+        'resolved_designs': {
+            'cache_key': 'resolved_designs_cache',
+            'directories': ["designs", "common/units", "common/units/equipment"],
+            'file_patterns': ['*.json', '*.txt']
+        },
+        'design_stats': {
+            'cache_key': 'design_stats_cache',
+            'directories': ["designs", "common/units", "common/units/equipment"],
+            'file_patterns': ['*.json', '*.txt']
         }
     }
     
@@ -87,9 +102,11 @@ class MODDataCacheManager:
         for dir_pattern in config.get('directories', []):
             target_dir = self.mod_path / dir_pattern
             if target_dir.exists():
-                # .txtファイルを再帰的に検索
-                for txt_file in target_dir.rglob('*.txt'):
-                    dependencies.append(txt_file)
+                # パターンに応じてファイルを検索
+                file_patterns = config.get('file_patterns', ['*.txt'])
+                for pattern in file_patterns:
+                    for file_path in target_dir.rglob(pattern):
+                        dependencies.append(file_path)
         
         return sorted(dependencies)
     
@@ -484,3 +501,291 @@ class MODDataCacheManager:
         except Exception as e:
             logger.error(f"キャッシュクリーンアップエラー: {e}")
             return cleanup_stats
+    
+    # === 設計データ専用メソッド ===
+    
+    def load_design_cache(self, design_file_path: str) -> Optional[Dict[str, Any]]:
+        """
+        個別設計ファイルのキャッシュを読み込み
+        
+        Args:
+            design_file_path: 設計ファイルのパス
+            
+        Returns:
+            キャッシュされた設計データ、またはNone
+        """
+        try:
+            # 設計ファイルの相対パスをキーとして使用
+            design_path = Path(design_file_path)
+            if design_path.is_absolute():
+                try:
+                    design_path = design_path.relative_to(self.mod_path)
+                except ValueError:
+                    # パスがmod_pathのサブパスでない場合の処理
+                    # 実際のパスの解決を試行
+                    try:
+                        resolved_design_path = design_path.resolve()
+                        resolved_mod_path = self.mod_path.resolve()
+                        design_path = resolved_design_path.relative_to(resolved_mod_path)
+                    except ValueError:
+                        logger.warning(f"設計ファイルパスがMODパス外です: {design_file_path}")
+                        return None
+            
+            cache_key = f"{self.mod_id}_design_{str(design_path).replace('/', '_')}"
+            
+            # キャッシュデータを読み込み
+            cache_data = self._load_cache_data()
+            
+            if cache_key in cache_data:
+                cached_entry = cache_data[cache_key]
+                
+                # ファイルの更新時間をチェック
+                file_path = self.mod_path / design_path
+                if file_path.exists():
+                    file_mtime = file_path.stat().st_mtime
+                    cached_mtime = cached_entry.get('file_mtime', 0)
+                    
+                    if file_mtime <= cached_mtime:
+                        logger.debug(f"設計キャッシュヒット: {design_path}")
+                        return cached_entry.get('data')
+                    else:
+                        logger.debug(f"設計キャッシュ期限切れ: {design_path}")
+                        # 期限切れエントリを削除
+                        del cache_data[cache_key]
+                        self._save_cache_data(cache_data)
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"設計キャッシュ読み込みエラー ({design_file_path}): {e}")
+            return None
+    
+    def save_design_cache(self, design_file_path: str, design_data: Dict[str, Any]) -> None:
+        """
+        個別設計ファイルのキャッシュを保存
+        
+        Args:
+            design_file_path: 設計ファイルのパス
+            design_data: 設計データ
+        """
+        try:
+            # 設計ファイルの相対パスをキーとして使用
+            design_path = Path(design_file_path)
+            if design_path.is_absolute():
+                try:
+                    design_path = design_path.relative_to(self.mod_path)
+                except ValueError:
+                    # パスがmod_pathのサブパスでない場合の処理
+                    # 実際のパスの解決を試行
+                    try:
+                        resolved_design_path = design_path.resolve()
+                        resolved_mod_path = self.mod_path.resolve()
+                        design_path = resolved_design_path.relative_to(resolved_mod_path)
+                    except ValueError:
+                        logger.warning(f"設計ファイルパスがMODパス外です: {design_file_path}")
+                        return
+            
+            cache_key = f"{self.mod_id}_design_{str(design_path).replace('/', '_')}"
+            
+            # ファイルの更新時間を取得
+            file_path = self.mod_path / design_path
+            file_mtime = file_path.stat().st_mtime if file_path.exists() else time.time()
+            
+            # キャッシュデータを準備
+            cache_data = self._load_cache_data()
+            cache_data[cache_key] = {
+                'data': design_data,
+                'file_path': str(design_path),
+                'file_mtime': file_mtime,
+                'cached_at': time.time(),
+                'data_type': 'design'
+            }
+            
+            # 保存
+            self._save_cache_data(cache_data)
+            
+            logger.debug(f"設計キャッシュ保存完了: {design_path}")
+            
+        except Exception as e:
+            logger.error(f"設計キャッシュ保存エラー ({design_file_path}): {e}")
+    
+    def load_resolved_design_cache(self, design_id: str) -> Optional[Dict[str, Any]]:
+        """
+        解決済み設計データ（船体・装備情報含む）のキャッシュを読み込み
+        
+        Args:
+            design_id: 設計ID
+            
+        Returns:
+            キャッシュされた解決済み設計データ、またはNone
+        """
+        try:
+            cache_data = self._load_cache_data()
+            cache_key = f"{self.mod_id}_resolved_designs"
+            
+            if cache_key in cache_data:
+                resolved_data = cache_data[cache_key].get('data', {})
+                if design_id in resolved_data:
+                    logger.debug(f"解決済み設計キャッシュヒット: {design_id}")
+                    return resolved_data[design_id]
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"解決済み設計キャッシュ読み込みエラー ({design_id}): {e}")
+            return None
+    
+    def save_resolved_design_cache(self, design_id: str, resolved_data: Dict[str, Any]) -> None:
+        """
+        解決済み設計データをキャッシュに保存
+        
+        Args:
+            design_id: 設計ID
+            resolved_data: 解決済み設計データ
+        """
+        try:
+            cache_data = self._load_cache_data()
+            cache_key = f"{self.mod_id}_resolved_designs"
+            
+            # 既存の解決済みキャッシュを取得
+            if cache_key not in cache_data:
+                cache_data[cache_key] = {
+                    'data': {},
+                    'cached_at': time.time(),
+                    'data_type': 'resolved_designs'
+                }
+            
+            cache_data[cache_key]['data'][design_id] = resolved_data
+            cache_data[cache_key]['cached_at'] = time.time()
+            
+            # 保存
+            self._save_cache_data(cache_data)
+            
+            logger.debug(f"解決済み設計キャッシュ保存完了: {design_id}")
+            
+        except Exception as e:
+            logger.error(f"解決済み設計キャッシュ保存エラー ({design_id}): {e}")
+    
+    def load_design_stats_cache(self, design_id: str) -> Optional[Dict[str, Any]]:
+        """
+        設計統計データのキャッシュを読み込み
+        
+        Args:
+            design_id: 設計ID
+            
+        Returns:
+            キャッシュされた統計データ、またはNone
+        """
+        try:
+            cache_data = self._load_cache_data()
+            cache_key = f"{self.mod_id}_design_stats"
+            
+            if cache_key in cache_data:
+                stats_data = cache_data[cache_key].get('data', {})
+                if design_id in stats_data:
+                    logger.debug(f"設計統計キャッシュヒット: {design_id}")
+                    return stats_data[design_id]
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"設計統計キャッシュ読み込みエラー ({design_id}): {e}")
+            return None
+    
+    def save_design_stats_cache(self, design_id: str, stats_data: Dict[str, Any]) -> None:
+        """
+        設計統計データをキャッシュに保存
+        
+        Args:
+            design_id: 設計ID
+            stats_data: 統計データ
+        """
+        try:
+            cache_data = self._load_cache_data()
+            cache_key = f"{self.mod_id}_design_stats"
+            
+            # 既存の統計キャッシュを取得
+            if cache_key not in cache_data:
+                cache_data[cache_key] = {
+                    'data': {},
+                    'cached_at': time.time(),
+                    'data_type': 'design_stats'
+                }
+            
+            cache_data[cache_key]['data'][design_id] = stats_data
+            cache_data[cache_key]['cached_at'] = time.time()
+            
+            # 保存
+            self._save_cache_data(cache_data)
+            
+            logger.debug(f"設計統計キャッシュ保存完了: {design_id}")
+            
+        except Exception as e:
+            logger.error(f"設計統計キャッシュ保存エラー ({design_id}): {e}")
+    
+    def clear_design_cache(self, design_id: Optional[str] = None) -> None:
+        """
+        設計関連キャッシュをクリア
+        
+        Args:
+            design_id: 特定の設計IDのみクリア（省略時は全設計データ）
+        """
+        try:
+            cache_data = self._load_cache_data()
+            keys_to_remove = []
+            
+            if design_id:
+                # 特定設計のキャッシュをクリア
+                design_cache_prefix = f"{self.mod_id}_design_"
+                resolved_key = f"{self.mod_id}_resolved_designs"
+                stats_key = f"{self.mod_id}_design_stats"
+                
+                # 個別設計ファイルキャッシュ
+                for key in cache_data.keys():
+                    if key.startswith(design_cache_prefix):
+                        cached_data = cache_data[key]
+                        if cached_data.get('data', {}).get('id') == design_id:
+                            keys_to_remove.append(key)
+                
+                # 解決済み設計キャッシュから削除
+                cache_modified = False
+                if resolved_key in cache_data:
+                    resolved_data = cache_data[resolved_key].get('data', {})
+                    if design_id in resolved_data:
+                        del resolved_data[design_id]
+                        cache_modified = True
+                
+                # 統計キャッシュから削除
+                if stats_key in cache_data:
+                    stats_data = cache_data[stats_key].get('data', {})
+                    if design_id in stats_data:
+                        del stats_data[design_id]
+                        cache_modified = True
+                
+            else:
+                # 全設計キャッシュをクリア
+                design_related_prefixes = [
+                    f"{self.mod_id}_design_",
+                    f"{self.mod_id}_resolved_designs",
+                    f"{self.mod_id}_design_stats"
+                ]
+                
+                for key in cache_data.keys():
+                    for prefix in design_related_prefixes:
+                        if key.startswith(prefix):
+                            keys_to_remove.append(key)
+                            break
+            
+            # キーを削除
+            for key in keys_to_remove:
+                if key in cache_data:
+                    del cache_data[key]
+            
+            # 変更を保存
+            if keys_to_remove or cache_modified:
+                self._save_cache_data(cache_data)
+                total_removed = len(keys_to_remove) + (1 if cache_modified else 0)
+                logger.info(f"設計キャッシュクリア完了: {total_removed}個のエントリを削除")
+            
+        except Exception as e:
+            logger.error(f"設計キャッシュクリアエラー: {e}")
