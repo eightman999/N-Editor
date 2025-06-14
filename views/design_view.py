@@ -934,14 +934,19 @@ class DesignView(QWidget):
                     'equipment_id': None
                 }
                 
-                # 選択された装備があれば取得
-                combo = slot_info['equipment_combo']
-                current_text = combo.currentText()
-                if current_text != "選択する":
-                    import re
-                    id_match = re.search(r'\(([^)]+)\)', current_text)
-                    if id_match:
-                        slot_data['equipment_id'] = id_match.group(1)
+                # 選択された装備があれば取得（安全チェック付き）
+                try:
+                    combo = slot_info.get('equipment_combo')
+                    if combo:
+                        current_text = combo.currentText()
+                        if current_text != "選択する":
+                            import re
+                            id_match = re.search(r'\(([^)]+)\)', current_text)
+                            if id_match:
+                                slot_data['equipment_id'] = id_match.group(1)
+                except (RuntimeError, AttributeError):
+                    # ウィジェットが削除されている場合は無視
+                    pass
                 
                 design_data['internal_slots'].append(slot_data)
             
@@ -963,9 +968,15 @@ class DesignView(QWidget):
             equipment_combo = self.slot_combos[slot_id]
             selected_categories = self.slot_category_selections[slot_id]
 
-            # コンボボックスをクリア
-            equipment_combo.clear()
-            equipment_combo.addItem("選択する")
+            # コンボボックスをクリア（安全チェック付き）
+            try:
+                if equipment_combo:
+                    equipment_combo.clear()
+                    equipment_combo.addItem("選択する")
+                else:
+                    return
+            except (RuntimeError, AttributeError):
+                return
 
             # カテゴリーが選択されていない場合は終了
             if not selected_categories:
@@ -998,12 +1009,18 @@ class DesignView(QWidget):
                 if eq_id and eq_name:
                     # 表示形式は「装備名 (ID) - カテゴリー」
                     display_text = f"{eq_name} ({eq_id}) - {eq_type}"
-                    equipment_combo.addItem(display_text)
+                    try:
+                        equipment_combo.addItem(display_text)
+                    except (RuntimeError, AttributeError):
+                        continue
 
-            # 装備選択変更時のイベントハンドラーを接続
-            equipment_combo.currentTextChanged.connect(
-                lambda: self.on_equipment_selection_changed(slot_id)
-            )
+            # 装備選択変更時のイベントハンドラーを接続（安全チェック付き）
+            try:
+                equipment_combo.currentTextChanged.connect(
+                    lambda: self.on_equipment_selection_changed(slot_id)
+                )
+            except (RuntimeError, AttributeError):
+                pass
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"装備コンボボックス更新中にエラーが発生しました: {e}")
@@ -1103,12 +1120,17 @@ class DesignView(QWidget):
                 if hasattr(self, 'slot_category_selections') and slot_id in self.slot_category_selections:
                     categories = self.slot_category_selections[slot_id]
                 
-                # 装備情報取得
-                equipment_combo = slot_info["equipment_combo"]
-                equipment_text = equipment_combo.currentText()
+                # 装備情報取得（安全チェック付き）
                 equipment_info = "なし"
-                if equipment_text != "選択する":
-                    equipment_info = equipment_text
+                try:
+                    equipment_combo = slot_info.get("equipment_combo")
+                    if equipment_combo and not equipment_combo.isHidden():
+                        equipment_text = equipment_combo.currentText()
+                        if equipment_text != "選択する":
+                            equipment_info = equipment_text
+                except (RuntimeError, AttributeError):
+                    # ウィジェットが削除されている場合は無視
+                    equipment_info = "なし"
                 
                 # 表示テキスト作成
                 display_text = f"内部 {slot_num} ({slot_id})"
@@ -1177,15 +1199,27 @@ class DesignView(QWidget):
                         if 0 <= index < len(self.internal_slots):
                             slot_info = self.internal_slots[index]
                             
-                            # UIから削除
-                            self.internal_slots_grid.removeWidget(slot_info["label"])
-                            self.internal_slots_grid.removeWidget(slot_info["category_button"])
-                            self.internal_slots_grid.removeWidget(slot_info["equipment_combo"])
-
-                            # ウィジェットを削除
-                            slot_info["label"].deleteLater()
-                            slot_info["category_button"].deleteLater()
-                            slot_info["equipment_combo"].deleteLater()
+                            # UIから削除（安全チェック付き）
+                            try:
+                                if "label" in slot_info and slot_info["label"]:
+                                    self.internal_slots_grid.removeWidget(slot_info["label"])
+                                    slot_info["label"].deleteLater()
+                            except (RuntimeError, AttributeError):
+                                pass
+                            
+                            try:
+                                if "category_button" in slot_info and slot_info["category_button"]:
+                                    self.internal_slots_grid.removeWidget(slot_info["category_button"])
+                                    slot_info["category_button"].deleteLater()
+                            except (RuntimeError, AttributeError):
+                                pass
+                            
+                            try:
+                                if "equipment_combo" in slot_info and slot_info["equipment_combo"]:
+                                    self.internal_slots_grid.removeWidget(slot_info["equipment_combo"])
+                                    slot_info["equipment_combo"].deleteLater()
+                            except (RuntimeError, AttributeError):
+                                pass
 
                             # 辞書からも削除
                             slot_id = slot_info["id"]
@@ -1239,9 +1273,13 @@ class DesignView(QWidget):
                 row = i // 2  # 2列表示
                 col = (i % 2) * 3  # 各スロットは3セル使用
                 
-                # スロット番号を更新
+                # スロット番号を更新（安全チェック付き）
                 slot_num = i + 1
-                slot_info["label"].setText(f"内部 {slot_num}:")
+                try:
+                    if "label" in slot_info and slot_info["label"]:
+                        slot_info["label"].setText(f"内部 {slot_num}:")
+                except (RuntimeError, AttributeError):
+                    continue  # このスロットをスキップ
                 
                 # 新しいスロットIDを生成
                 old_slot_id = slot_info["id"]
@@ -1256,16 +1294,34 @@ class DesignView(QWidget):
                 if hasattr(self, 'slot_category_selections') and old_slot_id in self.slot_category_selections:
                     self.slot_category_selections[new_slot_id] = self.slot_category_selections.pop(old_slot_id)
                 
-                # カテゴリーボタンのクリックイベントを更新
-                slot_info["category_button"].clicked.disconnect()
-                slot_info["category_button"].clicked.connect(
-                    lambda _, s_id=new_slot_id: self.show_category_selection_dialog(s_id)
-                )
+                # カテゴリーボタンのクリックイベントを更新（安全チェック付き）
+                try:
+                    if "category_button" in slot_info and slot_info["category_button"]:
+                        slot_info["category_button"].clicked.disconnect()
+                        slot_info["category_button"].clicked.connect(
+                            lambda _, s_id=new_slot_id: self.show_category_selection_dialog(s_id)
+                        )
+                except (RuntimeError, AttributeError):
+                    pass
                 
-                # ウィジェットを再配置
-                self.internal_slots_grid.addWidget(slot_info["label"], row, col)
-                self.internal_slots_grid.addWidget(slot_info["category_button"], row, col + 1)
-                self.internal_slots_grid.addWidget(slot_info["equipment_combo"], row, col + 2)
+                # ウィジェットを再配置（安全チェック付き）
+                try:
+                    if "label" in slot_info and slot_info["label"]:
+                        self.internal_slots_grid.addWidget(slot_info["label"], row, col)
+                except (RuntimeError, AttributeError):
+                    pass
+                
+                try:
+                    if "category_button" in slot_info and slot_info["category_button"]:
+                        self.internal_slots_grid.addWidget(slot_info["category_button"], row, col + 1)
+                except (RuntimeError, AttributeError):
+                    pass
+                
+                try:
+                    if "equipment_combo" in slot_info and slot_info["equipment_combo"]:
+                        self.internal_slots_grid.addWidget(slot_info["equipment_combo"], row, col + 2)
+                except (RuntimeError, AttributeError):
+                    pass
             
         except Exception as e:
             print(f"内部スロット表示更新エラー: {e}")
@@ -1459,17 +1515,22 @@ class DesignView(QWidget):
                 if hasattr(self, 'slot_category_selections') and slot_id in self.slot_category_selections:
                     selected_categories = self.slot_category_selections[slot_id]
 
-                # 装備選択
+                # 装備選択（安全チェック付き）
                 selected_equipment = None
-                combo = slot_info["equipment_combo"]
-                current_text = combo.currentText()
-
-                if current_text != "選択する" and "使用不可" not in current_text and "有効化可能" not in current_text:
-                    # 括弧内のIDを抽出
-                    import re
-                    id_match = re.search(r'\(([^)]+)\)', current_text)
-                    if id_match:
-                        selected_equipment = id_match.group(1)
+                try:
+                    combo = slot_info.get("equipment_combo")
+                    if combo:
+                        current_text = combo.currentText()
+                        
+                        if current_text != "選択する" and "使用不可" not in current_text and "有効化可能" not in current_text:
+                            # 括弧内のIDを抽出
+                            import re
+                            id_match = re.search(r'\(([^)]+)\)', current_text)
+                            if id_match:
+                                selected_equipment = id_match.group(1)
+                except (RuntimeError, AttributeError):
+                    # ウィジェットが削除されている場合は無視
+                    selected_equipment = None
 
                 # スロット情報を追加
                 internal_slot_data = {

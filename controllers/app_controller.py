@@ -1494,6 +1494,15 @@ class AppController(QObject):
 
             print(f"設計データ '{design_id}' を保存しました。")
             
+            # 関連キャッシュをクリア（変更されたファイルのキャッシュを無効化）
+            if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                # 設計関連のキャッシュをクリア
+                self.mod_cache_manager.clear_design_cache(design_id)
+                # 設計一覧キャッシュもクリア（新しいファイルが追加された可能性があるため）
+                self.mod_cache_manager.clear_cache('designs')
+                # 設計統計キャッシュもクリア（設計が変更されたため）
+                self.mod_cache_manager.clear_cache('design_stats')
+            
             # 自動同期実行
             self.sync_manager.auto_sync_on_save()
             
@@ -1507,7 +1516,7 @@ class AppController(QObject):
 
     def load_design(self, design_id):
         """
-        船体設計データの読み込み
+        船体設計データの読み込み（キャッシュ機能付き）
 
         Args:
             design_id (str): 設計ID
@@ -1524,13 +1533,24 @@ class AppController(QObject):
                 print(f"設計ID '{design_id}' のデータが見つかりません。")
                 return None
 
-            # ヘッダーチェック付きで読み込み
+            # キャッシュから設計データを読み込み試行
+            if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                cached_data = self.mod_cache_manager.load_design_cache(file_path)
+                if cached_data is not None:
+                    # キャッシュヒット
+                    return cached_data
+
+            # キャッシュミス：ファイルから読み込み
             from utils.design_file_validator import load_design_file_with_validation
             design_data = load_design_file_with_validation(file_path)
             
             if design_data is None:
                 print(f"設計ID '{design_id}' のファイルはヘッダーチェックに失敗しました。")
                 return None
+
+            # 読み込み成功時はキャッシュに保存
+            if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                self.mod_cache_manager.save_design_cache(file_path, design_data)
 
             # print(f"設計ID '{design_id}' のデータを読み込みました。")
             return design_data
@@ -1541,7 +1561,7 @@ class AppController(QObject):
 
     def get_all_designs(self):
         """
-        全ての船体設計データを取得
+        全ての船体設計データを取得（キャッシュ機能付き）
 
         Returns:
             list: 設計データのリスト
@@ -1555,7 +1575,14 @@ class AppController(QObject):
             if not os.path.exists(designs_dir):
                 return designs
 
-            # ヘッダーチェック付きで有効な設計ファイルを取得
+            # キャッシュから設計一覧を読み込み試行
+            if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                cached_designs = self.mod_cache_manager.load_cached_data('designs')
+                if cached_designs is not None:
+                    print(f"設計データキャッシュヒット: {len(cached_designs)}個の設計")
+                    return cached_designs
+
+            # キャッシュミス：ファイルから読み込み
             from utils.design_file_validator import get_design_files_with_validation, load_design_file_with_validation
             
             valid_files = get_design_files_with_validation(designs_dir)
@@ -1564,15 +1591,30 @@ class AppController(QObject):
             # 有効な設計ファイルのみを読み込む
             for file_path in valid_files:
                 try:
+                    # 個別ファイルのキャッシュも活用
+                    if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                        cached_data = self.mod_cache_manager.load_design_cache(file_path)
+                        if cached_data is not None:
+                            designs.append(cached_data)
+                            continue
+                    
+                    # キャッシュミス：ファイルから読み込み
                     design_data = load_design_file_with_validation(file_path)
                     if design_data is not None:
                         designs.append(design_data)
+                        # 個別ファイルキャッシュに保存
+                        if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                            self.mod_cache_manager.save_design_cache(file_path, design_data)
                     else:
                         skipped_count += 1
                         print(f"設計ファイルをスキップしました（ヘッダー不正）: {os.path.basename(file_path)}")
                 except Exception as e:
                     skipped_count += 1
                     print(f"設計ファイル '{os.path.basename(file_path)}' の読み込みエラー: {e}")
+
+            # 設計一覧をキャッシュに保存
+            if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                self.mod_cache_manager.save_cached_data('designs', designs)
 
             print(f"設計データ読み込み完了: {len(designs)}個のファイルを読み込み、{skipped_count}個をスキップしました")
             return designs
@@ -1583,7 +1625,7 @@ class AppController(QObject):
 
     def delete_design(self, design_id):
         """
-        船体設計データの削除
+        船体設計データの削除（キャッシュクリア機能付き）
 
         Args:
             design_id (str): 設計ID
@@ -1602,6 +1644,16 @@ class AppController(QObject):
 
             # ファイルを削除
             os.remove(file_path)
+            
+            # 関連キャッシュをクリア
+            if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+                # 設計関連のキャッシュをクリア
+                self.mod_cache_manager.clear_design_cache(design_id)
+                # 設計一覧キャッシュもクリア（削除されたファイルが含まれている可能性があるため）
+                self.mod_cache_manager.clear_cache('designs')
+                # 設計統計キャッシュもクリア（削除された設計の統計が含まれている可能性があるため）
+                self.mod_cache_manager.clear_cache('design_stats')
+            
             print(f"設計ID '{design_id}' のデータを削除しました。")
             return True
 
@@ -2287,6 +2339,11 @@ class AppController(QObject):
                 self.cache_manager = CacheManager(mod_name)
                 self.logger.info(f"CacheManager初期化完了: {mod_name}")
                 
+                # MODDataCacheManagerも初期化
+                from utils.mod_data_cache_manager import MODDataCacheManager
+                self.mod_cache_manager = MODDataCacheManager(mod_path)
+                self.logger.info(f"MODDataCacheManager初期化完了: {mod_name}")
+                
                 # モデルにキャッシュマネージャーを設定
                 if hasattr(self, 'equipment_model') and self.equipment_model:
                     self.equipment_model.cache_manager = self.cache_manager
@@ -2301,6 +2358,9 @@ class AppController(QObject):
                 if not hasattr(self, 'cache_manager') or self.cache_manager is None:
                     self.cache_manager = CacheManager("_vanilla_")
                     self.logger.info("CacheManager初期化完了: バニラモード")
+                    
+                    # バニラの場合はMODDataCacheManagerは初期化しない
+                    self.mod_cache_manager = None
                     
                     # モデルにキャッシュマネージャーを設定
                     if hasattr(self, 'equipment_model') and self.equipment_model:
@@ -2501,7 +2561,7 @@ class AppController(QObject):
 
     def get_design_stats(self, design_data: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        設計データから実際のステータス値を取得（統合ロジック修正版）
+        設計データから実際のステータス値を取得（キャッシュ機能付き統合ロジック修正版）
         """
         print(f"=== get_design_stats 開始 ===")
         print(f"design_data: {design_data is not None}")
@@ -2518,6 +2578,14 @@ class AppController(QObject):
         if not design_data:
             print("design_dataがNoneのため、デフォルト値を返します")
             return stats
+
+        # 設計IDからキャッシュを確認
+        design_id = design_data.get('id')
+        if design_id and hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+            cached_stats = self.mod_cache_manager.load_design_stats_cache(design_id)
+            if cached_stats is not None:
+                print(f"設計統計キャッシュヒット: {design_id}")
+                return cached_stats
 
         # 船体データを取得
         hull_data = design_data.get('hull', {})
@@ -2654,6 +2722,11 @@ class AppController(QObject):
         # 0以外の値のみ表示
         non_zero_stats = {k: v for k, v in stats.items() if v != 0}
         print(f"0以外のステータス: {non_zero_stats}")
+
+        # 計算結果をキャッシュに保存
+        if design_id and hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
+            self.mod_cache_manager.save_design_stats_cache(design_id, stats)
+            print(f"設計統計キャッシュ保存: {design_id}")
 
         return stats
 

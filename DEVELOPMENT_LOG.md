@@ -1,5 +1,114 @@
 # 開発ログ
 
+## 2025年6月14日 (土)
+
+### ✅ DesignView QComboBox削除エラー修正
+**時刻**: 22:15
+**概要**: 内部スロット削除時にQComboBoxウィジェットの削除タイミング問題で発生するRuntimeErrorを修正
+
+**問題**:
+```
+RuntimeError: wrapped C/C++ object of type QComboBox has been deleted
+```
+- 内部スロット削除機能でウィジェット参照が無効になった後のアクセス
+- UIレイアウト更新とウィジェット削除の競合状態
+- `equipment_combo`へのアクセス時の削除済みオブジェクト参照
+
+**実装内容**:
+- **安全なウィジェットアクセス**: 全ての`equipment_combo`アクセスに安全チェック追加
+- **例外ハンドリング強化**: `RuntimeError`と`AttributeError`をキャッチ
+- **削除処理改善**: ウィジェット削除時の適切な順序とエラーハンドリング
+- **表示更新保護**: `_refresh_internal_slots_display()`メソッドの安全性向上
+
+**技術詳細**:
+```python
+# Before: 直接アクセス（危険）
+equipment_combo = slot_info["equipment_combo"]
+equipment_text = equipment_combo.currentText()
+
+# After: 安全チェック付きアクセス
+try:
+    equipment_combo = slot_info.get("equipment_combo")
+    if equipment_combo and not equipment_combo.isHidden():
+        equipment_text = equipment_combo.currentText()
+        if equipment_text != "選択する":
+            equipment_info = equipment_text
+except (RuntimeError, AttributeError):
+    equipment_info = "なし"
+```
+
+**影響範囲**:
+- views/design_view.py: `remove_internal_slot()`, `_refresh_internal_slots_display()`, `update_equipment_combo()`, `get_form_data()` メソッド
+- 内部スロット削除機能の安定性向上
+- UIウィジェット管理の堅牢性向上
+
+**期待効果**:
+- 内部スロット削除時のクラッシュ防止
+- UI操作の安定性向上
+- ウィジェットライフサイクル管理の改善
+
+---
+
+### ✅ MOD設計データキャッシュシステム実装
+**時刻**: 21:30
+**概要**: MOD設計データの読み込み・保存・統計計算処理に包括的なキャッシュシステムを実装
+
+**実装内容**:
+- **MODDataCacheManager拡張**: 設計データ専用キャッシュ機能を追加
+  - `designs`: 設計ファイル一覧キャッシュ
+  - `resolved_designs`: 船体・装備情報を含む解決済み設計データキャッシュ
+  - `design_stats`: 設計統計計算結果キャッシュ
+- **個別ファイルキャッシュ**: 設計ファイル単位での詳細キャッシュ管理
+- **app_controller統合**: 設計読み込み・保存・削除メソッドへのキャッシュ機能統合
+- **自動キャッシュ無効化**: ファイル変更検出による適切なキャッシュクリア
+- **統計計算キャッシュ**: 重い設計統計計算結果の永続化
+
+**技術詳細**:
+```python
+# 設計データタイプの追加
+DATA_TYPES = {
+    'designs': {
+        'cache_key': 'designs_cache',
+        'directories': ["designs"],
+        'file_patterns': ['*.json']
+    },
+    'resolved_designs': {
+        'cache_key': 'resolved_designs_cache', 
+        'directories': ["designs", "common/units", "common/units/equipment"],
+        'file_patterns': ['*.json', '*.txt']
+    },
+    'design_stats': {
+        'cache_key': 'design_stats_cache',
+        'directories': ["designs", "common/units", "common/units/equipment"],
+        'file_patterns': ['*.json', '*.txt']
+    }
+}
+```
+
+- **パス解決問題修正**: macOSでの一時ディレクトリパス解決エラー対応
+- **キャッシュクリア改善**: 個別設計削除時の適切なキャッシュクリア実装
+- **テストスイート作成**: 全機能を検証する包括的テストスイート実装
+
+**影響範囲**:
+- utils/mod_data_cache_manager.py: 設計データ専用メソッド追加
+- controllers/app_controller.py: load_design, get_all_designs, save_design, delete_design, get_design_stats メソッドのキャッシュ対応
+- test_design_cache.py: 新規テストスイート作成
+
+**期待効果**:
+- **設計ファイル読み込み**: 2回目以降の読み込みが瞬時に（ファイル解析・ヘッダー検証スキップ）
+- **設計一覧表示**: キャッシュヒット時の表示が大幅高速化
+- **設計統計計算**: 複雑な計算結果の再利用でUI応答性向上
+- **メモリ効率**: ファイル読み込みの重複処理削減
+
+**テスト結果**:
+- 基本的な設計キャッシュ機能: ✅
+- 設計キャッシュ無効化機能: ✅
+- 一括設計データキャッシュ機能: ✅ 
+- 設計統計キャッシュ機能: ✅
+- キャッシュパフォーマンステスト: ✅
+
+---
+
 ## 2025年6月12日 (木)
 
 ### ✅ FlagSpriteManagerのMOD別ファイル分離機能実装
