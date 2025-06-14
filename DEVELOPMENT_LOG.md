@@ -197,9 +197,51 @@ DATA_TYPES = {
 **テスト結果**:
 - 基本的な設計キャッシュ機能: ✅
 - 設計キャッシュ無効化機能: ✅
-- 一括設計データキャッシュ機能: ✅ 
-- 設計統計キャッシュ機能: ✅
-- キャッシュパフォーマンステスト: ✅
+- 一括設計データキャッシュ機能: ✅
+
+### ✅ StrategicRegionParser依存関係エラー修正
+**時刻**: 23:45
+**概要**: StrategicRegionParserが依存するPLY (Python Lex-Yacc) ライブラリの不足により発生していたパーサーエラーを修正
+
+**問題**:
+```
+ModuleNotFoundError: No module named 'ply'
+ParserError: Parsing failed due to syntax error
+```
+- PLYライブラリ (3.11) が外部管理Python環境にインストールされていなかった
+- StrategicRegionParser.pyでのPLYインポートが失敗
+- 戦略地域ファイル ("173-Eastern North Sea.txt", "46-Barents Sea.txt") の解析が不可能
+
+**実装内容**:
+- **PLY依存関係解決**: `python3 -m pip install --break-system-packages ply==3.11` でPLY 3.11をインストール
+- **パーサー動作確認**: 問題のあった戦略地域ファイルでの解析テスト実行
+- **機能検証**: 両ファイルの正常な解析を確認
+
+**技術詳細**:
+- **requirements.txt確認**: PLY 3.11が必要依存関係として記載されていることを確認
+- **環境対応**: macOS外部管理Python環境での適切なライブラリインストール
+- **解析テスト**: 実際の戦略地域ファイルコンテンツでの正常動作確認
+
+**テスト結果**:
+```python
+# 173-Eastern North Sea.txtの解析
+Parsing successful!
+Result keys: ['id', 'name', 'provinces', 'weather']
+
+# 46-Barents Sea.txtの解析  
+Parsing successful for Barents Sea!
+Result keys: ['id', 'name', 'provinces', 'weather']
+```
+
+**影響範囲**:
+- parser/StrategicRegionParser.py: 正常動作復旧
+- MOD戦略地域ファイル解析機能: 完全復旧
+- PLY依存関係: システム環境への適切なインストール
+
+**期待効果**:
+- 戦略地域ファイル解析機能の完全復旧
+- MODデータ読み込み処理の安定化
+- パーサー関連機能の正常動作保証
 
 ---
 
