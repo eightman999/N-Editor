@@ -25,7 +25,9 @@ from views.settings_view import SettingsView
 from views.nation_view import NationView
 from views.nation_details_view import NationDetailsView
 from views.ship_list_view import ShipListView
+from views.naval_export_dialog import NavalExportDialog
 from utils.conflict_resolution_dialog import ConflictResolutionDialog
+from controllers.naval_export_controller import NavalExportController
 
 class MenuLoadingWorker(QThread):
     """メニュー読み込み用のワーカースレッド"""
@@ -831,6 +833,15 @@ class NavalDesignSystem(QMainWindow):
         sync_history_action.triggered.connect(self.show_sync_history)
         sync_menu.addAction(sync_history_action)
 
+        # 海軍エクスポートメニューを追加
+        export_menu = QMenu("エクスポート", self)
+        menubar.addMenu(export_menu)
+
+        # 海軍OOB書き出し
+        naval_export_action = QAction("海軍編成データ書き出し", self)
+        naval_export_action.triggered.connect(self.show_naval_export_dialog)
+        export_menu.addAction(naval_export_action)
+
         # コンフリクト関連のデバッグアクション
         debug_menu.addSeparator()
         
@@ -1418,3 +1429,27 @@ class NavalDesignSystem(QMainWindow):
             )
         else:
             QMessageBox.information(self, "テスト結果", "キャンセルされました")
+
+    def show_naval_export_dialog(self):
+        """海軍編成データ書き出しダイアログを表示"""
+        try:
+            # サンプルデータの作成
+            controller = NavalExportController()
+            sample_fleet = controller.create_sample_fleet()
+            
+            # ダイアログを表示
+            dialog = NavalExportDialog(self, sample_fleet)
+            result = dialog.exec_()
+            
+            if result == QDialog.Accepted:
+                self.statusBar().showMessage("海軍編成データの書き出しが完了しました", 5000)
+            else:
+                self.statusBar().showMessage("書き出しがキャンセルされました", 3000)
+                
+        except Exception as e:
+            self.logger.error(f"海軍エクスポートダイアログ表示中にエラー: {str(e)}")
+            QMessageBox.critical(
+                self, 
+                "エラー", 
+                f"海軍エクスポートダイアログの表示に失敗しました:\n{str(e)}"
+            )
