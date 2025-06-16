@@ -2,6 +2,49 @@
 
 ## 2025年6月16日 (月)
 
+### ✅ モジュラー装備ステータス計算システム実装
+**時刻**: 16:45-17:30 JST
+**概要**: ハンガーカテゴリーICコスト計算問題を解決し、各装備カテゴリー専用のステータス計算クラスを実装
+
+**実装内容**:
+- **基底クラス**: `BaseEquipmentCalculator`でステータス計算の統一インターフェース定義
+- **カテゴリー別計算機**: 装備種別ごとに特化した計算ロジック実装
+  - `HangarCalculator`: ハンガー装備用（艦載機容量、ICコスト計算修正）
+  - `GunCalculator`: 砲系統装備用（攻撃力、装甲貫通力）
+  - `TorpedoCalculator`: 魚雷装備用（魚雷攻撃、射程調整）
+  - `EngineCalculator`: 機関装備用（速度、航続距離、燃費）
+  - `ArmorCalculator`: 装甲装備用（防御力、重量ペナルティ）
+- **計算機レジストリ**: 装備タイプから適切な計算機を自動選択
+- **統合システム**: AppController内で新計算システムを使用する改修
+
+**技術特徴**:
+- **抽象化設計**: 各装備タイプ専用の計算ロジックを独立実装
+- **ICコスト特化**: 各装備カテゴリーに最適化されたコスト計算式
+- **フォールバック機能**: エラー時は旧システムに自動切り替え
+- **データ変換**: 既存のcommon/specific形式から統一形式への変換
+- **デバッグ対応**: 詳細なログ出力による計算過程の可視化
+
+**修正内容**:
+- **equipments_templates.yml**: `hunger` → `hangar` の誤字修正
+- **AppController**: `_calculate_equipment_stats`メソッドを新システム使用に改修
+- **ハンガー計算**: 大型ハンガー判定、艦載機容量ベースICコスト計算
+
+**ファイル**:
+- `utils/equipment_calculators/__init__.py` (新規)
+- `utils/equipment_calculators/base_calculator.py` (新規)
+- `utils/equipment_calculators/hangar_calculator.py` (新規)
+- `utils/equipment_calculators/gun_calculator.py` (新規)
+- `utils/equipment_calculators/torpedo_calculator.py` (新規)
+- `utils/equipment_calculators/engine_calculator.py` (新規)
+- `utils/equipment_calculators/armor_calculator.py` (新規)
+- `controllers/app_controller.py` (修正)
+- `equipments_templates.yml` (修正)
+
+**パフォーマンス改善**:
+- 装備タイプごとの最適化された計算アルゴリズム
+- 不要な計算処理の削減
+- エラー処理によるシステム安定性向上
+
 ### ✅ ship_type:role_type双方向制約システム実装
 **時刻**: 14:30-15:00
 **概要**: 船体登録および設計において、ship_type(船体種別)とrole_type(archetype)の双方向制約関係を実装

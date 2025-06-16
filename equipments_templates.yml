@@ -511,7 +511,7 @@ other_elements:
         aluminum: "integer"
         tungsten: "integer"
         rubber: "integer"
-  hunger:
+  hangar:
     display_name: "ハンガー"
     id_prefix: SMH
     common_elements:

@@ -2813,12 +2813,77 @@ class AppController(QObject):
 
     def _calculate_equipment_stats(self, equipment_data: Dict[str, Any]) -> Dict[str, float]:
         """
-        個別装備のステータスを計算（デバッグ版）
+        個別装備のステータスを計算（モジュラー計算機システム使用）
+        """
+        try:
+            # 新しいモジュラー計算機システムを使用
+            from utils.equipment_calculators import get_calculator
+            
+            equipment_type = equipment_data.get('equipment_type', '')
+            print(f"装備ステータス計算開始: タイプ={equipment_type}")
+            
+            # 装備タイプに対応する計算機を取得
+            calculator = get_calculator(equipment_type)
+            print(f"使用する計算機: {calculator.__class__.__name__}")
+            
+            # 装備データの形式を変換（common/specific → 統一形式）
+            unified_equipment_data = self._convert_equipment_data_format(equipment_data)
+            
+            # ステータス計算を実行
+            calculated_stats = calculator.calculate_stats(unified_equipment_data)
+            
+            print(f"計算結果: {calculated_stats}")
+            return calculated_stats
+            
+        except Exception as e:
+            print(f"装備ステータス計算エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # エラー時は旧システムにフォールバック
+            return self._calculate_equipment_stats_fallback(equipment_data)
+    
+    def _convert_equipment_data_format(self, equipment_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        装備データを新しい計算機システム用の形式に変換
+        """
+        converted = {}
+        
+        # common データを統合
+        common_data = equipment_data.get('common', {})
+        for key, value in common_data.items():
+            if key == '重量':
+                converted['weight'] = float(value) if value else 0.0
+            elif key == '人員':
+                converted['personnel'] = int(value) if value else 0
+            elif key == '開発年':
+                converted['year'] = int(value) if value else 1936
+            elif key == '国':
+                converted['country'] = str(value)
+            elif key == 'ID':
+                converted['id'] = str(value)
+            elif key == '名前':
+                converted['name'] = str(value)
+        
+        # specific データを統合
+        specific_data = equipment_data.get('specific', {})
+        converted['specific_elements'] = specific_data.copy()
+        
+        # その他のデータも含める
+        for key, value in equipment_data.items():
+            if key not in ['common', 'specific']:
+                converted[key] = value
+        
+        return converted
+    
+    def _calculate_equipment_stats_fallback(self, equipment_data: Dict[str, Any]) -> Dict[str, float]:
+        """
+        フォールバック用の旧計算システム（砲系統のみ）
         """
         stats = {}
         equipment_type = equipment_data.get('equipment_type', '')
 
-        print(f"装備ステータス計算開始: タイプ={equipment_type}")
+        print(f"フォールバック計算開始: タイプ={equipment_type}")
 
         # 砲系統かどうかを判定
         gun_types = [
@@ -2840,7 +2905,7 @@ class AppController(QObject):
             print(f"砲系統計算結果: {gun_stats}")
             stats.update(gun_stats)
 
-        print(f"最終計算結果: {stats}")
+        print(f"フォールバック計算結果: {stats}")
         return stats
 
     def _calculate_gun_stats(self, equipment_data: Dict[str, Any]) -> Dict[str, float]:
