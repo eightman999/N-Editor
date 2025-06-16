@@ -2,13 +2,14 @@
 
 ## 2025年6月16日 (月)
 
-### ✅ ship_type:role_type制約システム実装
-**時刻**: 14:30
-**概要**: 船体登録および設計において、ship_type(船体種別)とrole_type(archetype)の制約関係を実装
+### ✅ ship_type:role_type双方向制約システム実装
+**時刻**: 14:30-15:00
+**概要**: 船体登録および設計において、ship_type(船体種別)とrole_type(archetype)の双方向制約関係を実装
 
 **実装内容**:
 - **制約マッピング**: `SHIP_ROLE_CONSTRAINTS`で船体種別ごとに利用可能なrole_typeを定義
 - **船体登録制約**: 種別選択時にarchetypeの選択肢を自動制限
+- **逆方向制約**: archetype選択時にship_typeの選択肢を自動制限
 - **設計時検証**: 船体選択時と保存時に制約違反をチェック
 - **制約関数**: 制約チェック用のユーティリティ関数群
 
@@ -19,14 +20,16 @@
 - SCV(潜水空母): SCV のみ (1種類)
 
 **技術特徴**:
-- **動的制約適用**: 種別変更時のリアルタイム選択肢更新
+- **双方向制約適用**: ship_type ⇄ archetype の相互制限
+- **動的制約適用**: 選択変更時のリアルタイム選択肢更新
 - **制約違反検出**: 保存時・選択時の自動検証
+- **逆引き機能**: `get_ship_types_for_role()` によるarchetype→ship_type検索
 - **レガシー対応**: 既存船体データとの互換性維持
 - **デバッグ支援**: 制約違反時の詳細ログ出力
 
 **ファイル**:
-- `utils/ship_role_constraints.py`: 新規作成 - 制約定義とユーティリティ関数
-- `views/hull_form.py`: archetype制約機能追加
+- `utils/ship_role_constraints.py`: 制約定義と双方向検索関数
+- `views/hull_form.py`: 双方向制約機能追加
 - `views/design_view.py`: 船体選択・保存時制約チェック追加
 
 **影響範囲**: 船体登録と設計の整合性向上、不正な組み合わせの防止

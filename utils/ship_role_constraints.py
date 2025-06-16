@@ -40,7 +40,7 @@ SHIP_ROLE_CONSTRAINTS = {
         "FF", "PF", "PC", "PG", "K", "MB", "AM", "CMC", "MCM", "MCS", "PT", "TB"
     ],
     "K": [   # コルベット
-        "K", "PC", "PT", "MB", "TB", "AM", "CMC", "MCM", "MCS"
+        "K", "PC", "PT", "MB", "TB", "AM", "CMC", "MCM", "MCS", "LCSL"
     ],
     "FAV": [  # 一等補助艦
         "APB", "PL", "PLH", "PM", "WHEC", "LCSL", "MAC", "CAM", "AAA", "AAG", "AAM", "AAS", "AAV", "AMS"
@@ -116,6 +116,22 @@ def get_ship_type_from_role_display(role_display):
     if " - " in role_display:
         return role_display.split(" - ")[0]
     return role_display
+
+def get_ship_types_for_role(role_type):
+    """
+    指定されたrole_typeを利用可能なship_typeのリストを取得（逆引き）
+    
+    Args:
+        role_type (str): ロール種別
+        
+    Returns:
+        list: 利用可能なship_typeのリスト
+    """
+    compatible_ship_types = []
+    for ship_type, allowed_roles in SHIP_ROLE_CONSTRAINTS.items():
+        if role_type in allowed_roles:
+            compatible_ship_types.append(ship_type)
+    return compatible_ship_types
 
 def get_constraint_info():
     """
