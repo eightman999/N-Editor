@@ -3055,8 +3055,7 @@ class AppController(QObject):
         """
         try:
             designs = []
-            data_dir = get_data_dir()
-            designs_dir = os.path.join(data_dir, 'designs')
+            designs_dir = get_data_dir('designs')
             
             if not os.path.exists(designs_dir):
                 logger.warning(f"設計ディレクトリが存在しません: {designs_dir}")
@@ -3089,8 +3088,7 @@ class AppController(QObject):
         """
         try:
             hulls = []
-            data_dir = get_data_dir()
-            hulls_dir = os.path.join(data_dir, 'hulls')
+            hulls_dir = get_data_dir('hulls')
             
             if not os.path.exists(hulls_dir):
                 logger.warning(f"船体ディレクトリが存在しません: {hulls_dir}")

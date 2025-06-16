@@ -80,6 +80,29 @@
 
 **影響範囲**: DesignViewで表示される船体が制約に完全準拠し、不正な組み合わせが排除される
 
+### ✅ get_data_dir()関数呼び出しエラー修正
+**時刻**: 16:00
+**概要**: app_controllerの全船体・全設計データ取得関数でget_data_dir()の引数不足エラーを修正
+
+**エラー内容**:
+```
+get_data_dir() missing 1 required positional argument: 'data_type'
+```
+
+**修正箇所**:
+- `get_all_designs()`: `get_data_dir()`→`get_data_dir('designs')`
+- `get_all_hulls()`: `get_data_dir()`→`get_data_dir('hulls')`
+
+**技術特徴**:
+- **引数修正**: 必須引数data_typeを適切に指定
+- **コード簡潔化**: 中間変数を除去してパス取得を直接化
+- **エラー解消**: 全船体・設計データ取得処理の正常化
+
+**ファイル**:
+- `controllers/app_controller.py`: get_data_dir()呼び出し修正
+
+**影響範囲**: 全船体・設計データ取得機能の正常動作復旧
+
 ## 2025年6月14日 (土)
 
 ### ✅ 海軍OOBファイル書き出し機能実装
