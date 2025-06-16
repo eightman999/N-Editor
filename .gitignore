@@ -1,19 +1,31 @@
 
+# IDE directories
+.idea/
+.vscode/
+
+# Python bytecode files and cache directories
 __pycache__/
 *.pyc
-# Ignore all Python bytecode files and cache directories
+*.pyo
+*.pyd
+.Python
 
-# Ignore virtual environment directories
+# Virtual environment directories
 venv/
-# Ignore Jupyter Notebook checkpoints
+env/
+ENV/
+
+# Jupyter Notebook files
 .ipynb_checkpoints/
-# Ignore Jupyter Notebook metadata
-.ipynb
+*.ipynb
+
+# Log files
 logs/
-# Ignore log files
-# Ignore configuration files
-config.yaml
-# Ignore
-EXAMPLE/
-app.log
 *.log
+app.log
+
+# Configuration files
+config.yaml
+
+# Example directories
+EXAMPLE/
