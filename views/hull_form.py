@@ -167,6 +167,9 @@ class HullForm(QWidget):
         self.archetype_combo.addItems(pdx_tools.pdx_ssw.ship_types)
         basic_layout.addRow("archetype:", self.archetype_combo)
         
+        # 無限再帰を防ぐためのフラグ
+        self._updating_constraints = False
+        
         # 種別変更時にarchetypeを制約する
         self.type_combo.currentTextChanged.connect(self.update_archetype_constraints)
         
@@ -761,9 +764,14 @@ class HullForm(QWidget):
 
         return hull_data
     
-    def update_archetype_constraints(self):
+    def update_archetype_constraints(self, text=None):
         """種別選択に基づいてarchetypeの選択肢を制約"""
+        if self._updating_constraints:
+            return
+            
         try:
+            self._updating_constraints = True
+            
             # 現在選択されている種別を取得
             current_type_text = self.type_combo.currentText()
             
@@ -807,10 +815,17 @@ class HullForm(QWidget):
             # エラー時は全てのship_typesを表示
             self.archetype_combo.clear()
             self.archetype_combo.addItems(pdx_tools.pdx_ssw.ship_types)
+        finally:
+            self._updating_constraints = False
     
-    def update_ship_type_constraints(self):
+    def update_ship_type_constraints(self, text=None):
         """archetype選択に基づいてship_typeの選択肢を制約"""
+        if self._updating_constraints:
+            return
+            
         try:
+            self._updating_constraints = True
+            
             # 現在選択されているarchetypeを取得
             current_archetype = self.archetype_combo.currentText()
             
@@ -915,3 +930,5 @@ class HullForm(QWidget):
             ]
             self.type_combo.clear()
             self.type_combo.addItems(ship_types)
+        finally:
+            self._updating_constraints = False

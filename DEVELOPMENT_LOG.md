@@ -129,6 +129,35 @@ get_data_dir() missing 1 required positional argument: 'data_type'
 
 **影響範囲**: より正確で高速な船体選択フィルタリング
 
+### ✅ HullForm無限再帰エラー修正
+**時刻**: 16:30
+**概要**: HullFormの制約更新メソッドで発生していた無限再帰エラーと引数エラーを修正
+
+**エラー内容**:
+```
+RecursionError: maximum recursion depth exceeded
+TypeError: HullForm.update_ship_type_constraints() takes 1 positional argument but 2 were given
+```
+
+**問題の原因**:
+1. **無限再帰**: `update_archetype_constraints`と`update_ship_type_constraints`が相互呼び出し
+2. **引数エラー**: シグナルが引数を渡すがメソッドが受け取らない
+
+**修正内容**:
+- **再帰防止フラグ**: `_updating_constraints`フラグで相互呼び出しを制御
+- **引数対応**: メソッドにオプション引数`text=None`を追加
+- **安全な処理**: try-finally節でフラグの確実なリセット
+
+**技術特徴**:
+- **再帰防止**: フラグベースの制御で無限ループを回避
+- **シグナル対応**: currentTextChangedシグナルの引数を適切に処理
+- **堅牢性**: 例外時もフラグが正しくリセットされる設計
+
+**ファイル**:
+- `views/hull_form.py`: 制約更新メソッドの再帰防止とエラー修正
+
+**影響範囲**: HullFormの制約機能が安定動作し、船体登録時のエラーを解消
+
 ## 2025年6月14日 (土)
 
 ### ✅ 海軍OOBファイル書き出し機能実装
