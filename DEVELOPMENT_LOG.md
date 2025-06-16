@@ -34,6 +34,27 @@
 
 **影響範囲**: 船体登録と設計の整合性向上、不正な組み合わせの防止
 
+### ✅ DesignView艦種選択をarchetype基準に変更
+**時刻**: 15:15
+**概要**: DesignViewの艦種選択プルダウンをship_typeからarchetypeベースに変更
+
+**実装内容**:
+- **艦種選択基準変更**: ship_type_mapping → archetype (pdx_tools.pdx_ssw.ship_types)
+- **フィルタリング更新**: 船体選択時にarchetypeで直接フィルタリング
+- **検索クエリ更新**: archetypeに基づくWeb検索クエリ生成
+- **UI整合性**: 選択された船体のarchetypeとUI選択状態の同期
+
+**技術特徴**:
+- **直接archetype選択**: 中間層なしでarchetypeを直接選択
+- **制約整合性**: 船体のarchetype制約チェックとUI選択の一致
+- **アイコン対応**: archetypeごとのアイコン表示
+- **検索連動**: archetype選択に基づく適切な英語検索クエリ
+
+**ファイル**:
+- `views/design_view.py`: 艦種選択をarchetype基準に変更
+
+**影響範囲**: DesignViewの船体選択がより正確になり、archetype制約との整合性が向上
+
 ## 2025年6月14日 (土)
 
 ### ✅ 海軍OOBファイル書き出し機能実装
