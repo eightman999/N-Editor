@@ -4,10 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e49128cf-ccc2-46fc-97ad-f395874b0dab" name="変更" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/ship_role_constraints.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/ship_role_constraints.py" afterDir="false" />
-    </list>
+    <list default="true" id="e49128cf-ccc2-46fc-97ad-f395874b0dab" name="変更" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -259,7 +256,7 @@
       <workItem from="1749684272055" duration="480000" />
       <workItem from="1749696843809" duration="4999000" />
       <workItem from="1749858070069" duration="8228000" />
-      <workItem from="1750075294364" duration="1472000" />
+      <workItem from="1750075294364" duration="1878000" />
     </task>
     <servers />
   </component>
