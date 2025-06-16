@@ -543,11 +543,24 @@ class DesignView(QWidget):
             # 選択されたarchetypeでフィルタリング（制約適用）
             filtered_hulls = []
             
-            # 選択されたarchetypeを利用可能なship_typeを取得
-            from utils.ship_role_constraints import get_ship_types_for_role
+            # 選択されたarchetype(role_type)を利用可能なship_typeを取得
+            # BBを選択した場合、BBというrole_typeを持てるship_typeのリストを取得
+            from utils.ship_role_constraints import get_ship_types_for_role, get_allowed_roles
             compatible_ship_types = get_ship_types_for_role(selected_archetype_text)
             
-            print(f"選択archetype '{selected_archetype_text}' で利用可能なship_type: {compatible_ship_types}")
+            # デバッグ: 制約の確認
+            print(f"選択archetype '{selected_archetype_text}' を利用可能なship_type: {compatible_ship_types}")
+            
+            # 逆方向の確認も行う（理解のため）
+            if selected_archetype_text == "BB":
+                # ship_type "BB" で利用可能なrole_typeを確認
+                bb_ship_allowed_roles = get_allowed_roles("BB")
+                print(f"ship_type 'BB' で利用可能なrole: {bb_ship_allowed_roles}")
+                
+                # ship_type "B" で利用可能なrole_typeを確認  
+                b_ship_allowed_roles = get_allowed_roles("B")
+                print(f"ship_type 'B' で利用可能なrole: {b_ship_allowed_roles}")
+                print(f"ship_type 'B' でrole 'BB' が利用可能か: {'BB' in b_ship_allowed_roles}")
             
             for hull in hulls:
                 hull_type = hull.get("type", "")
@@ -556,15 +569,21 @@ class DesignView(QWidget):
                 # 船体種別から略称を抽出
                 hull_ship_type = get_ship_type_from_role_display(hull_type)
                 
-                # 船体のship_typeが選択されたarchetypeで許可されているかのみをチェック
-                ship_type_allowed = hull_ship_type in compatible_ship_types
+                # 制約チェック: 船体のship_typeで選択されたarchetypeが利用可能か
+                # ship_type "B" で role_type "BB" が利用可能かをチェック
+                hull_allowed_roles = get_allowed_roles(hull_ship_type)
+                archetype_allowed = selected_archetype_text in hull_allowed_roles
                 
-                if ship_type_allowed:
+                print(f"デバッグ: {hull.get('name', '不明')} - ship_type: {hull_ship_type}, archetype: {hull_archetype}")
+                print(f"  hull_ship_type '{hull_ship_type}' で利用可能なrole: {hull_allowed_roles}")
+                print(f"  選択archetype '{selected_archetype_text}' が利用可能か: {archetype_allowed}")
+                
+                if archetype_allowed:
                     filtered_hulls.append(hull)
                     print(f"適合: {hull.get('name', '不明')} (ship_type: {hull_ship_type}, archetype: {hull_archetype})")
                 else:
                     print(f"除外: {hull.get('name', '不明')} - "
-                          f"ship_type許可: {ship_type_allowed} "
+                          f"archetype許可: {archetype_allowed} "
                           f"(ship_type: {hull_ship_type}, archetype: {hull_archetype})")
 
             if not filtered_hulls:
