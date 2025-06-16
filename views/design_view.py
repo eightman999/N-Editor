@@ -556,19 +556,15 @@ class DesignView(QWidget):
                 # 船体種別から略称を抽出
                 hull_ship_type = get_ship_type_from_role_display(hull_type)
                 
-                # 1. 船体のship_typeが選択されたarchetypeで許可されているか
+                # 船体のship_typeが選択されたarchetypeで許可されているかのみをチェック
                 ship_type_allowed = hull_ship_type in compatible_ship_types
                 
-                # 2. 船体内部の制約（ship_type と archetype の組み合わせ）が正しいか
-                internal_constraint_valid = is_role_allowed(hull_ship_type, hull_archetype)
-                
-                if ship_type_allowed and internal_constraint_valid:
+                if ship_type_allowed:
                     filtered_hulls.append(hull)
                     print(f"適合: {hull.get('name', '不明')} (ship_type: {hull_ship_type}, archetype: {hull_archetype})")
                 else:
                     print(f"除外: {hull.get('name', '不明')} - "
-                          f"ship_type許可: {ship_type_allowed}, "
-                          f"内部制約: {internal_constraint_valid} "
+                          f"ship_type許可: {ship_type_allowed} "
                           f"(ship_type: {hull_ship_type}, archetype: {hull_archetype})")
 
             if not filtered_hulls:
