@@ -543,24 +543,11 @@ class DesignView(QWidget):
             # 選択されたarchetypeでフィルタリング（制約適用）
             filtered_hulls = []
             
-            # 選択されたarchetype(role_type)を利用可能なship_typeを取得
-            # BBを選択した場合、BBというrole_typeを持てるship_typeのリストを取得
-            from utils.ship_role_constraints import get_ship_types_for_role, get_allowed_roles
-            compatible_ship_types = get_ship_types_for_role(selected_archetype_text)
+            # 選択されたarchetypeのIDでSHIP_ROLE_CONSTRAINTSから利用可能なrole_typeリストを取得
+            from utils.ship_role_constraints import get_allowed_roles
+            allowed_role_types = get_allowed_roles(selected_archetype_text)
             
-            # デバッグ: 制約の確認
-            print(f"選択archetype '{selected_archetype_text}' を利用可能なship_type: {compatible_ship_types}")
-            
-            # 逆方向の確認も行う（理解のため）
-            if selected_archetype_text == "BB":
-                # ship_type "BB" で利用可能なrole_typeを確認
-                bb_ship_allowed_roles = get_allowed_roles("BB")
-                print(f"ship_type 'BB' で利用可能なrole: {bb_ship_allowed_roles}")
-                
-                # ship_type "B" で利用可能なrole_typeを確認  
-                b_ship_allowed_roles = get_allowed_roles("B")
-                print(f"ship_type 'B' で利用可能なrole: {b_ship_allowed_roles}")
-                print(f"ship_type 'B' でrole 'BB' が利用可能か: {'BB' in b_ship_allowed_roles}")
+            print(f"選択archetype '{selected_archetype_text}' で利用可能なrole_type: {allowed_role_types}")
             
             for hull in hulls:
                 hull_type = hull.get("type", "")
@@ -569,21 +556,19 @@ class DesignView(QWidget):
                 # 船体種別から略称を抽出
                 hull_ship_type = get_ship_type_from_role_display(hull_type)
                 
-                # 制約チェック: 船体のship_typeで選択されたarchetypeが利用可能か
-                # ship_type "B" で role_type "BB" が利用可能かをチェック
-                hull_allowed_roles = get_allowed_roles(hull_ship_type)
-                archetype_allowed = selected_archetype_text in hull_allowed_roles
+                # 制約チェック: 船体のtypeが選択されたarchetypeで利用可能なrole_typeに含まれているか
+                type_allowed = hull_ship_type in allowed_role_types
                 
                 print(f"デバッグ: {hull.get('name', '不明')} - ship_type: {hull_ship_type}, archetype: {hull_archetype}")
-                print(f"  hull_ship_type '{hull_ship_type}' で利用可能なrole: {hull_allowed_roles}")
-                print(f"  選択archetype '{selected_archetype_text}' が利用可能か: {archetype_allowed}")
+                print(f"  選択archetype '{selected_archetype_text}' で利用可能なrole_type: {allowed_role_types}")
+                print(f"  船体のship_type '{hull_ship_type}' が許可されているか: {type_allowed}")
                 
-                if archetype_allowed:
+                if type_allowed:
                     filtered_hulls.append(hull)
                     print(f"適合: {hull.get('name', '不明')} (ship_type: {hull_ship_type}, archetype: {hull_archetype})")
                 else:
                     print(f"除外: {hull.get('name', '不明')} - "
-                          f"archetype許可: {archetype_allowed} "
+                          f"type許可: {type_allowed} "
                           f"(ship_type: {hull_ship_type}, archetype: {hull_archetype})")
 
             if not filtered_hulls:

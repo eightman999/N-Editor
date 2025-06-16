@@ -103,6 +103,32 @@ get_data_dir() missing 1 required positional argument: 'data_type'
 
 **影響範囲**: 全船体・設計データ取得機能の正常動作復旧
 
+### ✅ DesignView船体フィルタリングロジック最適化
+**時刻**: 16:15
+**概要**: 選択archetypeのIDでSHIP_ROLE_CONSTRAINTSから利用可能なrole_typeリストを取得し、そのIDをtypeに持つ船体を表示
+
+**変更内容**:
+- **フィルタリング方式変更**: 選択archetype → 利用可能role_typeリスト → 船体type照合
+- **シンプル化**: 複雑な逆引きロジックを直接的な制約参照に変更
+- **明確な制約適用**: SHIP_ROLE_CONSTRAINTS[archetype_id]から直接取得
+
+**動作フロー**:
+1. 選択archetypeのID（例: "BB"）を取得
+2. `get_allowed_roles(selected_archetype_text)`でBBで利用可能なrole_typeリストを取得
+3. 各船体のtypeがそのリストに含まれているかをチェック
+4. 含まれている船体のみを表示
+
+**技術特徴**:
+- **直接制約参照**: SHIP_ROLE_CONSTRAINTSを直接参照する明確なロジック
+- **パフォーマンス向上**: 不要な逆引き処理を削除
+- **制約整合性**: 制約定義に忠実なフィルタリング
+- **デバッグ改善**: より明確なログ出力
+
+**ファイル**:
+- `views/design_view.py`: フィルタリングロジック最適化
+
+**影響範囲**: より正確で高速な船体選択フィルタリング
+
 ## 2025年6月14日 (土)
 
 ### ✅ 海軍OOBファイル書き出し機能実装
