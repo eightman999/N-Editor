@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                              QPushButton, QGroupBox, QFileDialog, QMessageBox, QScrollArea)
 from PyQt5.QtCore import Qt, pyqtSignal
 from utils.web_search_widget import WebSearchButton
+from utils.ship_role_constraints import get_allowed_roles, get_ship_type_from_role_display
 import os
 import json
 import csv
@@ -161,10 +162,13 @@ class HullForm(QWidget):
         self.country_edit = QLineEdit()
         basic_layout.addRow("開発国:", self.country_edit)
 
-        # archetype
+        # archetype（制約適用）
         self.archetype_combo = QComboBox()
         self.archetype_combo.addItems(pdx_tools.pdx_ssw.ship_types)
         basic_layout.addRow("archetype:", self.archetype_combo)
+        
+        # 種別変更時にarchetypeを制約する
+        self.type_combo.currentTextChanged.connect(self.update_archetype_constraints)
 
         # 物理的特性グループ
         physical_group = QGroupBox("物理的特性")
@@ -753,3 +757,50 @@ class HullForm(QWidget):
         hull_data['slots'] = slots
 
         return hull_data
+    
+    def update_archetype_constraints(self):
+        """種別選択に基づいてarchetypeの選択肢を制約"""
+        try:
+            # 現在選択されている種別を取得
+            current_type_text = self.type_combo.currentText()
+            
+            # 種別から略称を抽出（例: "BB - 戦艦" → "BB"）
+            ship_type = get_ship_type_from_role_display(current_type_text)
+            
+            # 利用可能なロール種別を取得
+            allowed_roles = get_allowed_roles(ship_type)
+            
+            # 現在選択されているarchetype を保存
+            current_archetype = self.archetype_combo.currentText()
+            
+            # archetypeコンボボックスをクリア
+            self.archetype_combo.clear()
+            
+            if allowed_roles:
+                # 制約に基づいて選択肢を追加
+                for role in allowed_roles:
+                    self.archetype_combo.addItem(role)
+                
+                # 以前の選択が有効な場合は復元
+                if current_archetype in allowed_roles:
+                    index = self.archetype_combo.findText(current_archetype)
+                    if index >= 0:
+                        self.archetype_combo.setCurrentIndex(index)
+                        
+                print(f"船体種別 '{ship_type}' に対して {len(allowed_roles)} 個のロール種別を設定しました")
+            else:
+                # 制約が定義されていない場合は全てのship_typesを追加
+                self.archetype_combo.addItems(pdx_tools.pdx_ssw.ship_types)
+                
+                # 以前の選択を復元
+                index = self.archetype_combo.findText(current_archetype)
+                if index >= 0:
+                    self.archetype_combo.setCurrentIndex(index)
+                    
+                print(f"船体種別 '{ship_type}' の制約が未定義のため、全ロール種別を表示しています")
+                
+        except Exception as e:
+            print(f"archetype制約更新エラー: {e}")
+            # エラー時は全てのship_typesを表示
+            self.archetype_combo.clear()
+            self.archetype_combo.addItems(pdx_tools.pdx_ssw.ship_types)

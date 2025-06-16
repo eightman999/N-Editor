@@ -11,6 +11,7 @@ from utils.path_utils import get_data_dir
 from utils.ship_type_mapping import ship_type_mapping
 from utils.ship_icon_manager import ShipIconManager
 from utils.web_search_widget import WebSearchButton
+from utils.ship_role_constraints import get_allowed_roles, get_ship_type_from_role_display, is_role_allowed
 
 
 class DesignView(QWidget):
@@ -533,15 +534,25 @@ class DesignView(QWidget):
                 QMessageBox.information(self, "情報", "船体データがありません。先に船体を登録してください。")
                 return
 
-            # 選択された艦種でフィルタリング
+            # 選択された艦種でフィルタリング（制約適用）
             filtered_hulls = []
             for hull in hulls:
                 hull_type = hull.get("type", "")
-                # 完全な艦種名またはデータで比較
-                if (hull_type == selected_ship_type_text or 
-                    hull_type == selected_ship_type_data or
-                    selected_ship_type_text in hull_type):
-                    filtered_hulls.append(hull)
+                hull_archetype = hull.get("archetype", "")
+                
+                # 船体種別から略称を抽出
+                hull_ship_type = get_ship_type_from_role_display(hull_type)
+                
+                # 制約チェック: 船体のarchetypeが船体種別で許可されているかを確認
+                if is_role_allowed(hull_ship_type, hull_archetype):
+                    # 完全な艦種名またはデータで比較
+                    if (hull_type == selected_ship_type_text or 
+                        hull_type == selected_ship_type_data or
+                        selected_ship_type_text in hull_type):
+                        filtered_hulls.append(hull)
+                else:
+                    # 制約違反の船体は警告表示（デバッグ用）
+                    print(f"制約違反: 船体種別 '{hull_ship_type}' でarchetype '{hull_archetype}' は許可されていません")
 
             if not filtered_hulls:
                 QMessageBox.information(self, "情報", f"選択された艦種「{selected_ship_type_text}」の船体データがありません。")
@@ -1470,6 +1481,20 @@ class DesignView(QWidget):
             return
 
         try:
+            # 制約チェック: 船体のarchetype が船体種別で許可されているかを確認
+            hull_type = self.current_hull.get("type", "")
+            hull_archetype = self.current_hull.get("archetype", "")
+            hull_ship_type = get_ship_type_from_role_display(hull_type)
+            
+            if not is_role_allowed(hull_ship_type, hull_archetype):
+                QMessageBox.warning(
+                    self, 
+                    "制約違反", 
+                    f"船体種別 '{hull_ship_type}' でarchetype '{hull_archetype}' は許可されていません。\n"
+                    f"船体登録時にarchetypeを修正してください。"
+                )
+                return
+            
             # 設計データの構築
             design_data = {
                 "design_name": design_name,
