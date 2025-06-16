@@ -542,6 +542,13 @@ class DesignView(QWidget):
 
             # 選択されたarchetypeでフィルタリング（制約適用）
             filtered_hulls = []
+            
+            # 選択されたarchetypeを利用可能なship_typeを取得
+            from utils.ship_role_constraints import get_ship_types_for_role
+            compatible_ship_types = get_ship_types_for_role(selected_archetype_text)
+            
+            print(f"選択archetype '{selected_archetype_text}' で利用可能なship_type: {compatible_ship_types}")
+            
             for hull in hulls:
                 hull_type = hull.get("type", "")
                 hull_archetype = hull.get("archetype", "")
@@ -549,14 +556,24 @@ class DesignView(QWidget):
                 # 船体種別から略称を抽出
                 hull_ship_type = get_ship_type_from_role_display(hull_type)
                 
-                # 制約チェック: 船体のarchetypeが船体種別で許可されているかを確認
-                if is_role_allowed(hull_ship_type, hull_archetype):
-                    # archetypeで比較（選択された archetype と船体の archetype が一致するか）
-                    if hull_archetype == selected_archetype_text or hull_archetype == selected_archetype_data:
-                        filtered_hulls.append(hull)
+                # 1. 船体のarchetypeが選択されたarchetypeと一致するか
+                archetype_match = (hull_archetype == selected_archetype_text or hull_archetype == selected_archetype_data)
+                
+                # 2. 船体のship_typeが選択されたarchetypeで許可されているか
+                ship_type_allowed = hull_ship_type in compatible_ship_types
+                
+                # 3. 船体内部の制約（ship_type と archetype の組み合わせ）が正しいか
+                internal_constraint_valid = is_role_allowed(hull_ship_type, hull_archetype)
+                
+                if archetype_match and ship_type_allowed and internal_constraint_valid:
+                    filtered_hulls.append(hull)
+                    print(f"適合: {hull.get('name', '不明')} (ship_type: {hull_ship_type}, archetype: {hull_archetype})")
                 else:
-                    # 制約違反の船体は警告表示（デバッグ用）
-                    print(f"制約違反: 船体種別 '{hull_ship_type}' でarchetype '{hull_archetype}' は許可されていません")
+                    print(f"除外: {hull.get('name', '不明')} - "
+                          f"archetype一致: {archetype_match}, "
+                          f"ship_type許可: {ship_type_allowed}, "
+                          f"内部制約: {internal_constraint_valid} "
+                          f"(ship_type: {hull_ship_type}, archetype: {hull_archetype})")
 
             if not filtered_hulls:
                 QMessageBox.information(self, "情報", f"選択されたarchetype「{selected_archetype_text}」の船体データがありません。")
