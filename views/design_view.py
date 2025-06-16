@@ -545,9 +545,18 @@ class DesignView(QWidget):
             
             # 選択されたarchetypeのIDでSHIP_ROLE_CONSTRAINTSから利用可能なrole_typeリストを取得
             from utils.ship_role_constraints import get_allowed_roles
-            allowed_role_types = get_allowed_roles(selected_archetype_text)
             
-            print(f"選択archetype '{selected_archetype_text}' で利用可能なrole_type: {allowed_role_types}")
+            # 表示名からIDを抽出（例: "BB - 一等戦艦" → "BB"）
+            selected_archetype_id = selected_archetype_data if selected_archetype_data else selected_archetype_text
+            if not selected_archetype_id:
+                print("選択されたarchetypeが無効です")
+                return
+                
+            allowed_role_types = get_allowed_roles(selected_archetype_id)
+            
+            print(f"選択archetype表示名: '{selected_archetype_text}'")
+            print(f"選択archetypeID: '{selected_archetype_id}'") 
+            print(f"利用可能なrole_type: {allowed_role_types}")
             
             for hull in hulls:
                 hull_type = hull.get("type", "")
@@ -560,7 +569,7 @@ class DesignView(QWidget):
                 type_allowed = hull_ship_type in allowed_role_types
                 
                 print(f"デバッグ: {hull.get('name', '不明')} - ship_type: {hull_ship_type}, archetype: {hull_archetype}")
-                print(f"  選択archetype '{selected_archetype_text}' で利用可能なrole_type: {allowed_role_types}")
+                print(f"  選択archetypeID '{selected_archetype_id}' で利用可能なrole_type: {allowed_role_types}")
                 print(f"  船体のship_type '{hull_ship_type}' が許可されているか: {type_allowed}")
                 
                 if type_allowed:
