@@ -547,8 +547,20 @@ class DesignView(QWidget):
             from utils.ship_role_constraints import get_allowed_roles
             
             # 表示名からIDを抽出（例: "BB - 一等戦艦" → "BB"）
-            selected_archetype_id = selected_archetype_data if selected_archetype_data else selected_archetype_text
-            if not selected_archetype_id:
+            print(f"デバッグ: selected_archetype_text='{selected_archetype_text}'")
+            print(f"デバッグ: selected_archetype_data='{selected_archetype_data}'")
+            
+            # pdx_tools.pdx_ssw.ship_typesが表示名を返している場合、IDを抽出
+            if selected_archetype_data and selected_archetype_data != selected_archetype_text:
+                selected_archetype_id = selected_archetype_data
+            else:
+                # 表示名からIDを抽出（"BB - 一等戦艦" → "BB"）
+                if " - " in selected_archetype_text:
+                    selected_archetype_id = selected_archetype_text.split(" - ")[0]
+                else:
+                    selected_archetype_id = selected_archetype_text
+            
+            if not selected_archetype_id or selected_archetype_id == "選択してください":
                 print("選択されたarchetypeが無効です")
                 return
                 
