@@ -105,7 +105,7 @@ def test_province_centroids_cache():
     # MapViewerインスタンスを作成してテスト
     try:
         from PyQt5.QtWidgets import QApplication
-        from utils.maptest2 import MapViewer
+        from utils.map_viewer import MapViewer
         from utils.cache_manager import CacheManager
 
         # アプリケーションインスタンス（既に存在する場合はそれを使用）

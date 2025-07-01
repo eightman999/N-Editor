@@ -27,7 +27,7 @@ except ImportError:
 
 # MapViewerのインポートを安全に行う
 try:
-    from utils.maptest2 import MapViewer
+    from utils.map_viewer import MapViewer
 
     MAP_VIEWER_AVAILABLE = True
 except ImportError:
