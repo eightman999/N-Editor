@@ -4,6 +4,11 @@ import logging
 import platform
 from logging.handlers import RotatingFileHandler
 
+# macOS の Input Method Kit エラーを抑制
+if platform.system() == "Darwin":  # macOS
+    os.environ['QT_MAC_DISABLE_FOREGROUND_APPLICATION_TRANSFORM'] = '1'
+    os.environ['QT_LOGGING_RULES'] = 'qt.qpa.input.methods.debug=false'
+
 # ロガーの設定
 logging.basicConfig(
     level=logging.INFO,
@@ -192,6 +197,16 @@ def main():
     # PyQt5アプリケーションの初期化
     try:
         app = QApplication(sys.argv)
+        
+        # macOS固有の設定を追加
+        if platform.system() == "Darwin":
+            # Input Method Kitの警告を抑制するための追加設定
+            # 属性の存在をチェックしてから設定
+            if hasattr(app, 'AA_DontShowIconsInMenus'):
+                app.setAttribute(app.AA_DontShowIconsInMenus, False)
+            if hasattr(app, 'AA_NativeWindows'):
+                app.setAttribute(app.AA_NativeWindows, False)
+        
         logger.info("QApplication created successfully")
     except Exception as e:
         logger.error(f"Failed to create QApplication: {e}")

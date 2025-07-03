@@ -1361,7 +1361,7 @@ class AppController(QObject):
                     logger.debug(f"キャッシュから国家データを読み込み: {len(cached_data)}件")
                     
                     # 国旗スプライトシートの確認・生成
-                    self._ensure_flag_sprite_sheet(cached_data)
+                    self._ensure_flag_sprite_sheet(cached_data, mod_path)
                     return cached_data
 
             # キャッシュミスまたは古い場合は通常の処理を実行
@@ -1410,7 +1410,7 @@ class AppController(QObject):
                 logger.debug(f"国家データをキャッシュに保存: {len(nations)}件")
 
             # 国旗スプライトシートの生成
-            self._ensure_flag_sprite_sheet(nations)
+            self._ensure_flag_sprite_sheet(nations, mod_path)
 
             logger.info(f"国家情報の取得完了: {len(nations)}件の国家を処理")
             return nations
@@ -1419,12 +1419,14 @@ class AppController(QObject):
             logger.error(f"国家情報取得中にエラーが発生しました: {e}")
             return []
 
-    def _ensure_flag_sprite_sheet(self, nations):
+    def _ensure_flag_sprite_sheet(self, nations, mod_path, force_generate=False):
         """
         国旗スプライトシートが存在しない、または古い場合に生成する
         
         Args:
             nations: 国家情報のリスト
+            mod_path: 現在のMODのパス
+            force_generate: Trueの場合、キャッシュの有効性に関わらず強制的に生成
         """
         try:
             if not hasattr(self, '_flag_sprite_manager'):
@@ -1442,15 +1444,15 @@ class AppController(QObject):
                 self._flag_sprite_manager = FlagSpriteManager(flags_cache_dir, mod_name)
             
             # スプライトシートのキャッシュが有効かチェック
-            if not self._flag_sprite_manager.is_cache_valid(nations):
+            if not force_generate and self._flag_sprite_manager.is_cache_valid(nations, mod_path):
+                logger.debug("国旗スプライトシートキャッシュは有効")
+            else:
                 logger.info("国旗スプライトシートを生成中...")
-                success = self._flag_sprite_manager.generate_sprite_sheet(nations)
+                success = self._flag_sprite_manager.generate_sprite_sheet(nations, mod_path, force_generate)
                 if success:
                     logger.info("国旗スプライトシート生成完了")
                 else:
                     logger.warning("国旗スプライトシート生成に失敗")
-            else:
-                logger.debug("国旗スプライトシートキャッシュは有効")
                 
         except Exception as e:
             logger.error(f"国旗スプライトシート処理エラー: {e}")
@@ -1463,6 +1465,38 @@ class AppController(QObject):
             FlagSpriteManager: スプライトマネージャー、初期化されていない場合はNone
         """
         return getattr(self, '_flag_sprite_manager', None)
+
+    def regenerate_flag_sprites(self):
+        """国旗スプライトシートを強制的に再生成する"""
+        if not self.current_mod or not self.current_mod.get("path"):
+            QMessageBox.warning(self.main_window, "警告", "MODが選択されていません。")
+            return
+
+        mod_path = self.current_mod["path"]
+        nations = self.get_nations(mod_path) # 最新の国家情報を取得
+
+        if nations:
+            self.background_task_started.emit("国旗スプライトシート再生成")
+            worker = Worker(self._regenerate_flag_sprites_background, nations, mod_path)
+            worker.signals.result.connect(lambda result: self._on_flag_sprite_regenerated("国旗スプライトシート再生成", result))
+            worker.signals.error.connect(lambda error: self.background_task_error.emit("国旗スプライトシート再生成", error))
+            self.threadpool.start(worker)
+        else:
+            QMessageBox.warning(self.main_window, "警告", "国家情報が取得できませんでした。")
+
+    def _regenerate_flag_sprites_background(self, nations, mod_path):
+        """国旗スプライトシートの再生成をバックグラウンドで実行"""
+        logger.info("国旗スプライトシートの強制再生成を開始します...")
+        start_time = time.time()
+        self._ensure_flag_sprite_sheet(nations, mod_path, force_generate=True)
+        end_time = time.time()
+        logger.info(f"国旗スプライトシートの強制再生成が完了しました。所要時間: {end_time - start_time:.2f}秒")
+        return {"status": "completed", "time_taken": end_time - start_time}
+
+    def _on_flag_sprite_regenerated(self, task_name, result):
+        """国旗スプライトシート再生成完了時の処理"""
+        self.background_task_finished.emit(task_name, result)
+        QMessageBox.information(self.main_window, "完了", "国旗スプライトシートの再生成が完了しました。")
 
     # 設計関連機能（残りのメソッドも同様に実装...）
 

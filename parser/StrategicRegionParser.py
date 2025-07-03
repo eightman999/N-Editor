@@ -58,7 +58,19 @@ def t_newline(t):
 
 # エラーハンドリング
 def t_error(t):
-    # print(f"Illegal character '{t.value[0]}' at line {t.lexer.lineno}, position {t.lexer.lexpos}")
+    # Get context around the error
+    lines = t.lexer.lexdata.split('\n')
+    current_line = t.lexer.lineno - 1 if t.lexer.lineno > 0 else 0
+    if current_line < len(lines):
+        line_content = lines[current_line]
+        char_pos = t.lexer.lexpos - sum(len(line) + 1 for line in lines[:current_line])
+        char_pos = max(0, char_pos)
+        
+        # Create a visual indicator of where the error occurred
+        error_indicator = " " * char_pos + "^"
+        print(f"Lexer error: Illegal character '{t.value[0]}' at line {t.lexer.lineno}, position {t.lexer.lexpos}")
+        print(f"Line content: {line_content}")
+        print(f"             {error_indicator}")
     t.lexer.skip(1)
 
 # レクサーの構築
@@ -129,12 +141,23 @@ def p_value_item(p):
 # エラーハンドリング
 def p_error(p):
     if p:
-        # print(f"Syntax error at token '{p.value}' (type: {p.type}) at line {p.lineno}, index {p.lexpos}")
-        pass
+        # Get surrounding context for better error reporting
+        lines = p.lexer.lexdata.split('\n')
+        error_line = p.lineno - 1 if p.lineno > 0 else 0
+        context_start = max(0, error_line - 2)
+        context_end = min(len(lines), error_line + 3)
+        
+        context_lines = []
+        for i in range(context_start, context_end):
+            marker = " -> " if i == error_line else "    "
+            context_lines.append(f"{marker}{i+1:3}: {lines[i]}")
+        
+        context = "\n".join(context_lines)
+        error_msg = f"Syntax error at token '{p.value}' (type: {p.type}) at line {p.lineno}, position {p.lexpos}\n"
+        error_msg += f"Context:\n{context}"
+        raise SyntaxError(error_msg)
     else:
-        # print("Syntax error at EOF (Unexpected end of file).")
-        pass
-    raise SyntaxError("Parsing failed due to syntax error.")
+        raise SyntaxError("Syntax error at EOF (Unexpected end of file).")
 
 class StrategicRegionParser:
     def __init__(self, content):

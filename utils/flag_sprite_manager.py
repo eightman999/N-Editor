@@ -57,17 +57,24 @@ class FlagSpriteManager:
         logger.debug(f"スプライトシート寸法計算: 国旗数={flag_count}, 列={cols}, 行={rows}, サイズ={sheet_width}x{sheet_height}")
         return cols, rows, sheet_width, sheet_height
 
-    def _generate_flags_hash(self, nations: List[Dict]) -> str:
+    def _generate_flags_hash(self, nations: List[Dict], mod_path: str) -> str:
         """
-        国家リストから国旗データのハッシュを生成（キャッシュ有効性判定用）
+        国家リストとMODパスから国旗データのハッシュを生成（キャッシュ有効性判定用）
 
         Args:
             nations: 国家情報のリスト
+            mod_path: MODのルートパス
 
         Returns:
             ハッシュ文字列
         """
         hash_data = []
+        
+        # gfx/flags ディレクトリの最終更新日時を含める
+        flags_dir = os.path.join(mod_path, 'gfx', 'flags')
+        if os.path.exists(flags_dir):
+            hash_data.append(f"dir_mtime:{os.path.getmtime(flags_dir)}")
+        
         for nation in nations:
             flag_path = nation.get('flag_path')
             if flag_path and os.path.exists(flag_path):
@@ -160,18 +167,27 @@ class FlagSpriteManager:
         
         return img
 
-    def generate_sprite_sheet(self, nations: List[Dict]) -> bool:
+    def generate_sprite_sheet(self, nations: List[Dict], mod_path: str, force_generate: bool = False) -> bool:
         """
         国家リストから国旗スプライトシートを生成
 
         Args:
             nations: 国家情報のリスト（flag_pathを含む）
+            mod_path: MODのルートパス
+            force_generate: Trueの場合、キャッシュの有効性に関わらず強制的に生成
 
         Returns:
             生成成功時True
         """
         try:
             logger.info(f"国旗スプライトシート生成開始: 国家数={len(nations)}")
+
+            # キャッシュが有効な場合はそれを使用（強制生成でない場合）
+            if not force_generate and self.is_cache_valid(nations, mod_path):
+                logger.info("既存の国旗スプライトシートキャッシュが有効です。再利用します。")
+                self._sprite_sheet = Image.open(self.sprite_sheet_path)
+                self._coords_cache = self._load_coords_cache()
+                return True
             
             # 有効な国旗がある国家のみをフィルタリング
             valid_nations = []
@@ -200,7 +216,7 @@ class FlagSpriteManager:
                     'sheet_size': [sheet_width, sheet_height],
                     'cols': cols,
                     'rows': rows,
-                    'flags_hash': self._generate_flags_hash(valid_nations)
+                    'flags_hash': self._generate_flags_hash(valid_nations, mod_path)
                 },
                 'flags': {}
             }
@@ -258,12 +274,13 @@ class FlagSpriteManager:
             logger.error(f"スプライトシート生成エラー: {e}")
             return False
 
-    def is_cache_valid(self, nations: List[Dict]) -> bool:
+    def is_cache_valid(self, nations: List[Dict], mod_path: str) -> bool:
         """
         スプライトシートキャッシュが有効かどうかを判定
 
         Args:
             nations: 国家情報のリスト
+            mod_path: MODのルートパス
 
         Returns:
             キャッシュが有効な場合True
@@ -283,7 +300,7 @@ class FlagSpriteManager:
                 return False
             
             # 国旗ハッシュを比較
-            current_hash = self._generate_flags_hash(nations)
+            current_hash = self._generate_flags_hash(nations, mod_path)
             cached_hash = coords_data.get('metadata', {}).get('flags_hash', '')
             
             is_valid = current_hash == cached_hash
