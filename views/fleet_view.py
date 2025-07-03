@@ -1321,7 +1321,7 @@ class FleetView(QWidget):
                                         ship_name = ship.get('name', '不明')
                                         if isinstance(ship_name, dict) and 'override' in ship_name:
                                             ship_name = ship_name['override']
-                                        
+
                                         definition = ship.get('definition', '不明')
                                         exp_factor = ship.get('start_experience_factor', 0.0)
 
@@ -1339,7 +1339,8 @@ class FleetView(QWidget):
                                             "name": ship_name,
                                             "exp": exp_factor,
                                             "is_pride": self.check_pride_in_data(ship),
-                                            "design": definition,
+                                            "design": version_name,
+                                            "definition": definition,
                                             "is_mod": True,
                                             "ship_type": ship_type,
                                             "nation_tag": nation_tag
