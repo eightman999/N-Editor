@@ -56,9 +56,14 @@ class EngineCalculator(BaseEquipmentCalculator):
         """
         speed_stats = {}
         
-        # 機関出力（重量ベースで推定）
-        engine_weight = equipment_data.get('weight', 0.0)
-        engine_power = engine_weight * 10.0  # 1トンあたり10馬力と仮定
+        # 機関出力（specific_elementsから取得）
+        specific_elements = equipment_data.get('specific_elements', {})
+        engine_power = specific_elements.get('power', 0.0)
+        
+        # フォールバック：重量ベースで推定
+        if engine_power == 0.0:
+            engine_weight = equipment_data.get('weight', 0.0)
+            engine_power = engine_weight * 10.0  # 1トンあたり10馬力と仮定
         
         # 船体重量による効率計算
         if hull_data:
@@ -92,27 +97,48 @@ class EngineCalculator(BaseEquipmentCalculator):
         """
         consumption_stats = {}
         
-        # 機関重量から燃料消費を推定
-        engine_weight = equipment_data.get('weight', 0.0)
-        crew = equipment_data.get('personnel', 0.0)
+        specific_elements = equipment_data.get('specific_elements', {})
         
-        # 基本燃料消費（重量とクルーベース）
-        base_consumption = engine_weight * 0.02 + crew * 0.1
+        # 機関出力から燃料消費を計算
+        engine_power = specific_elements.get('power', 0.0)
+        fuel_capacity = specific_elements.get('fuel_capacity', 0.0)
+        engine_type = specific_elements.get('engine_type', 'HeavyOil')
         
-        # 開発年度による効率性（新しい機関ほど効率的）
-        dev_year = equipment_data.get('year', 1936)
-        efficiency_factor = max(0.5, 1.0 - (dev_year - 1936) / 100.0)  # 新技術ほど効率的
+        # 機関種別による効率係数
+        efficiency_factors = {
+            'Coal': 0.8,           # 石炭
+            'HeavyOil': 1.0,       # 重油
+            'Diesel': 1.2,         # ディーゼル
+            'GasTurbine': 1.1,     # ガスタービン
+            'CoalHeavyOil': 0.9,   # 石炭重油混燃
+            'DieselGas': 1.15,     # ディーゼルガス混燃
+            'Battery': 2.0,        # バッテリー（効率高）
+            'Nuclear': 5.0         # 原子炉（超高効率）
+        }
         
-        # 最終燃料消費
-        fuel_consumption = base_consumption * efficiency_factor
+        efficiency_factor = efficiency_factors.get(engine_type, 1.0)
         
+        # 基本燃料消費（馬力ベース）
+        base_consumption = engine_power * 0.003 / efficiency_factor
+        
+        # フォールバック：重量ベース
+        if engine_power == 0.0:
+            engine_weight = equipment_data.get('weight', 0.0)
+            crew = equipment_data.get('personnel', 0.0)
+            base_consumption = (engine_weight * 0.02 + crew * 0.1) / efficiency_factor
+        
+        # 開発年度による効率性
+        dev_year = specific_elements.get('year', equipment_data.get('year', 1936))
+        year_efficiency = max(0.5, 1.0 - (dev_year - 1936) / 100.0)
+        
+        fuel_consumption = base_consumption * year_efficiency
         consumption_stats['fuel_consumption'] = fuel_consumption
         
         return consumption_stats
     
     def _calculate_range_bonus(self, equipment_data: Dict[str, Any]) -> Dict[str, float]:
         """
-        航続距離ボーナスを計算
+        航続距離ボーナスを計算（船体モデル側で主計算を行うため、効率係数のみ適用）
         
         Args:
             equipment_data (dict): 装備データ
@@ -122,22 +148,37 @@ class EngineCalculator(BaseEquipmentCalculator):
         """
         range_stats = {}
         
-        # 燃費効率による航続距離向上
-        dev_year = equipment_data.get('year', 1936)
+        specific_elements = equipment_data.get('specific_elements', {})
+        engine_type = specific_elements.get('engine_type', 'HeavyOil')
+        
+        # 機関種別による航続距離効率係数
+        range_factors = {
+            'Coal': 0.8,           # 石炭（効率低）
+            'HeavyOil': 1.0,       # 重油（標準）
+            'Diesel': 1.3,         # ディーゼル（高効率）
+            'GasTurbine': 0.9,     # ガスタービン（やや低効率）
+            'CoalHeavyOil': 0.95,  # 石炭重油混燃
+            'DieselGas': 1.2,      # ディーゼルガス混燃
+            'Battery': 0.6,        # バッテリー（航続距離短）
+            'Nuclear': 10.0        # 原子炉（超長距離）
+        }
+        
+        range_factor = range_factors.get(engine_type, 1.0)
+        
+        # 開発年度による技術進歩
+        dev_year = specific_elements.get('year', equipment_data.get('year', 1936))
+        tech_factor = 1.0 + max(0, (dev_year - 1936) * 0.01)  # 1年あたり1%の改善
+        
+        # クルー数による運用効率
         crew = equipment_data.get('personnel', 0.0)
+        crew_factor = 1.0 + min(crew * 0.001, 0.1)  # 最大10%の効率向上
         
-        # 新しい機関ほど効率的で航続距離が長い
-        efficiency_bonus = max(0, (dev_year - 1936) / 2.0)  # 1年あたり0.5海里
+        # 基本値（船体側で計算された値に係数を適用）
+        base_range = equipment_data.get('naval_range', 0.0)
         
-        # クルー数による運用効率（適切な人員配置）
-        crew_efficiency = min(crew * 0.1, 50.0)  # 最大50海里のボーナス
-        
-        # 基本航続距離ボーナス
-        base_range_bonus = equipment_data.get('naval_range', 0.0)
-        
-        total_range_bonus = base_range_bonus + efficiency_bonus + crew_efficiency
-        
-        range_stats['naval_range'] = total_range_bonus
+        # 最終航続距離係数
+        total_factor = range_factor * tech_factor * crew_factor
+        range_stats['naval_range'] = base_range * total_factor
         
         return range_stats
     

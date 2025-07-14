@@ -33,12 +33,8 @@ class HangarCalculator(BaseEquipmentCalculator):
         carrier_size = self._calculate_carrier_size(equipment_data)
         stats['carrier_size'] = carrier_size
         
-        # ハンガーサイズに基づく重量とクルー調整
-        stats.update(self._calculate_hangar_adjustments(equipment_data))
-        
-        # 大型ハンガーの場合の特別調整
-        if equipment_data.get('specific_elements', {}).get('is_large', False):
-            stats.update(self._calculate_large_hangar_bonus(equipment_data, stats))
+        # ICコスト計算
+        stats['build_cost_ic'] = self._calculate_ic_cost(equipment_data, stats)
         
         return stats
     

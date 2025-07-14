@@ -1501,12 +1501,57 @@ class AppController(QObject):
     # 設計関連機能（残りのメソッドも同様に実装...）
 
     def save_design(self, design_data):
-        """設計データを保存する（同期機能付き）"""
+        """設計データを保存（装備の再生成とステータス再計算機能付き）"""
         try:
+            # 船体データを読み込み
+            hull_data = self.load_hull(design_data.get('hull_id'))
+            if not hull_data:
+                print(f"エラー: 船体ID {design_data.get('hull_id')} のデータが見つかりません。")
+                return False
+
+            # 処理済み装備を記録する辞書（元のID -> 新しいID）
+            processed_equipments = {}
+
+            # 新しい装備リストを作成
+            new_main_slots = {}
+            new_internal_slots = []
+
+            # メインスロットの装備を処理
+            for slot_type, equipment_id in design_data.get('main_slots', {}).items():
+                if equipment_id in processed_equipments:
+                    new_main_slots[slot_type] = processed_equipments[equipment_id]
+                    continue
+                
+                new_equipment_id, new_equipment_data = self._regenerate_equipment_for_hull(equipment_id, hull_data)
+                if new_equipment_id and new_equipment_data:
+                    self.equipment_model.save_equipment(new_equipment_data)
+                    new_main_slots[slot_type] = new_equipment_id
+                    processed_equipments[equipment_id] = new_equipment_id
+                else:
+                    new_main_slots[slot_type] = equipment_id # 失敗した場合は元のIDを維持
+
+            # 内部スロットの装備を処理
+            for slot_data in design_data.get('internal_slots', []):
+                new_slot_data = slot_data.copy()
+                equipment_id = slot_data.get('equipment_id')
+                if equipment_id:
+                    if equipment_id in processed_equipments:
+                        new_slot_data['equipment_id'] = processed_equipments[equipment_id]
+                    else:
+                        new_equipment_id, new_equipment_data = self._regenerate_equipment_for_hull(equipment_id, hull_data)
+                        if new_equipment_id and new_equipment_data:
+                            self.equipment_model.save_equipment(new_equipment_data)
+                            new_slot_data['equipment_id'] = new_equipment_id
+                            processed_equipments[equipment_id] = new_equipment_id
+                new_internal_slots.append(new_slot_data)
+
+            # 設計データを更新
+            design_data['main_slots'] = new_main_slots
+            design_data['internal_slots'] = new_internal_slots
+
             # 設計ID（未設定の場合は生成）
-            design_id = design_data.get("id", "")
+            design_id = design_data.get("id")
             if not design_id:
-                # 設計名から一意のIDを生成
                 base_id = ''.join(e for e in design_data["design_name"] if e.isalnum())
                 design_id = f"DESIGN_{base_id}_{int(time.time())}"
                 design_data["id"] = design_id
@@ -1521,20 +1566,15 @@ class AppController(QObject):
 
             # ヘッダー付きでJSONに変換して保存
             with open(file_path, 'w', encoding='utf-8') as f:
-                # ヘッダーを最初に書き込み
                 f.write("@config.design\n")
-                # JSONデータを書き込み
                 json.dump(design_data, f, ensure_ascii=False, indent=2)
 
-            print(f"設計データ '{design_id}' を保存しました。")
+            print(f"設計データ '{design_id}' を保存しました（装備再生成済み）。")
             
-            # 関連キャッシュをクリア（変更されたファイルのキャッシュを無効化）
+            # 関連キャッシュをクリア
             if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
-                # 設計関連のキャッシュをクリア
                 self.mod_cache_manager.clear_design_cache(design_id)
-                # 設計一覧キャッシュもクリア（新しいファイルが追加された可能性があるため）
                 self.mod_cache_manager.clear_cache('designs')
-                # 設計統計キャッシュもクリア（設計が変更されたため）
                 self.mod_cache_manager.clear_cache('design_stats')
             
             # 自動同期実行
@@ -2675,7 +2715,7 @@ class AppController(QObject):
             print(f"装備タイプ: {equipment_data.get('equipment_type', 'Unknown')}")
 
             # 計算ステータス（砲系統など）を取得
-            calculated_stats = self._calculate_equipment_stats(equipment_data)
+            calculated_stats = self._calculate_equipment_stats(equipment_data, hull_data)
             print(f"計算されたステータス: {calculated_stats}")
 
             # 装備のJSONデータからstatsセクションを取得
@@ -2845,7 +2885,7 @@ class AppController(QObject):
         print("=== _apply_stats_modes 完了 ===")
         return final_stats
 
-    def _calculate_equipment_stats(self, equipment_data: Dict[str, Any]) -> Dict[str, float]:
+    def _calculate_equipment_stats(self, equipment_data: Dict[str, Any], hull_data: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
         """
         個別装備のステータスを計算（モジュラー計算機システム使用）
         """
@@ -2864,7 +2904,7 @@ class AppController(QObject):
             unified_equipment_data = self._convert_equipment_data_format(equipment_data)
             
             # ステータス計算を実行
-            calculated_stats = calculator.calculate_stats(unified_equipment_data)
+            calculated_stats = calculator.calculate_stats(unified_equipment_data, hull_data)
             
             print(f"計算結果: {calculated_stats}")
             return calculated_stats
@@ -2875,7 +2915,7 @@ class AppController(QObject):
             traceback.print_exc()
             
             # エラー時は旧システムにフォールバック
-            return self._calculate_equipment_stats_fallback(equipment_data)
+            return self._calculate_equipment_stats_fallback(equipment_data, hull_data)
     
     def _convert_equipment_data_format(self, equipment_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -2910,7 +2950,7 @@ class AppController(QObject):
         
         return converted
     
-    def _calculate_equipment_stats_fallback(self, equipment_data: Dict[str, Any]) -> Dict[str, float]:
+    def _calculate_equipment_stats_fallback(self, equipment_data: Dict[str, Any], hull_data: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
         """
         フォールバック用の旧計算システム（砲系統のみ）
         """
@@ -3072,6 +3112,40 @@ class AppController(QObject):
             return {}
 
         return stats
+
+    def _regenerate_equipment_for_hull(self, equipment_id: str, hull_data: Dict[str, Any]) -> (Optional[str], Optional[Dict[str, Any]]):
+        """船体情報に基づいて装備を再生成する"""
+        try:
+            # 元の装備データを読み込み
+            original_equipment = self.load_equipment(equipment_id)
+            if not original_equipment:
+                return None, None
+
+            # 新しい装備IDを生成 (例: original_id_hull_id)
+            hull_id = hull_data.get('id', 'unknown_hull')
+            new_equipment_id = f"{equipment_id}_{hull_id}"
+
+            # 新しい装備データを作成
+            new_equipment_data = original_equipment.copy()
+            new_equipment_data['common']['ID'] = new_equipment_id
+            new_equipment_data['common']['名前'] = original_equipment['common'].get('名前', '')
+            
+            # 船体情報を考慮してステータスを再計算
+            calculated_stats = self._calculate_equipment_stats(original_equipment, hull_data)
+            
+            # statsセクションを更新
+            if 'stats' not in new_equipment_data:
+                new_equipment_data['stats'] = {}
+            if 'add_stats' not in new_equipment_data['stats']:
+                new_equipment_data['stats']['add_stats'] = {}
+
+            new_equipment_data['stats']['add_stats'].update(calculated_stats)
+
+            return new_equipment_id, new_equipment_data
+
+        except Exception as e:
+            print(f"装備の再生成中にエラーが発生しました ({equipment_id}): {e}")
+            return None, None
 
     def on_sync_completed(self, success, message):
         """同期完了時の処理"""

@@ -250,7 +250,7 @@ class EquipmentModel:
 
     def save_equipment(self, equipment_data: Dict[str, Any]) -> bool:
         """
-        装備データの保存
+        装備データの保存（カテゴリー別サブディレクトリ対応）
 
         Args:
             equipment_data: 装備データ辞書
@@ -263,15 +263,23 @@ class EquipmentModel:
             equipment_id = equipment_data.get('common', {}).get('ID', '')
 
             if not equipment_type or not equipment_id:
+                logger.warning(f"装備データに必須情報が不足: equipment_type={equipment_type}, equipment_id={equipment_id}")
                 return False
 
-            # IDプレフィックスの取得
-            id_prefix = self.get_prefix_for_type(equipment_type)
-            if not id_prefix:
-                return False
+            # equipment_typeがテンプレートに含まれている場合、そのサブディレクトリを使用
+            if equipment_type in self.equipment_templates:
+                # テンプレートからサブディレクトリ名を取得
+                id_prefix = self.get_prefix_for_type(equipment_type)
+                if id_prefix:
+                    save_dir = os.path.join(self.data_dir, id_prefix)
+                else:
+                    # プレフィックスが取得できない場合は、equipment_typeをそのまま使用
+                    save_dir = os.path.join(self.data_dir, equipment_type)
+            else:
+                # テンプレートにない場合は、equipment_typeをそのままサブディレクトリ名として使用
+                save_dir = os.path.join(self.data_dir, equipment_type)
 
             # 保存ディレクトリの作成
-            save_dir = os.path.join(self.data_dir, id_prefix)
             os.makedirs(save_dir, exist_ok=True)
 
             # ファイル名は装備IDを使用
@@ -283,10 +291,11 @@ class EquipmentModel:
             # キャッシュを更新
             self.equipment_cache[equipment_id] = equipment_data
 
+            logger.info(f"装備データを保存: {equipment_id} -> {save_dir}")
             return True
 
         except Exception as e:
-            print(f"装備データ保存エラー: {e}")
+            logger.error(f"装備データ保存エラー: {e}")
             return False
 
     def load_equipment(self, equipment_id: str) -> Optional[Dict[str, Any]]:

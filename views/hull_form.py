@@ -20,6 +20,9 @@ class HullForm(QWidget):
         super().__init__(parent)
         self.app_controller = app_controller
         self.initUI()
+        
+        # 機関装備一覧を読み込み
+        self.load_available_engines()
 
     def initUI(self):
         """UIの初期化"""
@@ -209,52 +212,74 @@ class HullForm(QWidget):
         self.crew_spin.setSuffix(" 人")
         physical_layout.addRow("人員:", self.crew_spin)
 
-        # 機関情報グループ
-        engine_group = QGroupBox("機関情報")
-        engine_layout = QFormLayout()
-        engine_group.setLayout(engine_layout)
-        form_layout.addWidget(engine_group)
+        # 船体性能グループ
+        performance_group = QGroupBox("船体性能")
+        performance_layout = QFormLayout()
+        performance_group.setLayout(performance_layout)
+        form_layout.addWidget(performance_group)
 
-        # 機関出力
-        self.power_spin = QDoubleSpinBox()
-        self.power_spin.setRange(0, 500000)
-        self.power_spin.setDecimals(2)
-        self.power_spin.setSuffix(" hp")
-        engine_layout.addRow("機関出力:", self.power_spin)
-
-        # 速度
+        # 最大速度
         self.speed_spin = QDoubleSpinBox()
         self.speed_spin.setRange(0, 100)
         self.speed_spin.setDecimals(2)
         self.speed_spin.setSuffix(" kts")
-        engine_layout.addRow("速度:", self.speed_spin)
-
-        # 航続
-        self.range_spin = QDoubleSpinBox()
-        self.range_spin.setRange(0, 20000)
-        self.range_spin.setDecimals(2)
-        self.range_spin.setSuffix(" nm")
-        engine_layout.addRow("航続:", self.range_spin)
+        performance_layout.addRow("最大速度:", self.speed_spin)
 
         # 巡航速度
         self.cruise_speed_spin = QDoubleSpinBox()
         self.cruise_speed_spin.setRange(0, 100)
         self.cruise_speed_spin.setDecimals(2)
         self.cruise_speed_spin.setSuffix(" kts")
-        engine_layout.addRow("巡航速度:", self.cruise_speed_spin)
+        performance_layout.addRow("巡航速度:", self.cruise_speed_spin)
 
-        # 燃料種別
-        self.fuel_type_combo = QComboBox()
-        fuel_types = ["重油", "軽油", "石炭", "原子力"]
-        self.fuel_type_combo.addItems(fuel_types)
-        engine_layout.addRow("燃料種別:", self.fuel_type_combo)
+        # 航続距離
+        self.range_spin = QDoubleSpinBox()
+        self.range_spin.setRange(0, 20000)
+        self.range_spin.setDecimals(2)
+        self.range_spin.setSuffix(" nm")
+        performance_layout.addRow("航続距離:", self.range_spin)
 
-        # 燃料搭載量
-        self.fuel_capacity_spin = QDoubleSpinBox()
-        self.fuel_capacity_spin.setRange(0, 10000)
-        self.fuel_capacity_spin.setDecimals(2)
-        self.fuel_capacity_spin.setSuffix(" t")
-        engine_layout.addRow("燃料搭載量:", self.fuel_capacity_spin)
+        # 機関装備グループ
+        engine_group = QGroupBox("機関装備")
+        engine_layout = QVBoxLayout()
+        engine_group.setLayout(engine_layout)
+        form_layout.addWidget(engine_group)
+
+        # 主機選択
+        main_engine_layout = QHBoxLayout()
+        self.main_engine_combo = QComboBox()
+        self.main_engine_combo.addItem("機関を選択してください", "")
+        main_engine_layout.addWidget(QLabel("主機:"))
+        main_engine_layout.addWidget(self.main_engine_combo)
+        
+        self.main_engine_count_spin = QSpinBox()
+        self.main_engine_count_spin.setRange(1, 10)
+        self.main_engine_count_spin.setValue(1)
+        self.main_engine_count_spin.setSuffix(" 基")
+        main_engine_layout.addWidget(QLabel("数量:"))
+        main_engine_layout.addWidget(self.main_engine_count_spin)
+        
+        engine_layout.addLayout(main_engine_layout)
+
+        # 補機選択エリア
+        aux_engine_label = QLabel("補機:")
+        engine_layout.addWidget(aux_engine_label)
+        
+        self.aux_engine_layout = QVBoxLayout()
+        engine_layout.addLayout(self.aux_engine_layout)
+        
+        # 補機追加ボタン
+        add_aux_button = QPushButton("補機を追加")
+        add_aux_button.clicked.connect(self.add_auxiliary_engine)
+        engine_layout.addWidget(add_aux_button)
+
+        # 機関装備作成ボタン
+        create_engine_button = QPushButton("新しい機関装備を作成")
+        create_engine_button.clicked.connect(self.create_new_engine)
+        engine_layout.addWidget(create_engine_button)
+
+        # 補機装備のリスト（動的に追加されるウィジェット管理用）
+        self.auxiliary_engines = []
 
         # 防御特性グループ
         defense_group = QGroupBox("防御特性")
@@ -424,7 +449,10 @@ class HullForm(QWidget):
             6: 2.0     # 複合装甲
         }
 
-        return {
+        # 機関装備データを取得
+        engine_data = self.get_engine_data()
+        
+        hull_data = {
             "name": self.name_edit.text(),
             "id": self.id_edit.text(),
             "description": self.description_edit.text(),
@@ -437,12 +465,11 @@ class HullForm(QWidget):
             "length": self.length_spin.value(),
             "width": self.width_spin.value(),
             "crew": self.crew_spin.value(),
-            "power": self.power_spin.value(),
             "speed": self.speed_spin.value(),
-            "range": self.range_spin.value(),
+            "max_speed": self.speed_spin.value(),
             "cruise_speed": self.cruise_speed_spin.value(),
-            "fuel_type": self.fuel_type_combo.currentText(),
-            "fuel_capacity": self.fuel_capacity_spin.value(),
+            "range": self.range_spin.value(),
+            "naval_range": self.range_spin.value(),
             "armor_max": self.armor_max_spin.value(),
             "armor_min": self.armor_min_spin.value(),
             "hull_structure": self.hull_structure_combo.currentText(),
@@ -456,8 +483,17 @@ class HullForm(QWidget):
                 "SSA": slot_mapping[self.ssa_combo.currentIndex()],
                 "PLA": slot_mapping[self.pla_combo.currentIndex()],
                 "SLA": slot_mapping[self.sla_combo.currentIndex()]
+            },
+            # 機関装備データの統合
+            "main_engine_id": engine_data['main_engine_id'],
+            "auxiliary_engine_ids": engine_data['auxiliary_engine_ids'],
+            "engine_count": {
+                'main': engine_data['main_engine_count'],
+                'auxiliary': sum(engine_data['auxiliary_engine_counts'])
             }
         }
+        
+        return hull_data
 
     def set_form_data(self, data):
         """フォームにデータを設定"""
@@ -491,19 +527,27 @@ class HullForm(QWidget):
         self.width_spin.setValue(float(data.get("width", 0)))
         self.crew_spin.setValue(int(data.get("crew", 0)))
 
-        # 機関情報
-        self.power_spin.setValue(float(data.get("power", 0)))
-        self.speed_spin.setValue(float(data.get("speed", 0)))
-        self.range_spin.setValue(float(data.get("range", 0)))
+        # 船体性能
+        self.speed_spin.setValue(float(data.get("speed", data.get("max_speed", 0))))
         self.cruise_speed_spin.setValue(float(data.get("cruise_speed", 0)))
+        self.range_spin.setValue(float(data.get("range", data.get("naval_range", 0))))
 
-        # 燃料種別
-        fuel_type_index = self.fuel_type_combo.findText(data.get("fuel_type", ""))
-        if fuel_type_index >= 0:
-            self.fuel_type_combo.setCurrentIndex(fuel_type_index)
-
-        # 燃料搭載量
-        self.fuel_capacity_spin.setValue(float(data.get("fuel_capacity", 0)))
+        # 機関装備データを設定
+        engine_data = {
+            'main_engine_id': data.get('main_engine_id', ''),
+            'main_engine_count': data.get('engine_count', {}).get('main', 1),
+            'auxiliary_engine_ids': data.get('auxiliary_engine_ids', []),
+            'auxiliary_engine_counts': []  # 既存データから推定
+        }
+        
+        # 補機数量を推定（総数から均等配分）
+        aux_total = data.get('engine_count', {}).get('auxiliary', 0)
+        aux_ids = engine_data['auxiliary_engine_ids']
+        if aux_ids and aux_total > 0:
+            per_engine = max(1, aux_total // len(aux_ids))
+            engine_data['auxiliary_engine_counts'] = [per_engine] * len(aux_ids)
+        
+        self.set_engine_data(engine_data)
 
         # 防御特性
         self.armor_max_spin.setValue(float(data.get("armor_max", 0)))
@@ -575,12 +619,15 @@ class HullForm(QWidget):
         self.width_spin.setValue(0)
         self.crew_spin.setValue(0)
 
-        self.power_spin.setValue(0)
         self.speed_spin.setValue(0)
         self.range_spin.setValue(0)
         self.cruise_speed_spin.setValue(0)
-        self.fuel_type_combo.setCurrentIndex(0)
-        self.fuel_capacity_spin.setValue(0)
+        
+        # 機関装備をクリア
+        self.main_engine_combo.setCurrentIndex(0)
+        self.main_engine_count_spin.setValue(1)
+        for aux in self.auxiliary_engines[:]:
+            self.remove_auxiliary_engine(aux['widget'])
 
         self.armor_max_spin.setValue(0)
         self.armor_min_spin.setValue(0)
@@ -932,3 +979,160 @@ class HullForm(QWidget):
             self.type_combo.addItems(ship_types)
         finally:
             self._updating_constraints = False
+
+    def load_available_engines(self):
+        """利用可能な機関装備の一覧を読み込み"""
+        if not self.app_controller:
+            return
+
+        try:
+            # 機関装備（SMEN_プレフィックス）を取得
+            all_equipment = self.app_controller.equipment_model.get_all_equipment()
+            engines = [eq for eq in all_equipment 
+                      if eq.get('common', {}).get('ID', '').startswith('SMEN_')]
+            
+            # 主機コンボボックスの更新
+            self.main_engine_combo.clear()
+            self.main_engine_combo.addItem("機関を選択してください", "")
+            
+            for engine in engines:
+                engine_id = engine.get('common', {}).get('ID', '')
+                engine_name = engine.get('common', {}).get('名前', engine_id)
+                self.main_engine_combo.addItem(f"{engine_name} ({engine_id})", engine_id)
+
+        except Exception as e:
+            print(f"機関装備読み込みエラー: {e}")
+
+    def add_auxiliary_engine(self):
+        """補機装備を追加"""
+        aux_widget = QWidget()
+        aux_layout = QHBoxLayout(aux_widget)
+        
+        # 補機選択コンボボックス
+        aux_combo = QComboBox()
+        aux_combo.addItem("補機を選択してください", "")
+        
+        # 機関装備データを読み込み
+        if self.app_controller:
+            try:
+                all_equipment = self.app_controller.equipment_model.get_all_equipment()
+                engines = [eq for eq in all_equipment 
+                          if eq.get('common', {}).get('ID', '').startswith('SMEN_')]
+                
+                for engine in engines:
+                    engine_id = engine.get('common', {}).get('ID', '')
+                    engine_name = engine.get('common', {}).get('名前', engine_id)
+                    aux_combo.addItem(f"{engine_name} ({engine_id})", engine_id)
+            except Exception as e:
+                print(f"補機装備読み込みエラー: {e}")
+        
+        # 数量選択
+        aux_count = QSpinBox()
+        aux_count.setRange(1, 5)
+        aux_count.setValue(1)
+        aux_count.setSuffix(" 基")
+        
+        # 削除ボタン
+        remove_button = QPushButton("削除")
+        remove_button.clicked.connect(lambda: self.remove_auxiliary_engine(aux_widget))
+        
+        aux_layout.addWidget(QLabel("補機:"))
+        aux_layout.addWidget(aux_combo)
+        aux_layout.addWidget(QLabel("数量:"))
+        aux_layout.addWidget(aux_count)
+        aux_layout.addWidget(remove_button)
+        
+        # ウィジェットをリストに追加
+        self.auxiliary_engines.append({
+            'widget': aux_widget,
+            'combo': aux_combo,
+            'count': aux_count
+        })
+        
+        # レイアウトに追加
+        self.aux_engine_layout.addWidget(aux_widget)
+
+    def remove_auxiliary_engine(self, widget):
+        """補機装備を削除"""
+        # リストから削除
+        self.auxiliary_engines = [aux for aux in self.auxiliary_engines 
+                                 if aux['widget'] != widget]
+        
+        # レイアウトから削除
+        self.aux_engine_layout.removeWidget(widget)
+        widget.deleteLater()
+
+    def create_new_engine(self):
+        """新しい機関装備を作成（装備フォームを開く）"""
+        if self.app_controller:
+            # 装備フォームを開いて機関装備を作成
+            from views.equipment_form import EquipmentForm
+            engine_form = EquipmentForm(self, self.app_controller)
+            
+            # 機関装備タイプを事前選択
+            index = engine_form.equipment_type_combo.findText("主機")
+            if index >= 0:
+                engine_form.equipment_type_combo.setCurrentIndex(index)
+            else:
+                # "主機"がない場合は最初の機関関連タイプを探す
+                for i in range(engine_form.equipment_type_combo.count()):
+                    text = engine_form.equipment_type_combo.itemText(i)
+                    if "機関" in text or "エンジン" in text or "主機" in text:
+                        engine_form.equipment_type_combo.setCurrentIndex(i)
+                        break
+            
+            engine_form.show()
+            
+            # 作成完了後に機関一覧を更新
+            engine_form.equipment_saved.connect(self.load_available_engines)
+
+    def get_engine_data(self):
+        """機関装備データを取得"""
+        engine_data = {
+            'main_engine_id': self.main_engine_combo.currentData() or '',
+            'main_engine_count': self.main_engine_count_spin.value(),
+            'auxiliary_engine_ids': [],
+            'auxiliary_engine_counts': []
+        }
+        
+        # 補機データを収集
+        for aux in self.auxiliary_engines:
+            engine_id = aux['combo'].currentData()
+            if engine_id:
+                engine_data['auxiliary_engine_ids'].append(engine_id)
+                engine_data['auxiliary_engine_counts'].append(aux['count'].value())
+        
+        return engine_data
+
+    def set_engine_data(self, data):
+        """機関装備データを設定"""
+        # 主機設定
+        main_engine_id = data.get('main_engine_id', '')
+        if main_engine_id:
+            index = self.main_engine_combo.findData(main_engine_id)
+            if index >= 0:
+                self.main_engine_combo.setCurrentIndex(index)
+        
+        self.main_engine_count_spin.setValue(data.get('main_engine_count', 1))
+        
+        # 既存の補機をクリア
+        for aux in self.auxiliary_engines[:]:
+            self.remove_auxiliary_engine(aux['widget'])
+        
+        # 補機設定
+        aux_ids = data.get('auxiliary_engine_ids', [])
+        aux_counts = data.get('auxiliary_engine_counts', [])
+        
+        for i, engine_id in enumerate(aux_ids):
+            self.add_auxiliary_engine()
+            if self.auxiliary_engines:
+                last_aux = self.auxiliary_engines[-1]
+                
+                # 機関ID設定
+                index = last_aux['combo'].findData(engine_id)
+                if index >= 0:
+                    last_aux['combo'].setCurrentIndex(index)
+                
+                # 数量設定
+                if i < len(aux_counts):
+                    last_aux['count'].setValue(aux_counts[i])

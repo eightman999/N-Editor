@@ -1544,8 +1544,6 @@ class DesignView(QWidget):
                 "internal_slots": [],
                 "year": self.current_hull.get("year", 1936),
                 "country": self.current_hull.get("country", ""),
-                # 現在のステータス値を追加
-                "calculated_stats": {}
             }
 
             # メインスロットのカテゴリーと装備の取得
@@ -1605,10 +1603,7 @@ class DesignView(QWidget):
 
                 design_data["internal_slots"].append(internal_slot_data)
 
-            # 現在のステータス値を取得して保存
-            if self.app_controller:
-                current_stats = self.app_controller.get_design_stats(design_data)
-                design_data["calculated_stats"] = current_stats
+            # calculated_statsはJSONファイルに含めない（デザインビューの要求により除外）
 
             # 設計データを保存
             if self.app_controller:
