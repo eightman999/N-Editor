@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFo
                              QLabel, QLineEdit, QComboBox, QPushButton, QGroupBox,
                              QDialog, QListWidget, QTableWidget, QTableWidgetItem,
                              QScrollArea, QMessageBox, QHeaderView, QListWidgetItem,
-                             QCheckBox)
+                             QCheckBox, QSlider)
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QColor, QPalette
 from utils.path_utils import get_data_dir
@@ -33,6 +33,10 @@ class DesignView(QWidget):
         self.internal_slots = []  # 内部スロットのリストを初期化
         self.slot_category_selections = {}  # スロットカテゴリー選択を初期化
         self.stat_widgets: Dict[str, Dict[str, QWidget]] = {}
+
+        # 装備表示用の年代フィルタ（デフォルトは +10 / -25 年）
+        self.year_range_plus = 10
+        self.year_range_minus = 25
 
         # アイコンマネージャーを追加
         self.ship_icon_manager = ShipIconManager()
@@ -1049,11 +1053,28 @@ class DesignView(QWidget):
                     except Exception as e:
                         print(f"装備データ取得エラー: {e}")
 
+            # 船体の開発年に基づき装備をフィルタリング
+            hull_year = 0
+            if self.current_hull:
+                hull_year = int(self.current_hull.get("year", 0))
+            min_year = hull_year - getattr(self, "year_range_minus", 25)
+            max_year = hull_year + getattr(self, "year_range_plus", 10)
+
             # 装備をコンボボックスに追加
             for equipment in all_equipment:
                 eq_id = equipment.get('common', {}).get('ID', '')
                 eq_name = equipment.get('common', {}).get('名前', '')
                 eq_type = equipment.get('equipment_type', '')
+                eq_year = equipment.get('common', {}).get('開発年')
+                if eq_year is None:
+                    eq_year = equipment.get('common', {}).get('year')
+                try:
+                    eq_year = int(eq_year)
+                except (TypeError, ValueError):
+                    eq_year = None
+
+                if eq_year is not None and not (min_year <= eq_year <= max_year):
+                    continue
 
                 if eq_id and eq_name:
                     # 表示形式は「装備名 (ID) - カテゴリー」
@@ -1389,6 +1410,35 @@ class DesignView(QWidget):
             # レイアウト
             layout = QVBoxLayout()
 
+            # 年代フィルタスライダー
+            year_filter_group = QGroupBox("年代フィルタ設定")
+            year_layout = QVBoxLayout()
+
+            minus_layout = QHBoxLayout()
+            minus_layout.addWidget(QLabel("過去範囲"))
+            minus_slider = QSlider(Qt.Horizontal)
+            minus_slider.setRange(0, 50)
+            minus_slider.setValue(self.year_range_minus)
+            minus_value_label = QLabel(f"-{self.year_range_minus}")
+            minus_slider.valueChanged.connect(lambda v: minus_value_label.setText(f"-{v}"))
+            minus_layout.addWidget(minus_slider)
+            minus_layout.addWidget(minus_value_label)
+            year_layout.addLayout(minus_layout)
+
+            plus_layout = QHBoxLayout()
+            plus_layout.addWidget(QLabel("未来範囲"))
+            plus_slider = QSlider(Qt.Horizontal)
+            plus_slider.setRange(0, 50)
+            plus_slider.setValue(self.year_range_plus)
+            plus_value_label = QLabel(f"+{self.year_range_plus}")
+            plus_slider.valueChanged.connect(lambda v: plus_value_label.setText(f"+{v}"))
+            plus_layout.addWidget(plus_slider)
+            plus_layout.addWidget(plus_value_label)
+            year_layout.addLayout(plus_layout)
+
+            year_filter_group.setLayout(year_layout)
+            layout.addWidget(year_filter_group)
+
             # 説明ラベル
             description = QLabel("複数のカテゴリーを選択できます")
             layout.addWidget(description)
@@ -1466,6 +1516,10 @@ class DesignView(QWidget):
                     key for key, checkbox in category_checkboxes.items()
                     if checkbox.isChecked()
                 ]
+
+                # スライダーの値を保存
+                self.year_range_minus = minus_slider.value()
+                self.year_range_plus = plus_slider.value()
 
                 # self.slot_category_selectionsにキー名を保存
                 self.slot_category_selections[slot_type] = selected_categories
