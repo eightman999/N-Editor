@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                              QPushButton, QGroupBox, QFileDialog, QMessageBox, QScrollArea)
 from PyQt5.QtCore import Qt, pyqtSignal
 from utils.web_search_widget import WebSearchButton
+from utils.ship_role_constraints import get_allowed_roles, get_ship_type_from_role_display, get_ship_types_for_role
 import os
 import json
 import csv
@@ -19,6 +20,9 @@ class HullForm(QWidget):
         super().__init__(parent)
         self.app_controller = app_controller
         self.initUI()
+        
+        # 機関装備一覧を読み込み
+        self.load_available_engines()
 
     def initUI(self):
         """UIの初期化"""
@@ -161,10 +165,19 @@ class HullForm(QWidget):
         self.country_edit = QLineEdit()
         basic_layout.addRow("開発国:", self.country_edit)
 
-        # archetype
+        # archetype（制約適用）
         self.archetype_combo = QComboBox()
         self.archetype_combo.addItems(pdx_tools.pdx_ssw.ship_types)
         basic_layout.addRow("archetype:", self.archetype_combo)
+        
+        # 無限再帰を防ぐためのフラグ
+        self._updating_constraints = False
+        
+        # 種別変更時にarchetypeを制約する
+        self.type_combo.currentTextChanged.connect(self.update_archetype_constraints)
+        
+        # archetype変更時にship_typeを制約する
+        self.archetype_combo.currentTextChanged.connect(self.update_ship_type_constraints)
 
         # 物理的特性グループ
         physical_group = QGroupBox("物理的特性")
@@ -199,52 +212,74 @@ class HullForm(QWidget):
         self.crew_spin.setSuffix(" 人")
         physical_layout.addRow("人員:", self.crew_spin)
 
-        # 機関情報グループ
-        engine_group = QGroupBox("機関情報")
-        engine_layout = QFormLayout()
-        engine_group.setLayout(engine_layout)
-        form_layout.addWidget(engine_group)
+        # 船体性能グループ
+        performance_group = QGroupBox("船体性能")
+        performance_layout = QFormLayout()
+        performance_group.setLayout(performance_layout)
+        form_layout.addWidget(performance_group)
 
-        # 機関出力
-        self.power_spin = QDoubleSpinBox()
-        self.power_spin.setRange(0, 500000)
-        self.power_spin.setDecimals(2)
-        self.power_spin.setSuffix(" hp")
-        engine_layout.addRow("機関出力:", self.power_spin)
-
-        # 速度
+        # 最大速度
         self.speed_spin = QDoubleSpinBox()
         self.speed_spin.setRange(0, 100)
         self.speed_spin.setDecimals(2)
         self.speed_spin.setSuffix(" kts")
-        engine_layout.addRow("速度:", self.speed_spin)
-
-        # 航続
-        self.range_spin = QDoubleSpinBox()
-        self.range_spin.setRange(0, 20000)
-        self.range_spin.setDecimals(2)
-        self.range_spin.setSuffix(" nm")
-        engine_layout.addRow("航続:", self.range_spin)
+        performance_layout.addRow("最大速度:", self.speed_spin)
 
         # 巡航速度
         self.cruise_speed_spin = QDoubleSpinBox()
         self.cruise_speed_spin.setRange(0, 100)
         self.cruise_speed_spin.setDecimals(2)
         self.cruise_speed_spin.setSuffix(" kts")
-        engine_layout.addRow("巡航速度:", self.cruise_speed_spin)
+        performance_layout.addRow("巡航速度:", self.cruise_speed_spin)
 
-        # 燃料種別
-        self.fuel_type_combo = QComboBox()
-        fuel_types = ["重油", "軽油", "石炭", "原子力"]
-        self.fuel_type_combo.addItems(fuel_types)
-        engine_layout.addRow("燃料種別:", self.fuel_type_combo)
+        # 航続距離
+        self.range_spin = QDoubleSpinBox()
+        self.range_spin.setRange(0, 20000)
+        self.range_spin.setDecimals(2)
+        self.range_spin.setSuffix(" nm")
+        performance_layout.addRow("航続距離:", self.range_spin)
 
-        # 燃料搭載量
-        self.fuel_capacity_spin = QDoubleSpinBox()
-        self.fuel_capacity_spin.setRange(0, 10000)
-        self.fuel_capacity_spin.setDecimals(2)
-        self.fuel_capacity_spin.setSuffix(" t")
-        engine_layout.addRow("燃料搭載量:", self.fuel_capacity_spin)
+        # 機関装備グループ
+        engine_group = QGroupBox("機関装備")
+        engine_layout = QVBoxLayout()
+        engine_group.setLayout(engine_layout)
+        form_layout.addWidget(engine_group)
+
+        # 主機選択
+        main_engine_layout = QHBoxLayout()
+        self.main_engine_combo = QComboBox()
+        self.main_engine_combo.addItem("機関を選択してください", "")
+        main_engine_layout.addWidget(QLabel("主機:"))
+        main_engine_layout.addWidget(self.main_engine_combo)
+        
+        self.main_engine_count_spin = QSpinBox()
+        self.main_engine_count_spin.setRange(1, 10)
+        self.main_engine_count_spin.setValue(1)
+        self.main_engine_count_spin.setSuffix(" 基")
+        main_engine_layout.addWidget(QLabel("数量:"))
+        main_engine_layout.addWidget(self.main_engine_count_spin)
+        
+        engine_layout.addLayout(main_engine_layout)
+
+        # 補機選択エリア
+        aux_engine_label = QLabel("補機:")
+        engine_layout.addWidget(aux_engine_label)
+        
+        self.aux_engine_layout = QVBoxLayout()
+        engine_layout.addLayout(self.aux_engine_layout)
+        
+        # 補機追加ボタン
+        add_aux_button = QPushButton("補機を追加")
+        add_aux_button.clicked.connect(self.add_auxiliary_engine)
+        engine_layout.addWidget(add_aux_button)
+
+        # 機関装備作成ボタン
+        create_engine_button = QPushButton("新しい機関装備を作成")
+        create_engine_button.clicked.connect(self.create_new_engine)
+        engine_layout.addWidget(create_engine_button)
+
+        # 補機装備のリスト（動的に追加されるウィジェット管理用）
+        self.auxiliary_engines = []
 
         # 防御特性グループ
         defense_group = QGroupBox("防御特性")
@@ -414,7 +449,10 @@ class HullForm(QWidget):
             6: 2.0     # 複合装甲
         }
 
-        return {
+        # 機関装備データを取得
+        engine_data = self.get_engine_data()
+        
+        hull_data = {
             "name": self.name_edit.text(),
             "id": self.id_edit.text(),
             "description": self.description_edit.text(),
@@ -427,12 +465,11 @@ class HullForm(QWidget):
             "length": self.length_spin.value(),
             "width": self.width_spin.value(),
             "crew": self.crew_spin.value(),
-            "power": self.power_spin.value(),
             "speed": self.speed_spin.value(),
-            "range": self.range_spin.value(),
+            "max_speed": self.speed_spin.value(),
             "cruise_speed": self.cruise_speed_spin.value(),
-            "fuel_type": self.fuel_type_combo.currentText(),
-            "fuel_capacity": self.fuel_capacity_spin.value(),
+            "range": self.range_spin.value(),
+            "naval_range": self.range_spin.value(),
             "armor_max": self.armor_max_spin.value(),
             "armor_min": self.armor_min_spin.value(),
             "hull_structure": self.hull_structure_combo.currentText(),
@@ -446,8 +483,17 @@ class HullForm(QWidget):
                 "SSA": slot_mapping[self.ssa_combo.currentIndex()],
                 "PLA": slot_mapping[self.pla_combo.currentIndex()],
                 "SLA": slot_mapping[self.sla_combo.currentIndex()]
+            },
+            # 機関装備データの統合
+            "main_engine_id": engine_data['main_engine_id'],
+            "auxiliary_engine_ids": engine_data['auxiliary_engine_ids'],
+            "engine_count": {
+                'main': engine_data['main_engine_count'],
+                'auxiliary': sum(engine_data['auxiliary_engine_counts'])
             }
         }
+        
+        return hull_data
 
     def set_form_data(self, data):
         """フォームにデータを設定"""
@@ -481,19 +527,27 @@ class HullForm(QWidget):
         self.width_spin.setValue(float(data.get("width", 0)))
         self.crew_spin.setValue(int(data.get("crew", 0)))
 
-        # 機関情報
-        self.power_spin.setValue(float(data.get("power", 0)))
-        self.speed_spin.setValue(float(data.get("speed", 0)))
-        self.range_spin.setValue(float(data.get("range", 0)))
+        # 船体性能
+        self.speed_spin.setValue(float(data.get("speed", data.get("max_speed", 0))))
         self.cruise_speed_spin.setValue(float(data.get("cruise_speed", 0)))
+        self.range_spin.setValue(float(data.get("range", data.get("naval_range", 0))))
 
-        # 燃料種別
-        fuel_type_index = self.fuel_type_combo.findText(data.get("fuel_type", ""))
-        if fuel_type_index >= 0:
-            self.fuel_type_combo.setCurrentIndex(fuel_type_index)
-
-        # 燃料搭載量
-        self.fuel_capacity_spin.setValue(float(data.get("fuel_capacity", 0)))
+        # 機関装備データを設定
+        engine_data = {
+            'main_engine_id': data.get('main_engine_id', ''),
+            'main_engine_count': data.get('engine_count', {}).get('main', 1),
+            'auxiliary_engine_ids': data.get('auxiliary_engine_ids', []),
+            'auxiliary_engine_counts': []  # 既存データから推定
+        }
+        
+        # 補機数量を推定（総数から均等配分）
+        aux_total = data.get('engine_count', {}).get('auxiliary', 0)
+        aux_ids = engine_data['auxiliary_engine_ids']
+        if aux_ids and aux_total > 0:
+            per_engine = max(1, aux_total // len(aux_ids))
+            engine_data['auxiliary_engine_counts'] = [per_engine] * len(aux_ids)
+        
+        self.set_engine_data(engine_data)
 
         # 防御特性
         self.armor_max_spin.setValue(float(data.get("armor_max", 0)))
@@ -565,12 +619,15 @@ class HullForm(QWidget):
         self.width_spin.setValue(0)
         self.crew_spin.setValue(0)
 
-        self.power_spin.setValue(0)
         self.speed_spin.setValue(0)
         self.range_spin.setValue(0)
         self.cruise_speed_spin.setValue(0)
-        self.fuel_type_combo.setCurrentIndex(0)
-        self.fuel_capacity_spin.setValue(0)
+        
+        # 機関装備をクリア
+        self.main_engine_combo.setCurrentIndex(0)
+        self.main_engine_count_spin.setValue(1)
+        for aux in self.auxiliary_engines[:]:
+            self.remove_auxiliary_engine(aux['widget'])
 
         self.armor_max_spin.setValue(0)
         self.armor_min_spin.setValue(0)
@@ -753,3 +810,329 @@ class HullForm(QWidget):
         hull_data['slots'] = slots
 
         return hull_data
+    
+    def update_archetype_constraints(self, text=None):
+        """種別選択に基づいてarchetypeの選択肢を制約"""
+        if self._updating_constraints:
+            return
+            
+        try:
+            self._updating_constraints = True
+            
+            # 現在選択されている種別を取得
+            current_type_text = self.type_combo.currentText()
+            
+            # 種別から略称を抽出（例: "BB - 戦艦" → "BB"）
+            ship_type = get_ship_type_from_role_display(current_type_text)
+            
+            # 利用可能なロール種別を取得
+            allowed_roles = get_allowed_roles(ship_type)
+            
+            # 現在選択されているarchetype を保存
+            current_archetype = self.archetype_combo.currentText()
+            
+            # archetypeコンボボックスをクリア
+            self.archetype_combo.clear()
+            
+            if allowed_roles:
+                # 制約に基づいて選択肢を追加
+                for role in allowed_roles:
+                    self.archetype_combo.addItem(role)
+                
+                # 以前の選択が有効な場合は復元
+                if current_archetype in allowed_roles:
+                    index = self.archetype_combo.findText(current_archetype)
+                    if index >= 0:
+                        self.archetype_combo.setCurrentIndex(index)
+                        
+                print(f"船体種別 '{ship_type}' に対して {len(allowed_roles)} 個のロール種別を設定しました")
+            else:
+                # 制約が定義されていない場合は全てのship_typesを追加
+                self.archetype_combo.addItems(pdx_tools.pdx_ssw.ship_types)
+                
+                # 以前の選択を復元
+                index = self.archetype_combo.findText(current_archetype)
+                if index >= 0:
+                    self.archetype_combo.setCurrentIndex(index)
+                    
+                print(f"船体種別 '{ship_type}' の制約が未定義のため、全ロール種別を表示しています")
+                
+        except Exception as e:
+            print(f"archetype制約更新エラー: {e}")
+            # エラー時は全てのship_typesを表示
+            self.archetype_combo.clear()
+            self.archetype_combo.addItems(pdx_tools.pdx_ssw.ship_types)
+        finally:
+            self._updating_constraints = False
+    
+    def update_ship_type_constraints(self, text=None):
+        """archetype選択に基づいてship_typeの選択肢を制約"""
+        if self._updating_constraints:
+            return
+            
+        try:
+            self._updating_constraints = True
+            
+            # 現在選択されているarchetypeを取得
+            current_archetype = self.archetype_combo.currentText()
+            
+            if not current_archetype:
+                return
+            
+            # そのarchetypeを利用可能なship_typeを取得
+            compatible_ship_types = get_ship_types_for_role(current_archetype)
+            
+            # 現在選択されているship_typeを保存
+            current_ship_type_text = self.type_combo.currentText()
+            current_ship_type = get_ship_type_from_role_display(current_ship_type_text)
+            
+            # ship_typeコンボボックスをクリア
+            self.type_combo.clear()
+            
+            if compatible_ship_types:
+                # 制約に基づいて選択肢を追加
+                # 全ての船種リストから対象のもののみを抽出
+                ship_types = [
+                    "AM - 掃海艇", "CMC - 沿岸敷設艇", "MCM - 掃海艦", "MCS - 掃海母艦",
+                    "AV - 水上機母艦", "CV - 航空母艦", "CVE - 護衛空母", "CVL - 軽空母", "CVS - 対潜空母", "SV - 飛行艇母艦",
+                    "LCSL - 上陸支援艇", "PC - 哨戒艇、駆潜艇", "PT - 高速魚雷艇", "FF - フリゲート", "K - コルベット",
+                    "MB - ミサイル艇", "PF - 哨戒フリゲート", "PG - 砲艦", "TB - 魚雷艇",
+                    "D - 水雷駆逐艦", "DB - 通報艦", "DD - 駆逐艦", "DDE - 対潜護衛駆逐艦", "DDG - ミサイル駆逐艦",
+                    "DDR - レーダーピケット駆逐艦", "DE - 護衛駆逐艦", "DL - 嚮導駆逐艦", "DM - 敷設駆逐艦", "DMS - 掃海駆逐艦",
+                    "CSS - 沿岸潜水艦", "MSM - 特殊潜航艇", "SC - 巡洋潜水艦", "SCV - 潜水空母", "SF - 艦隊型潜水艦", "SM - 敷設型潜水艦", "SS - 航洋型潜水艦",
+                    "ACR - 装甲巡洋艦", "IC - 装甲艦", "B - 前弩級戦艦", "BB - 戦艦", "BBG - ミサイル戦艦", "BC - 巡洋戦艦", "BF - 航空戦艦",
+                    "BM - モニター艦", "CA - 重巡・一等巡洋艦", "CB - 大型巡洋艦", "CDB - 海防戦艦", "CF - 航空巡洋艦", "CG - ミサイル巡洋艦",
+                    "FBB - 高速戦艦", "PB - ポケット戦艦", "SB - 超戦艦", "C - 防護巡洋艦", "CL - 軽巡洋艦/二等巡洋艦",
+                    "CM - 敷設巡洋艦", "CS - 偵察巡洋艦", "HTC - 重雷装巡洋艦", "TC - 水雷巡洋艦", "TCL - 練習巡洋艦",
+                    "AAA - 特設防空艦", "AAG - 特設防空警備艦", "AAM - 特設掃海艇", "AAS - 特設駆潜艇", "AAV - 特設水上機母艦",
+                    "AC - 特設巡洋艦", "AG - 特設砲艦", "AMS - 特設敷設艦", "APC - 特設監視艇", "APS - 特設哨戒艦",
+                    "CAM - CAMシップ", "MAC - 特設空母", "APB - 航行可能な宿泊艦", "PL - 大型巡視船", "PLH - ヘリ搭載型",
+                    "PM - 中型巡視船", "WHEC - 長距離カッター"
+                ]
+                
+                # 制約に合致する船種のみを追加
+                for ship_type_display in ship_types:
+                    ship_type_abbrev = get_ship_type_from_role_display(ship_type_display)
+                    if ship_type_abbrev in compatible_ship_types:
+                        self.type_combo.addItem(ship_type_display)
+                
+                # 以前の選択が有効な場合は復元
+                if current_ship_type in compatible_ship_types:
+                    for i in range(self.type_combo.count()):
+                        item_text = self.type_combo.itemText(i)
+                        item_abbrev = get_ship_type_from_role_display(item_text)
+                        if item_abbrev == current_ship_type:
+                            self.type_combo.setCurrentIndex(i)
+                            break
+                            
+                print(f"archetype '{current_archetype}' に対して {len(compatible_ship_types)} 個の船体種別を設定しました: {compatible_ship_types}")
+            else:
+                # 制約が見つからない場合は全ての種別を表示
+                ship_types =  [
+                    "AM - 掃海艇", "CMC - 沿岸敷設艇", "MCM - 掃海艦", "MCS - 掃海母艦",
+                    "AV - 水上機母艦", "CV - 航空母艦", "CVE - 護衛空母", "CVL - 軽空母", "CVS - 対潜空母", "SV - 飛行艇母艦",
+                    "LCSL - 上陸支援艇", "PC - 哨戒艇、駆潜艇", "PT - 高速魚雷艇", "FF - フリゲート", "K - コルベット",
+                    "MB - ミサイル艇", "PF - 哨戒フリゲート", "PG - 砲艦", "TB - 魚雷艇",
+                    "D - 水雷駆逐艦", "DB - 通報艦", "DD - 駆逐艦", "DDE - 対潜護衛駆逐艦", "DDG - ミサイル駆逐艦",
+                    "DDR - レーダーピケット駆逐艦", "DE - 護衛駆逐艦", "DL - 嚮導駆逐艦", "DM - 敷設駆逐艦", "DMS - 掃海駆逐艦",
+                    "CSS - 沿岸潜水艦", "MSM - 特殊潜航艇", "SC - 巡洋潜水艦", "SCV - 潜水空母", "SF - 艦隊型潜水艦", "SM - 敷設型潜水艦", "SS - 航洋型潜水艦",
+                    "ACR - 装甲巡洋艦", "IC - 装甲艦", "B - 前弩級戦艦", "BB - 戦艦", "BBG - ミサイル戦艦", "BC - 巡洋戦艦", "BF - 航空戦艦",
+                    "BM - モニター艦", "CA - 重巡・一等巡洋艦", "CB - 大型巡洋艦", "CDB - 海防戦艦", "CF - 航空巡洋艦", "CG - ミサイル巡洋艦",
+                    "FBB - 高速戦艦", "PB - ポケット戦艦", "SB - 超戦艦", "C - 防護巡洋艦", "CL - 軽巡洋艦/二等巡洋艦",
+                    "CM - 敷設巡洋艦", "CS - 偵察巡洋艦", "HTC - 重雷装巡洋艦", "TC - 水雷巡洋艦", "TCL - 練習巡洋艦",
+                    "AAA - 特設防空艦", "AAG - 特設防空警備艦", "AAM - 特設掃海艇", "AAS - 特設駆潜艇", "AAV - 特設水上機母艦",
+                    "AC - 特設巡洋艦", "AG - 特設砲艦", "AMS - 特設敷設艦", "APC - 特設監視艇", "APS - 特設哨戒艦",
+                    "CAM - CAMシップ", "MAC - 特設空母", "APB - 航行可能な宿泊艦", "PL - 大型巡視船", "PLH - ヘリ搭載型",
+                    "PM - 中型巡視船", "WHEC - 長距離カッター"
+                ]
+                self.type_combo.addItems(ship_types)
+                
+                # 以前の選択を復元
+                for i in range(self.type_combo.count()):
+                    if self.type_combo.itemText(i) == current_ship_type_text:
+                        self.type_combo.setCurrentIndex(i)
+                        break
+                        
+                print(f"archetype '{current_archetype}' の制約が未定義のため、全船体種別を表示しています")
+                
+        except Exception as e:
+            print(f"ship_type制約更新エラー: {e}")
+            # エラー時は全ての種別を表示
+            ship_types =  [
+                "AM - 掃海艇", "CMC - 沿岸敷設艇", "MCM - 掃海艦", "MCS - 掃海母艦",
+                "AV - 水上機母艦", "CV - 航空母艦", "CVE - 護衛空母", "CVL - 軽空母", "CVS - 対潜空母", "SV - 飛行艇母艦",
+                "LCSL - 上陸支援艇", "PC - 哨戒艇、駆潜艇", "PT - 高速魚雷艇", "FF - フリゲート", "K - コルベット",
+                "MB - ミサイル艇", "PF - 哨戒フリゲート", "PG - 砲艦", "TB - 魚雷艇",
+                "D - 水雷駆逐艦", "DB - 通報艦", "DD - 駆逐艦", "DDE - 対潜護衛駆逐艦", "DDG - ミサイル駆逐艦",
+                "DDR - レーダーピケット駆逐艦", "DE - 護衛駆逐艦", "DL - 嚮導駆逐艦", "DM - 敷設駆逐艦", "DMS - 掃海駆逐艦",
+                "CSS - 沿岸潜水艦", "MSM - 特殊潜航艇", "SC - 巡洋潜水艦", "SCV - 潜水空母", "SF - 艦隊型潜水艦", "SM - 敷設型潜水艦", "SS - 航洋型潜水艦",
+                "ACR - 装甲巡洋艦", "IC - 装甲艦", "B - 前弩級戦艦", "BB - 戦艦", "BBG - ミサイル戦艦", "BC - 巡洋戦艦", "BF - 航空戦艦",
+                "BM - モニター艦", "CA - 重巡・一等巡洋艦", "CB - 大型巡洋艦", "CDB - 海防戦艦", "CF - 航空巡洋艦", "CG - ミサイル巡洋艦",
+                "FBB - 高速戦艦", "PB - ポケット戦艦", "SB - 超戦艦", "C - 防護巡洋艦", "CL - 軽巡洋艦/二等巡洋艦",
+                "CM - 敷設巡洋艦", "CS - 偵察巡洋艦", "HTC - 重雷装巡洋艦", "TC - 水雷巡洋艦", "TCL - 練習巡洋艦",
+                "AAA - 特設防空艦", "AAG - 特設防空警備艦", "AAM - 特設掃海艇", "AAS - 特設駆潜艇", "AAV - 特設水上機母艦",
+                "AC - 特設巡洋艦", "AG - 特設砲艦", "AMS - 特設敷設艦", "APC - 特設監視艇", "APS - 特設哨戒艦",
+                "CAM - CAMシップ", "MAC - 特設空母", "APB - 航行可能な宿泊艦", "PL - 大型巡視船", "PLH - ヘリ搭載型",
+                "PM - 中型巡視船", "WHEC - 長距離カッター"
+            ]
+            self.type_combo.clear()
+            self.type_combo.addItems(ship_types)
+        finally:
+            self._updating_constraints = False
+
+    def load_available_engines(self):
+        """利用可能な機関装備の一覧を読み込み"""
+        if not self.app_controller:
+            return
+
+        try:
+            # 機関装備（SMEN_プレフィックス）を取得
+            all_equipment = self.app_controller.equipment_model.get_all_equipment()
+            engines = [eq for eq in all_equipment 
+                      if eq.get('common', {}).get('ID', '').startswith('SMEN_')]
+            
+            # 主機コンボボックスの更新
+            self.main_engine_combo.clear()
+            self.main_engine_combo.addItem("機関を選択してください", "")
+            
+            for engine in engines:
+                engine_id = engine.get('common', {}).get('ID', '')
+                engine_name = engine.get('common', {}).get('名前', engine_id)
+                self.main_engine_combo.addItem(f"{engine_name} ({engine_id})", engine_id)
+
+        except Exception as e:
+            print(f"機関装備読み込みエラー: {e}")
+
+    def add_auxiliary_engine(self):
+        """補機装備を追加"""
+        aux_widget = QWidget()
+        aux_layout = QHBoxLayout(aux_widget)
+        
+        # 補機選択コンボボックス
+        aux_combo = QComboBox()
+        aux_combo.addItem("補機を選択してください", "")
+        
+        # 機関装備データを読み込み
+        if self.app_controller:
+            try:
+                all_equipment = self.app_controller.equipment_model.get_all_equipment()
+                engines = [eq for eq in all_equipment 
+                          if eq.get('common', {}).get('ID', '').startswith('SMEN_')]
+                
+                for engine in engines:
+                    engine_id = engine.get('common', {}).get('ID', '')
+                    engine_name = engine.get('common', {}).get('名前', engine_id)
+                    aux_combo.addItem(f"{engine_name} ({engine_id})", engine_id)
+            except Exception as e:
+                print(f"補機装備読み込みエラー: {e}")
+        
+        # 数量選択
+        aux_count = QSpinBox()
+        aux_count.setRange(1, 5)
+        aux_count.setValue(1)
+        aux_count.setSuffix(" 基")
+        
+        # 削除ボタン
+        remove_button = QPushButton("削除")
+        remove_button.clicked.connect(lambda: self.remove_auxiliary_engine(aux_widget))
+        
+        aux_layout.addWidget(QLabel("補機:"))
+        aux_layout.addWidget(aux_combo)
+        aux_layout.addWidget(QLabel("数量:"))
+        aux_layout.addWidget(aux_count)
+        aux_layout.addWidget(remove_button)
+        
+        # ウィジェットをリストに追加
+        self.auxiliary_engines.append({
+            'widget': aux_widget,
+            'combo': aux_combo,
+            'count': aux_count
+        })
+        
+        # レイアウトに追加
+        self.aux_engine_layout.addWidget(aux_widget)
+
+    def remove_auxiliary_engine(self, widget):
+        """補機装備を削除"""
+        # リストから削除
+        self.auxiliary_engines = [aux for aux in self.auxiliary_engines 
+                                 if aux['widget'] != widget]
+        
+        # レイアウトから削除
+        self.aux_engine_layout.removeWidget(widget)
+        widget.deleteLater()
+
+    def create_new_engine(self):
+        """新しい機関装備を作成（装備フォームを開く）"""
+        if self.app_controller:
+            # 装備フォームを開いて機関装備を作成
+            from views.equipment_form import EquipmentForm
+            engine_form = EquipmentForm(self, self.app_controller)
+            
+            # 機関装備タイプを事前選択
+            index = engine_form.equipment_type_combo.findText("主機")
+            if index >= 0:
+                engine_form.equipment_type_combo.setCurrentIndex(index)
+            else:
+                # "主機"がない場合は最初の機関関連タイプを探す
+                for i in range(engine_form.equipment_type_combo.count()):
+                    text = engine_form.equipment_type_combo.itemText(i)
+                    if "機関" in text or "エンジン" in text or "主機" in text:
+                        engine_form.equipment_type_combo.setCurrentIndex(i)
+                        break
+            
+            engine_form.show()
+            
+            # 作成完了後に機関一覧を更新
+            engine_form.equipment_saved.connect(self.load_available_engines)
+
+    def get_engine_data(self):
+        """機関装備データを取得"""
+        engine_data = {
+            'main_engine_id': self.main_engine_combo.currentData() or '',
+            'main_engine_count': self.main_engine_count_spin.value(),
+            'auxiliary_engine_ids': [],
+            'auxiliary_engine_counts': []
+        }
+        
+        # 補機データを収集
+        for aux in self.auxiliary_engines:
+            engine_id = aux['combo'].currentData()
+            if engine_id:
+                engine_data['auxiliary_engine_ids'].append(engine_id)
+                engine_data['auxiliary_engine_counts'].append(aux['count'].value())
+        
+        return engine_data
+
+    def set_engine_data(self, data):
+        """機関装備データを設定"""
+        # 主機設定
+        main_engine_id = data.get('main_engine_id', '')
+        if main_engine_id:
+            index = self.main_engine_combo.findData(main_engine_id)
+            if index >= 0:
+                self.main_engine_combo.setCurrentIndex(index)
+        
+        self.main_engine_count_spin.setValue(data.get('main_engine_count', 1))
+        
+        # 既存の補機をクリア
+        for aux in self.auxiliary_engines[:]:
+            self.remove_auxiliary_engine(aux['widget'])
+        
+        # 補機設定
+        aux_ids = data.get('auxiliary_engine_ids', [])
+        aux_counts = data.get('auxiliary_engine_counts', [])
+        
+        for i, engine_id in enumerate(aux_ids):
+            self.add_auxiliary_engine()
+            if self.auxiliary_engines:
+                last_aux = self.auxiliary_engines[-1]
+                
+                # 機関ID設定
+                index = last_aux['combo'].findData(engine_id)
+                if index >= 0:
+                    last_aux['combo'].setCurrentIndex(index)
+                
+                # 数量設定
+                if i < len(aux_counts):
+                    last_aux['count'].setValue(aux_counts[i])

@@ -11,6 +11,7 @@ from utils.path_utils import get_data_dir
 from utils.ship_type_mapping import ship_type_mapping
 from utils.ship_icon_manager import ShipIconManager
 from utils.web_search_widget import WebSearchButton
+from utils.ship_role_constraints import get_allowed_roles, get_ship_type_from_role_display, is_role_allowed
 
 
 class DesignView(QWidget):
@@ -43,22 +44,25 @@ class DesignView(QWidget):
         if hull_data:
             self.on_hull_selected(hull_data)
     
-    def update_search_query(self, ship_type_text):
-        """艦種選択に基づいて検索クエリを更新"""
-        if ship_type_text and ship_type_text != "選択してください":
-            # 艦種名を英語に変換
-            ship_type_mapping = {
-                "戦艦": "battleship",
-                "巡洋戦艦": "battlecruiser", 
-                "重巡洋艦": "heavy cruiser",
-                "軽巡洋艦": "light cruiser",
-                "駆逐艦": "destroyer",
-                "空母": "aircraft carrier",
-                "軽空母": "light carrier",
-                "潜水艦": "submarine"
+    def update_search_query(self, archetype_text):
+        """archetype選択に基づいて検索クエリを更新"""
+        if archetype_text and archetype_text != "選択してください":
+            # archetypeから英語検索用語へのマッピング
+            archetype_search_mapping = {
+                "BB": "battleship",
+                "BC": "battlecruiser", 
+                "CA": "heavy cruiser",
+                "CL": "light cruiser",
+                "DD": "destroyer",
+                "CV": "aircraft carrier",
+                "CVL": "light carrier",
+                "SS": "submarine",
+                "SF": "fleet submarine",
+                "FF": "frigate",
+                "DE": "destroyer escort"
             }
             
-            english_type = ship_type_mapping.get(ship_type_text, ship_type_text.lower())
+            english_type = archetype_search_mapping.get(archetype_text, archetype_text.lower())
             search_query = f"{english_type} warship design"
             self.web_search_button.set_default_search(search_query)
 
@@ -69,18 +73,21 @@ class DesignView(QWidget):
         # 上部：艦種と船体選択
         top_layout = QHBoxLayout()
 
-        # 艦種選択（アイコン対応版）
+        # 艦種選択（archetype対応版）
         ship_type_layout = QHBoxLayout()
         ship_type_layout.addWidget(QLabel("艦種 ▷"))
         self.ship_type_combo = QComboBox()
         
-        # 艦種の選択肢を追加（アイコン付き）
+        # archetypeの選択肢を追加（アイコン付き）
         self.ship_type_combo.addItem("選択してください")
         
-        # アイコン付きで艦種をコンボボックスに追加
-        for abbreviation, display_name in ship_type_mapping.items():
-            icon = self.ship_icon_manager.get_ship_icon(abbreviation, QSize(24, 24))
-            self.ship_type_combo.addItem(icon, display_name, abbreviation)
+        # pdx_toolsからarchetypeのリストを取得してアイコン付きで追加
+        import pdx_tools.pdx_ssw
+        for archetype in pdx_tools.pdx_ssw.ship_types:
+            # archetypeに対応するアイコンを取得
+            icon = self.ship_icon_manager.get_ship_icon(archetype, QSize(24, 24))
+            # 表示名は archetype をそのまま使用
+            self.ship_type_combo.addItem(icon, archetype, archetype)
 
         ship_type_layout.addWidget(self.ship_type_combo)
         top_layout.addLayout(ship_type_layout)
@@ -503,9 +510,9 @@ class DesignView(QWidget):
                     selected_ship_type_index = i
                     break
 
-            # 選択された艦種の情報を取得
-            selected_ship_type_data = self.ship_type_combo.itemData(selected_ship_type_index)
-            selected_ship_type_text = self.ship_type_combo.itemText(selected_ship_type_index)
+            # 選択されたarchetypeの情報を取得
+            selected_archetype_data = self.ship_type_combo.itemData(selected_ship_type_index)
+            selected_archetype_text = self.ship_type_combo.itemText(selected_ship_type_index)
 
             # JSONファイルから直接船体データを読み込む
             import os
@@ -533,23 +540,65 @@ class DesignView(QWidget):
                 QMessageBox.information(self, "情報", "船体データがありません。先に船体を登録してください。")
                 return
 
-            # 選択された艦種でフィルタリング
+            # 選択されたarchetypeでフィルタリング（制約適用）
             filtered_hulls = []
+            
+            # 選択されたarchetypeのIDでSHIP_ROLE_CONSTRAINTSから利用可能なrole_typeリストを取得
+            from utils.ship_role_constraints import get_allowed_roles
+            
+            # 表示名からIDを抽出（例: "BB - 一等戦艦" → "BB"）
+            print(f"デバッグ: selected_archetype_text='{selected_archetype_text}'")
+            print(f"デバッグ: selected_archetype_data='{selected_archetype_data}'")
+            
+            # pdx_tools.pdx_ssw.ship_typesが表示名を返している場合、IDを抽出
+            if selected_archetype_data and selected_archetype_data != selected_archetype_text:
+                selected_archetype_id = selected_archetype_data
+            else:
+                # 表示名からIDを抽出（"BB - 一等戦艦" → "BB"）
+                if " - " in selected_archetype_text:
+                    selected_archetype_id = selected_archetype_text.split(" - ")[0]
+                else:
+                    selected_archetype_id = selected_archetype_text
+            
+            if not selected_archetype_id or selected_archetype_id == "選択してください":
+                print("選択されたarchetypeが無効です")
+                return
+                
+            allowed_role_types = get_allowed_roles(selected_archetype_id)
+            
+            print(f"選択archetype表示名: '{selected_archetype_text}'")
+            print(f"選択archetypeID: '{selected_archetype_id}'") 
+            print(f"利用可能なrole_type: {allowed_role_types}")
+            
             for hull in hulls:
                 hull_type = hull.get("type", "")
-                # 完全な艦種名またはデータで比較
-                if (hull_type == selected_ship_type_text or 
-                    hull_type == selected_ship_type_data or
-                    selected_ship_type_text in hull_type):
+                hull_archetype = hull.get("archetype", "")
+                
+                # 船体種別から略称を抽出
+                hull_ship_type = get_ship_type_from_role_display(hull_type)
+                
+                # 制約チェック: 船体のtypeが選択されたarchetypeで利用可能なrole_typeに含まれているか
+                type_allowed = hull_ship_type in allowed_role_types
+                
+                print(f"デバッグ: {hull.get('name', '不明')} - ship_type: {hull_ship_type}, archetype: {hull_archetype}")
+                print(f"  選択archetypeID '{selected_archetype_id}' で利用可能なrole_type: {allowed_role_types}")
+                print(f"  船体のship_type '{hull_ship_type}' が許可されているか: {type_allowed}")
+                
+                if type_allowed:
                     filtered_hulls.append(hull)
+                    print(f"適合: {hull.get('name', '不明')} (ship_type: {hull_ship_type}, archetype: {hull_archetype})")
+                else:
+                    print(f"除外: {hull.get('name', '不明')} - "
+                          f"type許可: {type_allowed} "
+                          f"(ship_type: {hull_ship_type}, archetype: {hull_archetype})")
 
             if not filtered_hulls:
-                QMessageBox.information(self, "情報", f"選択された艦種「{selected_ship_type_text}」の船体データがありません。")
+                QMessageBox.information(self, "情報", f"選択されたarchetype「{selected_archetype_text}」の船体データがありません。")
                 return
 
             # 船体選択ダイアログを表示（アイコン対応版）
             dialog = QDialog(self)
-            dialog.setWindowTitle(f"船体選択 - {selected_ship_type_text}")
+            dialog.setWindowTitle(f"船体選択 - {selected_archetype_text}")
             dialog.setMinimumWidth(600)
             dialog.setMinimumHeight(400)
 
@@ -636,16 +685,16 @@ class DesignView(QWidget):
             # 艦級名フィールドにデフォルト値を設定
             self.design_name_edit.setText(hull_name)
 
-            # 艦種コンボボックスを更新（アイコンと一致させる）
-            ship_type = hull_data.get("type", "")
+            # archetypeコンボボックスを更新
+            hull_archetype = hull_data.get("archetype", "")
             for i in range(self.ship_type_combo.count()):
                 item_data = self.ship_type_combo.itemData(i)
-                if item_data == ship_type:
+                if item_data == hull_archetype:
                     self.ship_type_combo.setCurrentIndex(i)
                     break
                 # 表示名での一致も試行
                 item_text = self.ship_type_combo.itemText(i)
-                if item_text == ship_type:
+                if item_text == hull_archetype:
                     self.ship_type_combo.setCurrentIndex(i)
                     break
 
@@ -1470,6 +1519,20 @@ class DesignView(QWidget):
             return
 
         try:
+            # 制約チェック: 船体のarchetype が船体種別で許可されているかを確認
+            hull_type = self.current_hull.get("type", "")
+            hull_archetype = self.current_hull.get("archetype", "")
+            hull_ship_type = get_ship_type_from_role_display(hull_type)
+            
+            if not is_role_allowed(hull_ship_type, hull_archetype):
+                QMessageBox.warning(
+                    self, 
+                    "制約違反", 
+                    f"船体種別 '{hull_ship_type}' でarchetype '{hull_archetype}' は許可されていません。\n"
+                    f"船体登録時にarchetypeを修正してください。"
+                )
+                return
+            
             # 設計データの構築
             design_data = {
                 "design_name": design_name,
@@ -1481,8 +1544,6 @@ class DesignView(QWidget):
                 "internal_slots": [],
                 "year": self.current_hull.get("year", 1936),
                 "country": self.current_hull.get("country", ""),
-                # 現在のステータス値を追加
-                "calculated_stats": {}
             }
 
             # メインスロットのカテゴリーと装備の取得
@@ -1542,10 +1603,7 @@ class DesignView(QWidget):
 
                 design_data["internal_slots"].append(internal_slot_data)
 
-            # 現在のステータス値を取得して保存
-            if self.app_controller:
-                current_stats = self.app_controller.get_design_stats(design_data)
-                design_data["calculated_stats"] = current_stats
+            # calculated_statsはJSONファイルに含めない（デザインビューの要求により除外）
 
             # 設計データを保存
             if self.app_controller:

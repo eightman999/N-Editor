@@ -399,6 +399,52 @@ asw_types:
       explosive_weight_kg: "number"
       range_m: "number (メートル)"
 
+#--- 機関系統 ---
+
+engine_types:
+  main_engine:
+    display_name: "主機"
+    id_prefix: SMEN_
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      power: "number (馬力)"
+      fuel_capacity: "number (燃料容量)"
+      year: "integer (開発年度)"
+      engine_type: "string (Coal/HeavyOil/Diesel/GasTurbine/CoalHeavyOil/DieselGas/Battery/Nuclear)"
+  auxiliary_engine:
+    display_name: "補機"
+    id_prefix: SMEN_
+    common_elements:
+      name: "string"
+      id: "string"
+      weight: "number (kg)"
+      personnel: "integer"
+      developed_year: "integer (西暦)"
+      country: "string"
+      resources:
+        steel: "integer"
+        chrome: "integer"
+        aluminum: "integer"
+        tungsten: "integer"
+        rubber: "integer"
+    specific_elements:
+      power: "number (補助出力)"
+      fuel_consumption: "number (燃料消費率)"
+      engine_type: "string (Generator/ElectricMotor/Pump/Compressor)"
+      operating_efficiency: "number (運転効率)"
+
 #--- センサー系統 ---
 
 sensor_types:
@@ -511,7 +557,7 @@ other_elements:
         aluminum: "integer"
         tungsten: "integer"
         rubber: "integer"
-  hunger:
+  hangar:
     display_name: "ハンガー"
     id_prefix: SMH
     common_elements:

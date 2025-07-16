@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QColor
 import os
+import re
 import json
 import csv
 
@@ -19,6 +20,9 @@ class HullListView(QWidget):
         super(HullListView, self).__init__(parent)
 
         self.app_controller = app_controller
+
+        # 艦種アーキタイプマッピングの読み込み
+        self.ship_archetype_mapping = self.load_ship_archetype_mapping()
 
         # UI初期化
         self.init_ui()
@@ -90,6 +94,15 @@ class HullListView(QWidget):
 
         main_layout.addWidget(self.hull_table)
 
+    def load_ship_archetype_mapping(self):
+        """ship_archetype_mappingを読み込む"""
+        if self.app_controller and self.app_controller.hull_model:
+            return self.app_controller.hull_model.ship_archetype_mapping
+        else:
+            from models.hull_model import HullModel
+            hull_model = HullModel()
+            return hull_model.ship_archetype_mapping
+
     def load_hull_list(self):
         """船体リストの読み込み"""
         # ソート機能を一時的に無効化（データ読み込み中のソートを防止）
@@ -142,18 +155,35 @@ class HullListView(QWidget):
             self.hull_table.setItem(row, 6, speed_item)
 
             # 船体タイプによって背景色を変える（軽い視認性向上）
+            archetype = hull.get('archetype', '')
             hull_type = hull.get('type', '')
 
+            # archetypeがship_archetype_mappingに存在する場合、それを使用
+            if archetype and archetype in self.ship_archetype_mapping.values():
+                # 最初の2文字を取得して色分け
+                archetype_code = ''
+                for code, full_name in self.ship_archetype_mapping.items():
+                    if full_name == archetype:
+                        archetype_code = code
+                        break
+            else:
+                # 存在しない場合はhull_typeから推定
+                match = re.match(r'([A-Z]+)', hull_type)
+                if match:
+                    archetype_code = match.group(1)
+                else:
+                    archetype_code = ""
+
             # 艦種に基づいて色分け
-            if 'BB' in hull_type:
+            if 'BB' in archetype_code:
                 bg_color = QColor(240, 220, 220)  # 薄い赤（戦艦）
-            elif 'CV' in hull_type:
+            elif 'CV' in archetype_code:
                 bg_color = QColor(220, 240, 220)  # 薄い緑（空母）
-            elif 'CA' in hull_type or 'CL' in hull_type:
+            elif 'CA' in archetype_code or 'CL' in archetype_code:
                 bg_color = QColor(220, 220, 240)  # 薄い青（巡洋艦）
-            elif 'DD' in hull_type:
+            elif 'DD' in archetype_code:
                 bg_color = QColor(240, 240, 220)  # 薄い黄（駆逐艦）
-            elif 'SS' in hull_type:
+            elif 'SS' in archetype_code:
                 bg_color = QColor(240, 220, 240)  # 薄い紫（潜水艦）
             else:
                 bg_color = QColor(255, 255, 255)  # 白（その他）

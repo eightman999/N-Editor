@@ -538,6 +538,16 @@ class HullModel:
         for csv_field, data_field in field_mapping.items():
             if csv_field in row:
                 hull_data[data_field] = row[csv_field]
+        
+        # 機関データの参照設定（機関装備IDとして管理）
+        hull_data['main_engine_id'] = ''  # 主機装備ID
+        hull_data['auxiliary_engine_ids'] = []  # 補機装備IDリスト
+        hull_data['engine_count'] = {'main': 1, 'auxiliary': 0}  # 機関数量
+        
+        # 船体性能パラメータ（機関性能計算に使用）
+        hull_data['max_speed'] = hull_data.get('speed', 0.0)  # 最大速度
+        hull_data['cruise_speed'] = hull_data.get('cruise_speed', 0.0)  # 巡航速度
+        hull_data['naval_range'] = hull_data.get('range', 0.0)  # 航続距離
         # IDの処理
         if not hull_data.get('id') or hull_data.get('id') == '-':
             name = hull_data.get('name', '')
@@ -649,3 +659,69 @@ class HullModel:
         hull_data['slots'] = slots
 
         return hull_data
+
+    def calculate_hull_performance(self, hull_data: Dict[str, Any], engine_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        船体と機関を組み合わせた性能を計算
+        
+        Args:
+            hull_data: 船体データ
+            engine_data: 機関データ（オプション）
+            
+        Returns:
+            Dict[str, Any]: 計算された性能データ
+        """
+        performance = hull_data.copy()
+        
+        # 基本性能の取得
+        max_speed = hull_data.get('max_speed', hull_data.get('speed', 0.0))
+        cruise_speed = hull_data.get('cruise_speed', 0.0)
+        naval_range = hull_data.get('naval_range', hull_data.get('range', 0.0))
+        
+        # 機関データが提供されている場合の計算
+        if engine_data:
+            specific_elements = engine_data.get('specific_elements', {})
+            engine_power = specific_elements.get('power', 0.0)
+            fuel_capacity = specific_elements.get('fuel_capacity', 0.0)
+            engine_type = specific_elements.get('engine_type', 'HeavyOil')
+            
+            # fuel_capacityが空の場合、航続距離と巡航速度から逆算
+            if fuel_capacity == 0.0 and naval_range > 0 and cruise_speed > 0:
+                # 機関種別による効率係数
+                efficiency_factors = {
+                    'Coal': 1.25,          # 石炭（燃料消費多）
+                    'HeavyOil': 1.0,       # 重油（標準）
+                    'Diesel': 0.77,        # ディーゼル（効率良）
+                    'GasTurbine': 1.11,    # ガスタービン（やや消費多）
+                    'CoalHeavyOil': 1.05,  # 石炭重油混燃
+                    'DieselGas': 0.83,     # ディーゼルガス混燃
+                    'Battery': 1.67,       # バッテリー（容量制約）
+                    'Nuclear': 0.1         # 原子炉（超効率）
+                }
+                
+                efficiency_factor = efficiency_factors.get(engine_type, 1.0)
+                fuel_capacity = (naval_range * cruise_speed * efficiency_factor) / 100
+                
+                # 計算結果を機関データに反映
+                if 'specific_elements' not in engine_data:
+                    engine_data['specific_elements'] = {}
+                engine_data['specific_elements']['fuel_capacity'] = fuel_capacity
+        
+        # 最終表示速度の計算（航続距離と巡航速度の平均値）
+        if naval_range > 0 and cruise_speed > 0:
+            # 航続距離を適切にスケールして速度単位に合わせる
+            range_speed_component = naval_range / 100  # スケーリング調整
+            display_speed = (range_speed_component + cruise_speed) / 2
+        else:
+            display_speed = max_speed
+        
+        # 性能データの更新
+        performance['calculated_speed'] = display_speed
+        performance['max_speed'] = max_speed
+        performance['cruise_speed'] = cruise_speed
+        performance['naval_range'] = naval_range
+        
+        if engine_data and fuel_capacity > 0:
+            performance['fuel_capacity'] = fuel_capacity
+        
+        return performance

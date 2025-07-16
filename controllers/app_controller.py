@@ -1361,7 +1361,7 @@ class AppController(QObject):
                     logger.debug(f"キャッシュから国家データを読み込み: {len(cached_data)}件")
                     
                     # 国旗スプライトシートの確認・生成
-                    self._ensure_flag_sprite_sheet(cached_data)
+                    self._ensure_flag_sprite_sheet(cached_data, mod_path)
                     return cached_data
 
             # キャッシュミスまたは古い場合は通常の処理を実行
@@ -1410,7 +1410,7 @@ class AppController(QObject):
                 logger.debug(f"国家データをキャッシュに保存: {len(nations)}件")
 
             # 国旗スプライトシートの生成
-            self._ensure_flag_sprite_sheet(nations)
+            self._ensure_flag_sprite_sheet(nations, mod_path)
 
             logger.info(f"国家情報の取得完了: {len(nations)}件の国家を処理")
             return nations
@@ -1419,12 +1419,14 @@ class AppController(QObject):
             logger.error(f"国家情報取得中にエラーが発生しました: {e}")
             return []
 
-    def _ensure_flag_sprite_sheet(self, nations):
+    def _ensure_flag_sprite_sheet(self, nations, mod_path, force_generate=False):
         """
         国旗スプライトシートが存在しない、または古い場合に生成する
         
         Args:
             nations: 国家情報のリスト
+            mod_path: 現在のMODのパス
+            force_generate: Trueの場合、キャッシュの有効性に関わらず強制的に生成
         """
         try:
             if not hasattr(self, '_flag_sprite_manager'):
@@ -1442,15 +1444,15 @@ class AppController(QObject):
                 self._flag_sprite_manager = FlagSpriteManager(flags_cache_dir, mod_name)
             
             # スプライトシートのキャッシュが有効かチェック
-            if not self._flag_sprite_manager.is_cache_valid(nations):
+            if not force_generate and self._flag_sprite_manager.is_cache_valid(nations, mod_path):
+                logger.debug("国旗スプライトシートキャッシュは有効")
+            else:
                 logger.info("国旗スプライトシートを生成中...")
-                success = self._flag_sprite_manager.generate_sprite_sheet(nations)
+                success = self._flag_sprite_manager.generate_sprite_sheet(nations, mod_path, force_generate)
                 if success:
                     logger.info("国旗スプライトシート生成完了")
                 else:
                     logger.warning("国旗スプライトシート生成に失敗")
-            else:
-                logger.debug("国旗スプライトシートキャッシュは有効")
                 
         except Exception as e:
             logger.error(f"国旗スプライトシート処理エラー: {e}")
@@ -1464,15 +1466,92 @@ class AppController(QObject):
         """
         return getattr(self, '_flag_sprite_manager', None)
 
+    def regenerate_flag_sprites(self):
+        """国旗スプライトシートを強制的に再生成する"""
+        if not self.current_mod or not self.current_mod.get("path"):
+            QMessageBox.warning(self.main_window, "警告", "MODが選択されていません。")
+            return
+
+        mod_path = self.current_mod["path"]
+        nations = self.get_nations(mod_path) # 最新の国家情報を取得
+
+        if nations:
+            self.background_task_started.emit("国旗スプライトシート再生成")
+            worker = Worker(self._regenerate_flag_sprites_background, nations, mod_path)
+            worker.signals.result.connect(lambda result: self._on_flag_sprite_regenerated("国旗スプライトシート再生成", result))
+            worker.signals.error.connect(lambda error: self.background_task_error.emit("国旗スプライトシート再生成", error))
+            self.threadpool.start(worker)
+        else:
+            QMessageBox.warning(self.main_window, "警告", "国家情報が取得できませんでした。")
+
+    def _regenerate_flag_sprites_background(self, nations, mod_path):
+        """国旗スプライトシートの再生成をバックグラウンドで実行"""
+        logger.info("国旗スプライトシートの強制再生成を開始します...")
+        start_time = time.time()
+        self._ensure_flag_sprite_sheet(nations, mod_path, force_generate=True)
+        end_time = time.time()
+        logger.info(f"国旗スプライトシートの強制再生成が完了しました。所要時間: {end_time - start_time:.2f}秒")
+        return {"status": "completed", "time_taken": end_time - start_time}
+
+    def _on_flag_sprite_regenerated(self, task_name, result):
+        """国旗スプライトシート再生成完了時の処理"""
+        self.background_task_finished.emit(task_name, result)
+        QMessageBox.information(self.main_window, "完了", "国旗スプライトシートの再生成が完了しました。")
+
     # 設計関連機能（残りのメソッドも同様に実装...）
 
     def save_design(self, design_data):
-        """設計データを保存する（同期機能付き）"""
+        """設計データを保存（装備の再生成とステータス再計算機能付き）"""
         try:
+            # 船体データを読み込み
+            hull_data = self.load_hull(design_data.get('hull_id'))
+            if not hull_data:
+                print(f"エラー: 船体ID {design_data.get('hull_id')} のデータが見つかりません。")
+                return False
+
+            # 処理済み装備を記録する辞書（元のID -> 新しいID）
+            processed_equipments = {}
+
+            # 新しい装備リストを作成
+            new_main_slots = {}
+            new_internal_slots = []
+
+            # メインスロットの装備を処理
+            for slot_type, equipment_id in design_data.get('main_slots', {}).items():
+                if equipment_id in processed_equipments:
+                    new_main_slots[slot_type] = processed_equipments[equipment_id]
+                    continue
+                
+                new_equipment_id, new_equipment_data = self._regenerate_equipment_for_hull(equipment_id, hull_data)
+                if new_equipment_id and new_equipment_data:
+                    self.equipment_model.save_equipment(new_equipment_data)
+                    new_main_slots[slot_type] = new_equipment_id
+                    processed_equipments[equipment_id] = new_equipment_id
+                else:
+                    new_main_slots[slot_type] = equipment_id # 失敗した場合は元のIDを維持
+
+            # 内部スロットの装備を処理
+            for slot_data in design_data.get('internal_slots', []):
+                new_slot_data = slot_data.copy()
+                equipment_id = slot_data.get('equipment_id')
+                if equipment_id:
+                    if equipment_id in processed_equipments:
+                        new_slot_data['equipment_id'] = processed_equipments[equipment_id]
+                    else:
+                        new_equipment_id, new_equipment_data = self._regenerate_equipment_for_hull(equipment_id, hull_data)
+                        if new_equipment_id and new_equipment_data:
+                            self.equipment_model.save_equipment(new_equipment_data)
+                            new_slot_data['equipment_id'] = new_equipment_id
+                            processed_equipments[equipment_id] = new_equipment_id
+                new_internal_slots.append(new_slot_data)
+
+            # 設計データを更新
+            design_data['main_slots'] = new_main_slots
+            design_data['internal_slots'] = new_internal_slots
+
             # 設計ID（未設定の場合は生成）
-            design_id = design_data.get("id", "")
+            design_id = design_data.get("id")
             if not design_id:
-                # 設計名から一意のIDを生成
                 base_id = ''.join(e for e in design_data["design_name"] if e.isalnum())
                 design_id = f"DESIGN_{base_id}_{int(time.time())}"
                 design_data["id"] = design_id
@@ -1487,20 +1566,15 @@ class AppController(QObject):
 
             # ヘッダー付きでJSONに変換して保存
             with open(file_path, 'w', encoding='utf-8') as f:
-                # ヘッダーを最初に書き込み
                 f.write("@config.design\n")
-                # JSONデータを書き込み
                 json.dump(design_data, f, ensure_ascii=False, indent=2)
 
-            print(f"設計データ '{design_id}' を保存しました。")
+            print(f"設計データ '{design_id}' を保存しました（装備再生成済み）。")
             
-            # 関連キャッシュをクリア（変更されたファイルのキャッシュを無効化）
+            # 関連キャッシュをクリア
             if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
-                # 設計関連のキャッシュをクリア
                 self.mod_cache_manager.clear_design_cache(design_id)
-                # 設計一覧キャッシュもクリア（新しいファイルが追加された可能性があるため）
                 self.mod_cache_manager.clear_cache('designs')
-                # 設計統計キャッシュもクリア（設計が変更されたため）
                 self.mod_cache_manager.clear_cache('design_stats')
             
             # 自動同期実行
@@ -2641,7 +2715,7 @@ class AppController(QObject):
             print(f"装備タイプ: {equipment_data.get('equipment_type', 'Unknown')}")
 
             # 計算ステータス（砲系統など）を取得
-            calculated_stats = self._calculate_equipment_stats(equipment_data)
+            calculated_stats = self._calculate_equipment_stats(equipment_data, hull_data)
             print(f"計算されたステータス: {calculated_stats}")
 
             # 装備のJSONデータからstatsセクションを取得
@@ -2811,14 +2885,79 @@ class AppController(QObject):
         print("=== _apply_stats_modes 完了 ===")
         return final_stats
 
-    def _calculate_equipment_stats(self, equipment_data: Dict[str, Any]) -> Dict[str, float]:
+    def _calculate_equipment_stats(self, equipment_data: Dict[str, Any], hull_data: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
         """
-        個別装備のステータスを計算（デバッグ版）
+        個別装備のステータスを計算（モジュラー計算機システム使用）
+        """
+        try:
+            # 新しいモジュラー計算機システムを使用
+            from utils.equipment_calculators import get_calculator
+            
+            equipment_type = equipment_data.get('equipment_type', '')
+            print(f"装備ステータス計算開始: タイプ={equipment_type}")
+            
+            # 装備タイプに対応する計算機を取得
+            calculator = get_calculator(equipment_type)
+            print(f"使用する計算機: {calculator.__class__.__name__}")
+            
+            # 装備データの形式を変換（common/specific → 統一形式）
+            unified_equipment_data = self._convert_equipment_data_format(equipment_data)
+            
+            # ステータス計算を実行
+            calculated_stats = calculator.calculate_stats(unified_equipment_data, hull_data)
+            
+            print(f"計算結果: {calculated_stats}")
+            return calculated_stats
+            
+        except Exception as e:
+            print(f"装備ステータス計算エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # エラー時は旧システムにフォールバック
+            return self._calculate_equipment_stats_fallback(equipment_data, hull_data)
+    
+    def _convert_equipment_data_format(self, equipment_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        装備データを新しい計算機システム用の形式に変換
+        """
+        converted = {}
+        
+        # common データを統合
+        common_data = equipment_data.get('common', {})
+        for key, value in common_data.items():
+            if key == '重量':
+                converted['weight'] = float(value) if value else 0.0
+            elif key == '人員':
+                converted['personnel'] = int(value) if value else 0
+            elif key == '開発年':
+                converted['year'] = int(value) if value else 1936
+            elif key == '国':
+                converted['country'] = str(value)
+            elif key == 'ID':
+                converted['id'] = str(value)
+            elif key == '名前':
+                converted['name'] = str(value)
+        
+        # specific データを統合
+        specific_data = equipment_data.get('specific', {})
+        converted['specific_elements'] = specific_data.copy()
+        
+        # その他のデータも含める
+        for key, value in equipment_data.items():
+            if key not in ['common', 'specific']:
+                converted[key] = value
+        
+        return converted
+    
+    def _calculate_equipment_stats_fallback(self, equipment_data: Dict[str, Any], hull_data: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
+        """
+        フォールバック用の旧計算システム（砲系統のみ）
         """
         stats = {}
         equipment_type = equipment_data.get('equipment_type', '')
 
-        print(f"装備ステータス計算開始: タイプ={equipment_type}")
+        print(f"フォールバック計算開始: タイプ={equipment_type}")
 
         # 砲系統かどうかを判定
         gun_types = [
@@ -2840,7 +2979,7 @@ class AppController(QObject):
             print(f"砲系統計算結果: {gun_stats}")
             stats.update(gun_stats)
 
-        print(f"最終計算結果: {stats}")
+        print(f"フォールバック計算結果: {stats}")
         return stats
 
     def _calculate_gun_stats(self, equipment_data: Dict[str, Any]) -> Dict[str, float]:
@@ -2974,6 +3113,40 @@ class AppController(QObject):
 
         return stats
 
+    def _regenerate_equipment_for_hull(self, equipment_id: str, hull_data: Dict[str, Any]) -> (Optional[str], Optional[Dict[str, Any]]):
+        """船体情報に基づいて装備を再生成する"""
+        try:
+            # 元の装備データを読み込み
+            original_equipment = self.load_equipment(equipment_id)
+            if not original_equipment:
+                return None, None
+
+            # 新しい装備IDを生成 (例: original_id_hull_id)
+            hull_id = hull_data.get('id', 'unknown_hull')
+            new_equipment_id = f"{equipment_id}_{hull_id}"
+
+            # 新しい装備データを作成
+            new_equipment_data = original_equipment.copy()
+            new_equipment_data['common']['ID'] = new_equipment_id
+            new_equipment_data['common']['名前'] = original_equipment['common'].get('名前', '')
+            
+            # 船体情報を考慮してステータスを再計算
+            calculated_stats = self._calculate_equipment_stats(original_equipment, hull_data)
+            
+            # statsセクションを更新
+            if 'stats' not in new_equipment_data:
+                new_equipment_data['stats'] = {}
+            if 'add_stats' not in new_equipment_data['stats']:
+                new_equipment_data['stats']['add_stats'] = {}
+
+            new_equipment_data['stats']['add_stats'].update(calculated_stats)
+
+            return new_equipment_id, new_equipment_data
+
+        except Exception as e:
+            print(f"装備の再生成中にエラーが発生しました ({equipment_id}): {e}")
+            return None, None
+
     def on_sync_completed(self, success, message):
         """同期完了時の処理"""
         if success:
@@ -3045,3 +3218,277 @@ class AppController(QObject):
         if hasattr(self, 'ship_icon_manager') and self.ship_icon_manager:
             self.ship_icon_manager.clear_cache()
             logger.info("アイコンキャッシュをクリアしました")
+
+    # HOI4エクスポート用データ取得メソッド
+    def get_all_designs(self) -> List[Dict[str, Any]]:
+        """全ての設計データを取得（エクスポート用）
+        
+        Returns:
+            List[Dict[str, Any]]: 設計データのリスト
+        """
+        try:
+            designs = []
+            designs_dir = get_data_dir('designs')
+            
+            if not os.path.exists(designs_dir):
+                logger.warning(f"設計ディレクトリが存在しません: {designs_dir}")
+                return designs
+            
+            # 設計ファイルを検索
+            for root, dirs, files in os.walk(designs_dir):
+                for file in files:
+                    if file.endswith('.json'):
+                        file_path = os.path.join(root, file)
+                        try:
+                            design_data = self.load_design_from_file(file_path)
+                            if design_data:
+                                designs.append(design_data)
+                        except Exception as e:
+                            logger.warning(f"設計ファイル読み込みエラー ({file}): {e}")
+            
+            logger.info(f"設計データ取得完了: {len(designs)}件")
+            return designs
+            
+        except Exception as e:
+            logger.error(f"全設計データ取得エラー: {e}")
+            return []
+
+    def get_all_hulls(self) -> List[Dict[str, Any]]:
+        """全ての船体データを取得（エクスポート用）
+        
+        Returns:
+            List[Dict[str, Any]]: 船体データのリスト
+        """
+        try:
+            hulls = []
+            hulls_dir = get_data_dir('hulls')
+            
+            if not os.path.exists(hulls_dir):
+                logger.warning(f"船体ディレクトリが存在しません: {hulls_dir}")
+                return hulls
+            
+            # 船体ファイルを検索
+            for root, dirs, files in os.walk(hulls_dir):
+                for file in files:
+                    if file.endswith('.json'):
+                        file_path = os.path.join(root, file)
+                        try:
+                            hull_data = self.load_hull_from_file(file_path)
+                            if hull_data:
+                                hulls.append(hull_data)
+                        except Exception as e:
+                            logger.warning(f"船体ファイル読み込みエラー ({file}): {e}")
+            
+            logger.info(f"船体データ取得完了: {len(hulls)}件")
+            return hulls
+            
+        except Exception as e:
+            logger.error(f"全船体データ取得エラー: {e}")
+            return []
+
+    def load_design_from_file(self, file_path: str) -> Optional[Dict[str, Any]]:
+        """ファイルから設計データを読み込み
+        
+        Args:
+            file_path (str): 設計ファイルパス
+            
+        Returns:
+            Optional[Dict[str, Any]]: 設計データ（失敗時はNone）
+        """
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                design_data = json.load(f)
+            
+            # 必要なフィールドが存在するかチェック
+            if 'design_name' not in design_data:
+                design_data['design_name'] = os.path.splitext(os.path.basename(file_path))[0]
+            
+            # ファイルパス情報を追加
+            design_data['file_path'] = file_path
+            
+            return design_data
+            
+        except Exception as e:
+            logger.error(f"設計ファイル読み込みエラー ({file_path}): {e}")
+            return None
+
+    def load_hull_from_file(self, file_path: str) -> Optional[Dict[str, Any]]:
+        """ファイルから船体データを読み込み
+        
+        Args:
+            file_path (str): 船体ファイルパス
+            
+        Returns:
+            Optional[Dict[str, Any]]: 船体データ（失敗時はNone）
+        """
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                hull_data = json.load(f)
+            
+            # 必要なフィールドが存在するかチェック
+            if 'name' not in hull_data:
+                hull_data['name'] = os.path.splitext(os.path.basename(file_path))[0]
+            
+            if 'id' not in hull_data:
+                hull_data['id'] = hull_data['name'].lower().replace(' ', '_')
+            
+            # ファイルパス情報を追加
+            hull_data['file_path'] = file_path
+            
+            return hull_data
+            
+        except Exception as e:
+            logger.error(f"船体ファイル読み込みエラー ({file_path}): {e}")
+            return None
+
+    def get_design_for_export(self, design_id: str) -> Optional[Dict[str, Any]]:
+        """エクスポート用の設計データを取得
+        
+        Args:
+            design_id (str): 設計ID
+            
+        Returns:
+            Optional[Dict[str, Any]]: エクスポート用設計データ（失敗時はNone）
+        """
+        try:
+            # 設計データを読み込み
+            design_data = self.load_design(design_id)
+            if not design_data:
+                return None
+            
+            # HOI4エクスポート用に構造を統一
+            export_data = {
+                'design_name': design_data.get('design_name', ''),
+                'hull_id': design_data.get('hull_id', ''),
+                'modules': {},
+                'upgrades': design_data.get('upgrades', {}),
+                'name_group': design_data.get('name_group', ''),
+            }
+            
+            # メインスロットの処理
+            main_slots = design_data.get('main_slots', {})
+            for slot_type, module_id in main_slots.items():
+                if module_id:
+                    export_data['modules'][slot_type] = module_id
+            
+            # 内部スロットの処理
+            internal_slots = design_data.get('internal_slots', [])
+            for slot_data in internal_slots:
+                slot_id = slot_data.get('slot_id', '')
+                equipment_id = slot_data.get('equipment_id', '')
+                if slot_id and equipment_id:
+                    export_data['modules'][slot_id] = equipment_id
+            
+            # 性能計算
+            try:
+                from utils.stats_calculator import StatsCalculator
+                calculator = StatsCalculator(self)
+                export_data['calculated_stats'] = calculator.calculate_design_stats(export_data)
+            except Exception as e:
+                logger.warning(f"性能計算エラー ({design_id}): {e}")
+                export_data['calculated_stats'] = {}
+            
+            return export_data
+            
+        except Exception as e:
+            logger.error(f"エクスポート用設計データ取得エラー ({design_id}): {e}")
+            return None
+
+    def get_hull_for_export(self, hull_id: str) -> Optional[Dict[str, Any]]:
+        """エクスポート用の船体データを取得
+        
+        Args:
+            hull_id (str): 船体ID
+            
+        Returns:
+            Optional[Dict[str, Any]]: エクスポート用船体データ（失敗時はNone）
+        """
+        try:
+            # 船体データを読み込み
+            hull_data = self.load_hull(hull_id)
+            if not hull_data:
+                return None
+            
+            # HOI4エクスポート用に構造を統一
+            export_data = {
+                'hull_id': hull_data.get('id', ''),
+                'name': hull_data.get('name', ''),
+                'type': hull_data.get('type', ''),
+                'year': hull_data.get('year', 1940),
+                'slots': {},
+                'base_stats': hull_data.get('base_stats', {})
+            }
+            
+            # スロット情報の変換
+            slots = hull_data.get('slots', [])
+            for slot in slots:
+                slot_id = slot.get('id', '')
+                if slot_id:
+                    export_data['slots'][slot_id] = {
+                        'required': slot.get('required', False),
+                        'categories': slot.get('categories', []),
+                        'default_module': slot.get('default_module', 'empty'),
+                        'gfx': slot.get('gfx', '')
+                    }
+            
+            return export_data
+            
+        except Exception as e:
+            logger.error(f"エクスポート用船体データ取得エラー ({hull_id}): {e}")
+            return None
+
+    def get_equipment_data(self, equipment_id: str) -> Optional[Dict[str, Any]]:
+        """装備データを取得（モジュール性能計算用）
+        
+        Args:
+            equipment_id (str): 装備ID
+            
+        Returns:
+            Optional[Dict[str, Any]]: 装備データ（失敗時はNone）
+        """
+        try:
+            # equipments_templates.ymlから装備データを読み込み
+            templates_file = 'equipments_templates.yml'
+            if os.path.exists(templates_file):
+                import yaml
+                with open(templates_file, 'r', encoding='utf-8') as f:
+                    templates = yaml.safe_load(f)
+                
+                # 装備IDでデータを検索
+                for category, equipments in templates.items():
+                    if isinstance(equipments, dict) and equipment_id in equipments:
+                        return equipments[equipment_id]
+            
+            # ファイルが存在しない場合はデフォルト値を返す
+            return self._get_default_equipment_stats(equipment_id)
+            
+        except Exception as e:
+            logger.warning(f"装備データ取得エラー ({equipment_id}): {e}")
+            return self._get_default_equipment_stats(equipment_id)
+
+    def _get_default_equipment_stats(self, equipment_id: str) -> Dict[str, Any]:
+        """デフォルト装備性能を取得
+        
+        Args:
+            equipment_id (str): 装備ID
+            
+        Returns:
+            Dict[str, Any]: デフォルト装備性能
+        """
+        # 装備IDから性能を推定
+        equipment_lower = equipment_id.lower()
+        
+        if 'gun' in equipment_lower or 'battery' in equipment_lower:
+            return {'stats': {'lg_attack': 15}}
+        elif 'torpedo' in equipment_lower:
+            return {'stats': {'torpedo_attack': 20}}
+        elif 'anti_air' in equipment_lower:
+            return {'stats': {'anti_air_attack': 10}}
+        elif 'armor' in equipment_lower:
+            return {'stats': {'armor_value': 10}}
+        elif 'engine' in equipment_lower:
+            return {'stats': {'naval_speed': 2}}
+        elif 'radar' in equipment_lower:
+            return {'stats': {'lg_attack': 5, 'anti_air_attack': 5}}
+        else:
+            return {'stats': {}}

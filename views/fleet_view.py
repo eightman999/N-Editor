@@ -12,6 +12,9 @@ import time
 
 # アイコンマネージャーのインポート
 from utils.ship_icon_manager import ShipIconManager
+# 海軍エクスポート関連のインポート
+from models.data_models import Ship, TaskForce, Fleet
+from views.naval_export_dialog import NavalExportDialog
 
 # PIL のインポートを安全に行う
 try:
@@ -24,7 +27,7 @@ except ImportError:
 
 # MapViewerのインポートを安全に行う
 try:
-    from utils.maptest2 import MapViewer
+    from utils.map_viewer import MapViewer
 
     MAP_VIEWER_AVAILABLE = True
 except ImportError:
@@ -230,6 +233,11 @@ class FleetView(QWidget):
         save_btn = QPushButton("保存")
         save_btn.clicked.connect(self.save_fleet_data)
         toolbar_layout.addWidget(save_btn)
+
+        # エクスポートボタン
+        export_btn = QPushButton("HOI4形式で書き出し")
+        export_btn.clicked.connect(self.export_fleet_data)
+        toolbar_layout.addWidget(export_btn)
 
         # 艦隊表示切り替えボタン
         self.show_fleet_btn = QPushButton("艦隊表示")
@@ -1313,7 +1321,7 @@ class FleetView(QWidget):
                                         ship_name = ship.get('name', '不明')
                                         if isinstance(ship_name, dict) and 'override' in ship_name:
                                             ship_name = ship_name['override']
-                                        
+
                                         definition = ship.get('definition', '不明')
                                         exp_factor = ship.get('start_experience_factor', 0.0)
 
@@ -1331,7 +1339,8 @@ class FleetView(QWidget):
                                             "name": ship_name,
                                             "exp": exp_factor,
                                             "is_pride": self.check_pride_in_data(ship),
-                                            "design": definition,
+                                            "design": version_name,
+                                            "definition": definition,
                                             "is_mod": True,
                                             "ship_type": ship_type,
                                             "nation_tag": nation_tag
@@ -2060,3 +2069,217 @@ class ShipDialog(QDialog):
 
     def get_data(self):
         return self.name_edit.text().strip(), self.exp_spin.value(), self.pride_check.isChecked()
+
+
+class FleetViewExportHelper:
+    """FleetViewのデータ変換を支援するヘルパークラス"""
+    
+    def __init__(self, fleet_view):
+        self.fleet_view = fleet_view
+        self.logger = logging.getLogger('FleetViewExportHelper')
+    
+    def convert_fleet_tree_to_models(self):
+        """FleetViewの艦隊ツリーをShip/TaskForce/Fleetモデルに変換
+        
+        Returns:
+            list[Fleet]: 変換された艦隊データのリスト
+        """
+        fleets = []
+        
+        try:
+            # トップレベルのアイテム（艦隊）を処理
+            for i in range(self.fleet_view.fleet_tree.topLevelItemCount()):
+                fleet_item = self.fleet_view.fleet_tree.topLevelItem(i)
+                fleet_data_item = fleet_item.data(0, Qt.UserRole)
+                
+                if not fleet_data_item or fleet_data_item.get("type") != "fleet":
+                    continue
+                
+                # Fleetモデルを作成
+                fleet = Fleet(
+                    name=fleet_data_item.get("name", ""),
+                    naval_base=str(fleet_data_item.get("province_id", "")),
+                    task_forces=[]
+                )
+                
+                # 任務部隊を処理
+                for j in range(fleet_item.childCount()):
+                    task_force_item = fleet_item.child(j)
+                    task_force_data = task_force_item.data(0, Qt.UserRole)
+                    
+                    if not task_force_data or task_force_data.get("type") != "task_force":
+                        continue
+                    
+                    # TaskForceモデルを作成
+                    task_force = TaskForce(
+                        name=task_force_data.get("name", ""),
+                        location=str(task_force_data.get("province_id", "")),
+                        ships=[]
+                    )
+                    
+                    # 艦艇を処理
+                    for k in range(task_force_item.childCount()):
+                        ship_item = task_force_item.child(k)
+                        ship_data = ship_item.data(0, Qt.UserRole)
+                        
+                        if not ship_data or ship_data.get("type") != "ship":
+                            continue
+                        
+                        # 艦種情報を設計名から推定
+                        design = ship_data.get("design", "")
+                        definition = self._get_ship_definition_from_design(design)
+                        
+                        # 装備情報を作成
+                        equipment = self._create_equipment_data(design, ship_data)
+                        
+                        # Shipモデルを作成
+                        ship = Ship(
+                            name=ship_data.get("name", ""),
+                            definition=definition,
+                            equipment=equipment
+                        )
+                        
+                        task_force.add_ship(ship)
+                    
+                    if task_force.ships:  # 艦船がある任務部隊のみ追加
+                        fleet.add_task_force(task_force)
+                
+                if fleet.task_forces:  # 任務部隊がある艦隊のみ追加
+                    fleets.append(fleet)
+                    
+        except Exception as e:
+            self.logger.error(f"艦隊データ変換中にエラー: {e}")
+            raise
+        
+        return fleets
+    
+    def _get_ship_definition_from_design(self, design_name):
+        """設計名から艦種を推定
+        
+        Args:
+            design_name (str): 設計名
+            
+        Returns:
+            str: 艦種名
+        """
+        if not design_name:
+            return "destroyer"
+        
+        design_lower = design_name.lower()
+        
+        # 艦種マッピング
+        ship_type_mapping = {
+            "destroyer": ["destroyer", "dd", "駆逐"],
+            "light_cruiser": ["light_cruiser", "cl", "軽巡", "軽巡洋"],
+            "heavy_cruiser": ["heavy_cruiser", "ca", "重巡", "重巡洋"],
+            "battle_cruiser": ["battle_cruiser", "bc", "巡戦", "巡洋戦艦"],
+            "battleship": ["battleship", "bb", "戦艦"],
+            "carrier": ["carrier", "cv", "空母", "航空母艦"],
+            "submarine": ["submarine", "ss", "潜水", "潜艦"]
+        }
+        
+        for ship_type, keywords in ship_type_mapping.items():
+            if any(keyword in design_lower for keyword in keywords):
+                return ship_type
+        
+        # デフォルトは駆逐艦
+        return "destroyer"
+    
+    def _create_equipment_data(self, design_name, ship_data):
+        """艦船の装備データを作成
+        
+        Args:
+            design_name (str): 設計名
+            ship_data (dict): 艦船データ
+            
+        Returns:
+            dict: 装備データ
+        """
+        if not design_name:
+            return {}
+        
+        # 艦種から基本装備を決定
+        definition = self._get_ship_definition_from_design(design_name)
+        
+        # 装備タイプマッピング
+        equipment_mapping = {
+            "destroyer": "destroyer_1",
+            "light_cruiser": "light_cruiser_1", 
+            "heavy_cruiser": "heavy_cruiser_1",
+            "battle_cruiser": "battle_cruiser_1",
+            "battleship": "battleship_1",
+            "carrier": "carrier_1",
+            "submarine": "submarine_1"
+        }
+        
+        equipment_type = equipment_mapping.get(definition, "destroyer_1")
+        
+        # 国家コードを取得（FleetViewの現在の国家から）
+        country_code = self.fleet_view.current_country or "ALB"
+        
+        return {
+            equipment_type: {
+                "amount": 1,
+                "owner": country_code,
+                "version_name": design_name
+            }
+        }
+
+
+# FleetViewクラスに新しいメソッドを追加
+def export_fleet_data(self):
+    """艦隊データをHOI4形式で書き出し"""
+    if not self.current_country:
+        QMessageBox.warning(self, "警告", "国家が選択されていません。")
+        return
+    
+    try:
+        # 艦隊ツリーが空の場合
+        if self.fleet_tree.topLevelItemCount() == 0:
+            QMessageBox.information(self, "情報", "書き出し対象の艦隊データがありません。")
+            return
+        
+        # データ変換ヘルパーを作成
+        helper = FleetViewExportHelper(self)
+        fleets = helper.convert_fleet_tree_to_models()
+        
+        if not fleets:
+            QMessageBox.information(self, "情報", "書き出し可能な艦隊データがありません。")
+            return
+        
+        # 複数艦隊がある場合は最初の艦隊を使用（将来的には選択ダイアログを追加可能）
+        selected_fleet = fleets[0]
+        if len(fleets) > 1:
+            # 複数艦隊から選択
+            fleet_names = [f.name for f in fleets]
+            from PyQt5.QtWidgets import QInputDialog
+            fleet_name, ok = QInputDialog.getItem(
+                self, "艦隊選択", 
+                f"{len(fleets)}個の艦隊があります。書き出しする艦隊を選択してください:",
+                fleet_names, 0, False
+            )
+            if ok and fleet_name:
+                selected_fleet = next(f for f in fleets if f.name == fleet_name)
+            else:
+                return
+        
+        # エクスポートダイアログを表示
+        dialog = NavalExportDialog(self, selected_fleet)
+        result = dialog.exec_()
+        
+        if result == QDialog.Accepted:
+            self.logger.info(f"艦隊データの書き出しが完了: {selected_fleet.name}")
+            QMessageBox.information(
+                self, "完了", 
+                f"艦隊 '{selected_fleet.name}' の書き出しが完了しました。"
+            )
+        
+    except Exception as e:
+        self.logger.error(f"艦隊データ書き出し中にエラー: {e}")
+        QMessageBox.critical(
+            self, "エラー", 
+            f"艦隊データの書き出し中にエラーが発生しました:\n{str(e)}"
+        )
+
+# FleetViewクラスにメソッドを追加
+FleetView.export_fleet_data = export_fleet_data
