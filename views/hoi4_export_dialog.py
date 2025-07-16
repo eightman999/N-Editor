@@ -47,7 +47,6 @@ class HOI4ExportWorker(QThread):
             )
             
             # 設定を適用
-            exporter.include_stats_comments = self.export_config.get('include_stats_comments', True)
             exporter.include_upgrades = self.export_config.get('include_upgrades', True)
             
             results = {
@@ -192,14 +191,13 @@ class HOI4ExportWorker(QThread):
             if slot_id and equipment_id:
                 export_data['modules'][slot_id] = equipment_id
         
-        # 性能計算
+        # 性能計算（内部表示用。結果はエクスポートデータに含めない）
         try:
             calculator = StatsCalculator(self.app_controller)
-            export_data['calculated_stats'] = calculator.calculate_design_stats(export_data)
+            _ = calculator.calculate_design_stats(export_data)
         except Exception as e:
             self.logger.warning(f"性能計算エラー: {e}")
-            export_data['calculated_stats'] = {}
-        
+
         return export_data
 
     def _prepare_hull_for_export(self, hull_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -478,7 +476,6 @@ class HOI4ExportDialog(QDialog):
             'country_tag': self.country_tag_edit.text().strip().upper(),
             'export_designs': self.export_designs_cb.isChecked(),
             'export_hulls': self.export_hulls_cb.isChecked(),
-            'include_stats_comments': self.include_stats_cb.isChecked(),
             'include_upgrades': self.include_upgrades_cb.isChecked(),
             'backup_existing': self.backup_existing_cb.isChecked(),
             'encoding': self.encoding_combo.currentText(),
@@ -536,8 +533,6 @@ class HOI4ExportDialog(QDialog):
                 preview_content.append("            fixed_ship_deck_slot_1 = flush_deck")
                 preview_content.append("        }")
                 preview_content.append("    }")
-                if config['include_stats_comments']:
-                    preview_content.append("    # 性能: 攻撃力: 120, 防御力: 80")
                 preview_content.append("}")
                 preview_content.append("")
             

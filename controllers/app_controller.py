@@ -3379,14 +3379,13 @@ class AppController(QObject):
                 if slot_id and equipment_id:
                     export_data['modules'][slot_id] = equipment_id
             
-            # 性能計算
+            # 性能計算（結果は内部表示用のみで、出力には含めない）
             try:
                 from utils.stats_calculator import StatsCalculator
                 calculator = StatsCalculator(self)
-                export_data['calculated_stats'] = calculator.calculate_design_stats(export_data)
+                _ = calculator.calculate_design_stats(export_data)
             except Exception as e:
                 logger.warning(f"性能計算エラー ({design_id}): {e}")
-                export_data['calculated_stats'] = {}
             
             return export_data
             

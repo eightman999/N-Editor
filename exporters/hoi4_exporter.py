@@ -124,7 +124,6 @@ class HOI4Exporter(BaseExporter):
         hull_id = design_data['hull_id']
         modules = design_data.get('modules', {})
         upgrades = design_data.get('upgrades', {})
-        stats = design_data.get('calculated_stats', {})
         
         lines = []
         lines.append("    create_equipment_variant = {")
@@ -151,13 +150,7 @@ class HOI4Exporter(BaseExporter):
             lines.append("        }")
         
         lines.append("    }")
-        
-        # 性能をコメントで追加
-        if self.include_stats_comments and stats:
-            stats_comment = self._generate_stats_comment(stats)
-            if stats_comment:
-                lines.append(f"    {stats_comment}")
-        
+
         return "\\n".join(lines)
     
     def _generate_equipment_block(self, hull_data: Dict[str, Any]) -> str:
