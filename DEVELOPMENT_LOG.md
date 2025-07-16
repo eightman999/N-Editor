@@ -1,5 +1,16 @@
 # 開発ログ
 
+## 2025年7月16日 (水)
+
+### ✅ 計算ロジック更新
+**時刻**: 22:35
+**概要**: 装備JSONから一部ステータスが削除された変更に対応し、計算クラスでフォールバック処理を追加。
+**影響範囲**:
+- utils/equipment_calculators/base_calculator.py
+- utils/equipment_calculators/engine_calculator.py
+
+
+
 ## 2025年7月15日 (火)
 
 ### ✅ プロジェクト構造ドキュメント追加

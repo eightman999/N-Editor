@@ -56,9 +56,9 @@ class EngineCalculator(BaseEquipmentCalculator):
         """
         speed_stats = {}
         
-        # 機関出力（specific_elementsから取得）
+        # 機関出力
         specific_elements = equipment_data.get('specific_elements', {})
-        engine_power = specific_elements.get('power', 0.0)
+        engine_power = specific_elements.get('power', equipment_data.get('power', 0.0))
         
         # フォールバック：重量ベースで推定
         if engine_power == 0.0:
@@ -98,11 +98,11 @@ class EngineCalculator(BaseEquipmentCalculator):
         consumption_stats = {}
         
         specific_elements = equipment_data.get('specific_elements', {})
-        
+
         # 機関出力から燃料消費を計算
-        engine_power = specific_elements.get('power', 0.0)
-        fuel_capacity = specific_elements.get('fuel_capacity', 0.0)
-        engine_type = specific_elements.get('engine_type', 'HeavyOil')
+        engine_power = specific_elements.get('power', equipment_data.get('power', 0.0))
+        fuel_capacity = specific_elements.get('fuel_capacity', equipment_data.get('fuel_capacity', 0.0))
+        engine_type = specific_elements.get('engine_type', equipment_data.get('engine_type', 'HeavyOil'))
         
         # 機関種別による効率係数
         efficiency_factors = {
@@ -149,7 +149,7 @@ class EngineCalculator(BaseEquipmentCalculator):
         range_stats = {}
         
         specific_elements = equipment_data.get('specific_elements', {})
-        engine_type = specific_elements.get('engine_type', 'HeavyOil')
+        engine_type = specific_elements.get('engine_type', equipment_data.get('engine_type', 'HeavyOil'))
         
         # 機関種別による航続距離効率係数
         range_factors = {
@@ -195,7 +195,7 @@ class EngineCalculator(BaseEquipmentCalculator):
         reliability_stats = {}
         
         # 基本信頼性
-        base_reliability = equipment_data.get('reliability', 0.0)
+        base_reliability = equipment_data.get('reliability', equipment_data.get('specific_elements', {}).get('reliability', 0.0))
         
         # 開発年度による信頼性（技術成熟度）
         dev_year = equipment_data.get('year', 1936)

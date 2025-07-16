@@ -72,7 +72,7 @@ class BaseEquipmentCalculator(ABC):
             dict: 基本ステータス
         """
         stats = {}
-        
+
         # 装備データから直接ステータスを取得
         status_keys = [
             'lg_attack', 'hg_attack', 'lg_armor_piercing', 'hg_armor_piercing',
@@ -81,15 +81,43 @@ class BaseEquipmentCalculator(ABC):
             'naval_speed', 'manpower', 'fuel_consumption', 'equipment_weight',
             'reliability', 'naval_range', 'max_strength', 'shore_bombardment'
         ]
-        
+
         for key in status_keys:
-            value = equipment_data.get(key, 0.0)
-            if isinstance(value, (int, float)):
-                stats[key] = float(value)
-            else:
-                stats[key] = 0.0
-                
+            stats[key] = self._get_stat_value(equipment_data, key)
+
         return stats
+
+    def _get_stat_value(self, equipment_data: Dict[str, Any], key: str, default: float = 0.0) -> float:
+        """装備データからステータス値を取得（新旧フォーマット両対応）"""
+        # 直接参照
+        value = equipment_data.get(key)
+        if isinstance(value, (int, float)):
+            return float(value)
+
+        # specific_elements 内
+        value = equipment_data.get('specific_elements', {}).get(key)
+        if isinstance(value, (int, float)):
+            return float(value)
+
+        # common 内
+        value = equipment_data.get('common', {}).get(key)
+        if isinstance(value, (int, float)):
+            return float(value)
+
+        # エイリアス処理
+        if key == 'equipment_weight':
+            for alias in ['weight', '重量']:
+                alt = equipment_data.get(alias) or equipment_data.get('common', {}).get(alias)
+                if isinstance(alt, (int, float)):
+                    return float(alt)
+
+        if key == 'manpower':
+            for alias in ['personnel', '人員']:
+                alt = equipment_data.get(alias) or equipment_data.get('common', {}).get(alias)
+                if isinstance(alt, (int, float)):
+                    return float(alt)
+
+        return float(default)
     
     @abstractmethod 
     def _calculate_category_stats(self, equipment_data: Dict[str, Any], hull_data: Optional[Dict[str, Any]]) -> Dict[str, float]:
