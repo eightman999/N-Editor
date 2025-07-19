@@ -1359,3 +1359,6 @@ self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
 
 ### 2025-06-11 13:30
 - **パフォーマンス最適化ルール**: 描画処理軽量化の標準化
+### 2025-07-17 10:00
+- 設定画面で入力欄にフォーカスできない不具合を修正
+
