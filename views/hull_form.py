@@ -328,35 +328,35 @@ class HullForm(QWidget):
         # プレイヤースロットのオプション
         slot_options = ["有効", "無効", "有効化可能"]
 
-        # PA (主砲)
+        # PA (主武装)
         self.pa_combo = QComboBox()
         self.pa_combo.addItems(slot_options)
-        slot_layout.addRow("PA (主砲):", self.pa_combo)
+        slot_layout.addRow("PA:", self.pa_combo)
 
-        # SA (副砲)
+        # SA (副武装)
         self.sa_combo = QComboBox()
         self.sa_combo.addItems(slot_options)
-        slot_layout.addRow("SA (副砲):", self.sa_combo)
+        slot_layout.addRow("SA:", self.sa_combo)
 
-        # PSA (対空砲)
+        # PSA (主舷武装)
         self.psa_combo = QComboBox()
         self.psa_combo.addItems(slot_options)
-        slot_layout.addRow("PSA (対空砲):", self.psa_combo)
+        slot_layout.addRow("PSA:", self.psa_combo)
 
-        # SSA (水中兵装)
+        # SSA (サブ舷武装)
         self.ssa_combo = QComboBox()
         self.ssa_combo.addItems(slot_options)
-        slot_layout.addRow("SSA (水中兵装):", self.ssa_combo)
+        slot_layout.addRow("SSA:", self.ssa_combo)
 
-        # PLA (航空兵装)
+        # PLA (主軽武装)
         self.pla_combo = QComboBox()
         self.pla_combo.addItems(slot_options)
-        slot_layout.addRow("PLA (航空兵装):", self.pla_combo)
+        slot_layout.addRow("PLA:", self.pla_combo)
 
-        # SLA (その他)
+        # SLA (サブ軽武装)
         self.sla_combo = QComboBox()
         self.sla_combo.addItems(slot_options)
-        slot_layout.addRow("SLA (その他):", self.sla_combo)
+        slot_layout.addRow("SLA:", self.sla_combo)
 
         scroll_area.setWidget(form_container)
 
