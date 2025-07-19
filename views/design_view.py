@@ -204,6 +204,9 @@ class DesignView(QWidget):
         # 内部スロットの表示エリア
         internal_slots_scroll = QScrollArea()
         internal_slots_scroll.setWidgetResizable(True)
+        # 入力欄のキー入力がスクロールエリアに奪われないようにする
+        internal_slots_scroll.setFocusPolicy(Qt.NoFocus)
+        internal_slots_scroll.viewport().setFocusPolicy(Qt.NoFocus)
 
         self.internal_slots_container = QWidget()
         self.internal_slots_grid = QGridLayout(self.internal_slots_container)
@@ -218,6 +221,9 @@ class DesignView(QWidget):
         # スロット部分をスクロール可能に
         slots_scroll = QScrollArea()
         slots_scroll.setWidgetResizable(True)
+        # 入力欄のキー入力がスクロールエリアに奪われないようにする
+        slots_scroll.setFocusPolicy(Qt.NoFocus)
+        slots_scroll.viewport().setFocusPolicy(Qt.NoFocus)
         slots_scroll.setWidget(slots_container)
         slots_scroll.setMinimumWidth(400)  # 最小幅を設定
         slots_scroll.setMaximumWidth(600)  # 最大幅を設定
@@ -1449,6 +1455,9 @@ class DesignView(QWidget):
             # スクロールエリアを作成
             scroll_area = QScrollArea()
             scroll_area.setWidgetResizable(True)
+            # 入力欄のキー入力がスクロールエリアに奪われないようにする
+            scroll_area.setFocusPolicy(Qt.NoFocus)
+            scroll_area.viewport().setFocusPolicy(Qt.NoFocus)
             scroll_widget = QWidget()
             scroll_layout = QVBoxLayout(scroll_widget)
 
