@@ -17,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 import psutil
 import time
 import subprocess
+import platform
 
 from views.home_view import HomeView
 from views.equipment_view import EquipmentView
@@ -100,7 +101,7 @@ class ImageProcessingWorker(QThread):
             self.logger.error(f"画像処理中にエラーが発生: {str(e)}")
 
 class NavalDesignSystem(QMainWindow):
-    """Naval Design Systemのメインウィンドウ（コンフリクト対応版）"""
+    """NavalDesignSystemのメインウィンドウ（コンフリクト対応版）"""
 
     def __init__(self, app_controller=None, app_settings=None):
         super().__init__()
@@ -121,6 +122,12 @@ class NavalDesignSystem(QMainWindow):
 
         # アプリケーション設定の読み込み
         self.load_config()
+
+        # ウィンドウアイコン設定
+        icon_file = "icon.ico" if platform.system() == "Windows" else "icon.png"
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", icon_file)
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
 
         # スレッドプールの初期化（ワーカー数を制限）
         self.thread_pool = ThreadPoolExecutor(max_workers=2)
@@ -179,7 +186,7 @@ class NavalDesignSystem(QMainWindow):
 
         # デフォルト設定
         self.config = {
-            "app_name": "Naval Design System",
+            "app_name": "NavalDesignSystem",
             "version": f"β{version}",
             "display": {
                 "width": 1080,
@@ -198,7 +205,7 @@ class NavalDesignSystem(QMainWindow):
     def init_ui(self):
         """UIの初期化（同期機能追加版）"""
         # ウィンドウの基本設定
-        self.setWindowTitle(self.config.get("app_name", "Naval Design System"))
+        self.setWindowTitle(self.config.get("app_name", "NavalDesignSystem"))
 
         # 全画面表示の設定を読み込み
         is_fullscreen = self.config.get("display", {}).get("fullscreen", False)
@@ -404,7 +411,7 @@ class NavalDesignSystem(QMainWindow):
         sidebar_layout.setSpacing(10)
 
         # タイトルラベル
-        title_label = QLabel("<b>Naval Design System</b>")
+        title_label = QLabel("<b>NavalDesignSystem</b>")
         title_label.setFont(QFont("Hiragino Sans", 14))
         title_label.setAlignment(Qt.AlignCenter)
         sidebar_layout.addWidget(title_label)

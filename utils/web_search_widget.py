@@ -67,7 +67,7 @@ class WebSearchWidget(QDialog):
     
     def setup_ui(self):
         """UI構築"""
-        self.setWindowTitle("Web検索 - Naval Design System")
+        self.setWindowTitle("Web検索 - NavalDesignSystem")
         self.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
         
         # コンパクトサイズで設定

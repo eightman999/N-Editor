@@ -145,7 +145,7 @@ class SyncManager(QObject):
 
             # 初回コミット
             subprocess.run(['git', 'add', '.'], cwd=self.data_dir, check=True)
-            subprocess.run(['git', 'commit', '-m', 'Initial commit: Naval Design System data'],
+            subprocess.run(['git', 'commit', '-m', 'Initial commit: NavalDesignSystem data'],
                            cwd=self.data_dir, check=True)
 
             return True
@@ -193,9 +193,9 @@ class SyncManager(QObject):
             return False
 
     def _create_gitignore(self):
-        """Naval Design System用の.gitignoreファイルを作成"""
-        gitignore_content = r"""# Naval Design System - Generated .gitignore
-# このファイルはNaval Design Systemによって自動生成されました
+        """NavalDesignSystem用の.gitignoreファイルを作成"""
+        gitignore_content = r"""# NavalDesignSystem - Generated .gitignore
+# このファイルはNavalDesignSystemによって自動生成されました
 # 必要に応じて手動で編集してください
 
 # === Python関連 ===
@@ -225,7 +225,7 @@ MANIFEST
 *.ui~
 *.qrc~
 
-# === Naval Design System関連 ===
+# === NavalDesignSystem関連 ===
 # キャッシュファイル
 caches/
 *.cache
@@ -492,7 +492,7 @@ local_settings.json
                 return (True, "変更がありません")
 
             # コミット
-            commit_msg = f"Naval Design System data update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            commit_msg = f"NavalDesignSystem data update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             subprocess.run(['git', 'commit', '-m', commit_msg],
                            cwd=self.data_dir, check=True)
 
@@ -551,7 +551,7 @@ local_settings.json
                                            cwd=self.data_dir, capture_output=True, text=True)
             
             if 'UU' in rebase_status.stdout:  # マージ競合
-                # 自動解決を試行（Naval Design Systemの場合、通常は自分の変更を優先）
+                # 自動解決を試行（NavalDesignSystemの場合、通常は自分の変更を優先）
                 subprocess.run(['git', 'checkout', '--ours', '.'],
                                cwd=self.data_dir, check=True)
                 

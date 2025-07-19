@@ -3,7 +3,7 @@
 # 動作設計: exportersパッケージの初期化モジュール
 """HOI4エクスポート機能モジュール
 
-このモジュールは、Naval Design Systemで設計した艦船データを
+このモジュールは、NavalDesignSystemで設計した艦船データを
 Hearts of Iron IV（HOI4）のMODファイル形式でエクスポートする機能を提供します。
 
 主要コンポーネント:
