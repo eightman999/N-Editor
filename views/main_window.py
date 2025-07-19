@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: main_windowビュー
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLabel, QStatusBar, \
     QListWidget, QSizePolicy, QProgressDialog, QMessageBox, QToolBar, QAction, QProgressBar, QDialog, QTextEdit, \
     QPushButton, QMenuBar

@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: NavalOOBParserファイルのパーサー
 import sys
 import os
 from ply import yacc

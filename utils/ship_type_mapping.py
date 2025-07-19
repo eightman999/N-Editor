@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: ship_type_mappingユーティリティ
 ship_type_mapping = {
     # 掃海艦艇
     "AM": "AM - 掃海艇",

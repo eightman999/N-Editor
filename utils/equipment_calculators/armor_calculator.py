@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: armor_calculator計算ユーティリティ
 # -*- coding: utf-8 -*-
 """
 装甲系統装備専用ステータス計算

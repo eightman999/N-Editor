@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: equipment_formビュー
 import os
 import json
 from utils.path_utils import get_data_dir
