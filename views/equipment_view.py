@@ -471,13 +471,31 @@ class EquipmentView(QWidget):
         if index.column() == 1:  # 名称列をクリックした場合
             row = index.row()
             equipment_id = self.equipment_table.item(row, 0).text()
-            
+
             # 装備データを取得
             if self.app_controller:
                 equipment_data = self.app_controller.load_equipment(equipment_id)
                 if equipment_data:
-                    # 継承用のフォームを表示
-                    self.show_inheritance_form(equipment_data)
+                    # 編集方法の選択ダイアログを表示
+                    msg_box = QMessageBox(self)
+                    msg_box.setWindowTitle("編集方法の選択")
+                    msg_box.setText("コピーして新規追加しますか？\nそれとも上書き編集しますか？")
+                    copy_btn = msg_box.addButton("コピーして新規追加", QMessageBox.AcceptRole)
+                    edit_btn = msg_box.addButton("上書き編集", QMessageBox.ActionRole)
+                    cancel_btn = msg_box.addButton(QMessageBox.Cancel)
+                    msg_box.exec_()
+
+                    clicked = msg_box.clickedButton()
+                    if clicked == copy_btn:
+                        # 継承用のフォームを表示（新規追加）
+                        self.show_inheritance_form(equipment_data)
+                    elif clicked == edit_btn:
+                        # 行を選択状態にして上書き編集
+                        self.equipment_table.selectRow(row)
+                        self.on_edit_clicked()
+                    else:
+                        # キャンセルされた場合は何もしない
+                        pass
 
     def show_inheritance_form(self, equipment_data):
         """継承用のフォームを表示"""
