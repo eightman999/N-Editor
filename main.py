@@ -11,6 +11,8 @@ from logging.handlers import RotatingFileHandler
 if platform.system() == "Darwin":  # macOS
     os.environ['QT_MAC_DISABLE_FOREGROUND_APPLICATION_TRANSFORM'] = '1'
     os.environ['QT_LOGGING_RULES'] = 'qt.qpa.input.methods.debug=false'
+    # Apple Silicon環境での文字入力不具合を回避するため
+    os.environ.setdefault('QT_MAC_WANTS_LAYER', '1')
 
 # ロガーの設定
 logging.basicConfig(
