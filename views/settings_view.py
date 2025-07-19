@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdi
                              QCheckBox, QPushButton, QGroupBox, QFormLayout,
                              QComboBox, QSpinBox, QTabWidget, QMessageBox,
                              QTextEdit, QScrollArea)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 import subprocess
 import requests
 import logging
@@ -446,6 +446,11 @@ class SettingsView(QWidget):
                 QMessageBox.critical(self, "エラー", f"キャッシュクリアに失敗しました: {e}")
         else:
             QMessageBox.warning(self, "警告", "アプリケーションコントローラーが利用できません。")
+
+    def showEvent(self, event):
+        """ビューが表示された際にフォーカスを設定"""
+        super().showEvent(event)
+        QTimer.singleShot(100, lambda: self.repo_url_edit.setFocus())
 
     def show_cache_info(self):
         """キャッシュ情報表示"""
