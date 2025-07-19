@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: naval_export_dialogビュー
 """海軍編成データ書き出し用ダイアログ"""
 
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,

@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: hull_formビュー
 import pdx_tools.pdx_ssw
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                              QLabel, QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox,

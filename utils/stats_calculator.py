@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: stats_calculatorユーティリティ
 """モジュール性能計算エンジン
 
 このモジュールは、設計されたモジュール構成に基づいて

@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: equipment_calculatorsパッケージの初期化モジュール
 # -*- coding: utf-8 -*-
 """
 装備カテゴリー別ステータス計算モジュール

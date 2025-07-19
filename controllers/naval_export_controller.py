@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: naval_export_controller関連のコントローラー
 """海軍編成データのHOI4形式書き出しコントローラー"""
 
 import os

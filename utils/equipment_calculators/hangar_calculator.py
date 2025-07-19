@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: hangar_calculator計算ユーティリティ
 # -*- coding: utf-8 -*-
 """
 ハンガー装備専用ステータス計算

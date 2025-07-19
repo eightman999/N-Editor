@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: ship_role_constraintsユーティリティ
 # -*- coding: utf-8 -*-
 """
 船体種別とロール種別の制約マッピング

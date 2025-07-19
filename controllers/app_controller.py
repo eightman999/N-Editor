@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: app_controller関連のコントローラー
 import os
 import platform
 import re

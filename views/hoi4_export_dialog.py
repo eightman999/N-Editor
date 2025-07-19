@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: hoi4_export_dialogビュー
 """HOI4エクスポートダイアログ
 
 このモジュールは、HOI4形式でのエクスポート設定と実行を行う
