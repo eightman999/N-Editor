@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: ship_icon_managerユーティリティ
 import os
 import logging
 from typing import Optional, Dict

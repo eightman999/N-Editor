@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: base_exporter形式のエクスポート機能
 """エクスポーター基底クラス
 
 このモジュールは、全てのエクスポーターが継承する基底クラスを提供します。

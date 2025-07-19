@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: cache_debugユーティリティ
 # utils/cache_debug.py - キャッシュ機能のデバッグ用ヘルパー
 
 import os

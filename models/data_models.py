@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: data_modelsデータモデル
 # このファイルにはデータモデルを定義します（将来的に）
 class Equipment:
     def __init__(self, name, type, properties):

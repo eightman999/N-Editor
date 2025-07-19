@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: base_calculator計算ユーティリティ
 # -*- coding: utf-8 -*-
 """
 装備ステータス計算の基底クラス

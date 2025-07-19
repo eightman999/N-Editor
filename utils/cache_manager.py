@@ -1,3 +1,6 @@
+# Copyright (c) eightman 2005-2025
+# Rights reserved by Furin-lab
+# 動作設計: cache_managerユーティリティ
 import os
 import pickle
 import time
