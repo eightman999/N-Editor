@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QListWidget, QListWidgetItem,
                              QSizePolicy, QMessageBox, QTabWidget)
 from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, QTimer
 
 import os
 import time
@@ -304,3 +304,4 @@ class NationView(QWidget):
         super().showEvent(event)
         # 表示時にキャッシュの有効性を確認して更新
         self.refresh_nation_list()
+        QTimer.singleShot(100, lambda: self.nation_list.setFocus())
