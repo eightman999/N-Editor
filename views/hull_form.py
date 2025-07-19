@@ -47,6 +47,9 @@ class HullForm(QWidget):
         # スクロールエリア
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
+        # 入力欄のキー入力がスクロールエリアに奪われないようにする
+        scroll_area.setFocusPolicy(Qt.NoFocus)
+        scroll_area.viewport().setFocusPolicy(Qt.NoFocus)
         main_layout.addWidget(scroll_area)
 
         form_container = QWidget()
