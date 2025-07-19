@@ -6,7 +6,7 @@ _tabversion = '3.10'
 
 _lr_method = 'LALR'
 
-_lr_signature = 'COLOR COLOR_UI EQUALS HSV ID LBRACE NUMBER RBRACE RGBcountry_file : country_blockscountry_blocks : country_block\n| country_blocks country_blockcountry_block : ID EQUALS LBRACE color_defs RBRACEcolor_defs : color_def\n| color_defs color_defcolor_def : COLOR EQUALS color_value\n| COLOR_UI EQUALS color_valuecolor_value : HSV LBRACE NUMBER NUMBER NUMBER RBRACE\n| RGB LBRACE NUMBER NUMBER NUMBER RBRACE'
+_lr_signature = 'COLOR COLOR_UI EQUALS HSV ID LBRACE NUMBER RBRACE RGBcountry_file : country_blockscountry_blocks : country_block\n                     | country_blocks country_blockcountry_block : ID EQUALS LBRACE color_defs RBRACEcolor_defs : color_def\n                 | color_defs color_defcolor_def : COLOR EQUALS color_value\n                | COLOR_UI EQUALS color_valuecolor_value : HSV LBRACE NUMBER NUMBER NUMBER RBRACE\n                  | RGB LBRACE NUMBER NUMBER NUMBER RBRACE'
     
 _lr_action_items = {'ID':([0,2,3,5,12,],[4,4,-2,-3,-4,]),'$end':([1,2,3,5,12,],[0,-1,-2,-3,-4,]),'EQUALS':([4,10,11,],[6,14,15,]),'LBRACE':([6,17,18,],[7,20,21,]),'COLOR':([7,8,9,13,16,19,28,29,],[10,10,-5,-6,-7,-8,-9,-10,]),'COLOR_UI':([7,8,9,13,16,19,28,29,],[11,11,-5,-6,-7,-8,-9,-10,]),'RBRACE':([8,9,13,16,19,26,27,28,29,],[12,-5,-6,-7,-8,28,29,-9,-10,]),'HSV':([14,15,],[17,17,]),'RGB':([14,15,],[18,18,]),'NUMBER':([20,21,22,23,24,25,],[22,23,24,25,26,27,]),}
 

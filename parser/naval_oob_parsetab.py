@@ -6,7 +6,7 @@ _tabversion = '3.10'
 
 _lr_method = 'LALR'
 
-_lr_signature = 'COLON EQUALS ID LBRACE NO NUMBER RBRACE STRING YESnaval_file : statementsstatements : statement\n| statements statement\n| emptystatement : ID EQUALS value\n| ID EQUALS blockvalue : ID\n| NUMBER\n| STRING\n| YES\n| NO\n| qualified_idqualified_id : ID COLON IDblock : LBRACE statements RBRACE\n| LBRACE RBRACEempty :'
+_lr_signature = 'COLON EQUALS ID LBRACE NO NUMBER RBRACE STRING YESnaval_file : statementsstatements : statement\n                  | statements statement\n                  | emptystatement : ID EQUALS value\n                 | ID EQUALS blockvalue : ID\n             | NUMBER\n             | STRING\n             | YES\n             | NO\n             | qualified_idqualified_id : ID COLON IDblock : LBRACE statements RBRACE\n             | LBRACE RBRACEempty :'
     
 _lr_action_items = {'ID':([0,2,3,4,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,],[5,5,-2,-4,-3,8,-7,-5,-6,-8,-9,-10,-11,-12,5,20,5,-15,-13,-14,]),'$end':([0,1,2,3,4,6,8,9,10,11,12,13,14,15,19,20,21,],[-16,0,-1,-2,-4,-3,-7,-5,-6,-8,-9,-10,-11,-12,-15,-13,-14,]),'RBRACE':([3,4,6,8,9,10,11,12,13,14,15,16,18,19,20,21,],[-2,-4,-3,-7,-5,-6,-8,-9,-10,-11,-12,19,21,-15,-13,-14,]),'EQUALS':([5,],[7,]),'NUMBER':([7,],[11,]),'STRING':([7,],[12,]),'YES':([7,],[13,]),'NO':([7,],[14,]),'LBRACE':([7,],[16,]),'COLON':([8,],[17,]),}
 
