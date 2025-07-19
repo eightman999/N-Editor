@@ -65,6 +65,7 @@ class SettingsView(QWidget):
         scroll_area = QScrollArea()
         # 入力欄のキー入力がスクロールエリアに奪われないようにする
         scroll_area.setFocusPolicy(Qt.NoFocus)
+        scroll_area.viewport().setFocusPolicy(Qt.NoFocus)
         scroll_widget = QWidget()
         scroll_layout = QVBoxLayout(scroll_widget)
 
@@ -121,6 +122,8 @@ class SettingsView(QWidget):
         scroll_area = QScrollArea()
         # フォーカスが奪われないように設定
         scroll_area.setFocusPolicy(Qt.NoFocus)
+        # viewport にも同様のポリシーを適用
+        scroll_area.viewport().setFocusPolicy(Qt.NoFocus)
         scroll_widget = QWidget()
         scroll_layout = QVBoxLayout(scroll_widget)
 
@@ -186,6 +189,7 @@ class SettingsView(QWidget):
         scroll_area = QScrollArea()
         # スクロールエリアがフォーカスを保持しないようにする
         scroll_area.setFocusPolicy(Qt.NoFocus)
+        scroll_area.viewport().setFocusPolicy(Qt.NoFocus)
         scroll_widget = QWidget()
         scroll_layout = QVBoxLayout(scroll_widget)
 
