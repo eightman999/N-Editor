@@ -1,4 +1,4 @@
-# Naval Design System (NDS)
+# NavalDesignSystem (NDS)
 
 [![Python Version](https://img.shields.io/badge/python-3.x-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) NDSは、主に Paradox Interactive 社のグランドストラテジーゲーム、特に Hearts of Iron IV (HOI4) のMOD（Modification）制作用に設計されたPython (PyQt5) 製のデスクトップアプリケーションです。
@@ -66,9 +66,9 @@ state={
 }
 ```
 
-### Naval Design System - データ同期機能セットアップガイド
+### NavalDesignSystem - データ同期機能セットアップガイド
 ## 概要
-  Naval Design Systemにデータ同期機能が追加されました。この機能により、装備・船体・設計・艦隊データをGitHub等のオンラインリポジトリと自動同期できます。
+  NavalDesignSystemにデータ同期機能が追加されました。この機能により、装備・船体・設計・艦隊データをGitHub等のオンラインリポジトリと自動同期できます。
 ## 主な機能
 
   自動同期: データ保存時に自動でローカルコミット
@@ -97,7 +97,7 @@ state={
 
 トークンをコピー（後で必要）
 
-3. Naval Design Systemでの設定
+3. NavalDesignSystemでの設定
 
   アプリを起動
   ツールバーの "⚙️ 同期設定" をクリック

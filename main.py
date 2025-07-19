@@ -121,6 +121,7 @@ setup_qt_plugin_path()
 try:
     from PyQt5.QtWidgets import QApplication, QMessageBox
     from PyQt5.QtCore import QT_VERSION_STR, PYQT_VERSION_STR
+    from PyQt5.QtGui import QIcon
 
     logger.info(f"PyQt5 successfully imported. Qt version: {QT_VERSION_STR}, PyQt version: {PYQT_VERSION_STR}")
 except ImportError as e:
@@ -192,7 +193,7 @@ def main():
     アプリケーションのエントリーポイント
     MVCパターンに従い、コントローラーを通じてアプリケーションを起動します
     """
-    logger.info(f"Starting Naval Design System on {platform.system()} {platform.release()}")
+    logger.info(f"Starting NavalDesignSystem on {platform.system()} {platform.release()}")
 
     # 依存関係チェック
     if not check_dependencies():
@@ -211,8 +212,17 @@ def main():
                 app.setAttribute(app.AA_DontShowIconsInMenus, False)
             if hasattr(app, 'AA_NativeWindows'):
                 app.setAttribute(app.AA_NativeWindows, False)
-        
+
         logger.info("QApplication created successfully")
+
+        # アプリケーションアイコンの設定
+        icon_file = "icon.ico" if platform.system() == "Windows" else "icon.png"
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", icon_file)
+        if os.path.exists(icon_path):
+            app.setWindowIcon(QIcon(icon_path))
+            logger.info(f"Application icon set to: {icon_path}")
+        else:
+            logger.warning(f"Icon file not found: {icon_path}")
     except Exception as e:
         logger.error(f"Failed to create QApplication: {e}")
         print(f"QApplicationの作成に失敗しました: {e}")

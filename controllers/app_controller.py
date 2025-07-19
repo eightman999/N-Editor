@@ -438,7 +438,7 @@ class AppController(QObject):
 
         # デフォルト設定を作成
         default_config = {
-            "app_name": "Naval Design System",
+            "app_name": "NavalDesignSystem",
             "version": "1.0.0",
             "data_paths": {
                 "equipment": os.path.join(self.app_settings.data_dir, "equipments"),

@@ -26,7 +26,7 @@ class ConflictResolutionDialog(QDialog):
             )
     
     def init_ui(self):
-        self.setWindowTitle("同期コンフリクトの解決 - Naval Design System")
+        self.setWindowTitle("同期コンフリクトの解決 - NavalDesignSystem")
         self.setMinimumSize(900, 700)
         self.setModal(True)
         

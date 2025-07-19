@@ -97,7 +97,7 @@ def initialize_database():
 def create_default_config():
     """デフォルト設定ファイルを作成する"""
     default_config = {
-        "app_name": "Naval Design System",
+        "app_name": "NavalDesignSystem",
         "version": "0.0.2",
         "data_paths": {
             "equipment": "data/equipments",
@@ -160,7 +160,7 @@ def ensure_equipment_templates():
 
 def main():
     """セットアップ処理のメイン関数"""
-    print("Naval Design System セットアップを開始します...")
+    print("NavalDesignSystem セットアップを開始します...")
 
     # 必要なディレクトリ構造を確保
     ensure_directory_structure()

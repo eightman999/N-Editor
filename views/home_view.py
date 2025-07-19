@@ -19,7 +19,7 @@ class HomeView(QWidget):
         layout = QVBoxLayout(self)
 
         # ウェルカムメッセージ
-        welcome_label = QLabel("Naval Design System へようこそ", self)
+        welcome_label = QLabel("NavalDesignSystem へようこそ", self)
         welcome_label.setStyleSheet("font-size: 18px; font-weight: bold;")
         layout.addWidget(welcome_label)
 
