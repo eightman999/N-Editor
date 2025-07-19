@@ -188,8 +188,8 @@ class SettingsView(QWidget):
         # スクロールエリア
         scroll_area = QScrollArea()
         # スクロールエリアがフォーカスを保持しないようにする
-        scroll_area.setFocusPolicy(Qt.NoFocus)
-        scroll_area.viewport().setFocusPolicy(Qt.NoFocus)
+        # scroll_area.setFocusPolicy(Qt.NoFocus)
+        # scroll_area.viewport().setFocusPolicy(Qt.NoFocus)
         scroll_widget = QWidget()
         scroll_layout = QVBoxLayout(scroll_widget)
 

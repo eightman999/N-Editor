@@ -1,12 +1,20 @@
 # Copyright (c) eightman 2005-2025
 # Rights reserved by Furin-lab
 # 動作設計: ユーティリティのインポートテスト
+import sys
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit
 
-try:
-    from utils.map_viewer import MapViewer
-    print('SUCCESS: MapViewer imported successfully')
-    print(f'MapViewer class: {MapViewer}')
-except Exception as e:
-    print(f'ERROR: {type(e).__name__}: {e}')
-    import traceback
-    traceback.print_exc()
+app = QApplication(sys.argv)
+
+win = QWidget()
+win.setWindowTitle("キーボード入力テスト")
+layout = QVBoxLayout()
+
+line_edit = QLineEdit()
+layout.addWidget(line_edit)
+
+win.setLayout(layout)
+win.show()
+line_edit.setFocus()
+
+sys.exit(app.exec_())
