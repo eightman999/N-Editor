@@ -49,10 +49,12 @@ class Worker(QRunnable):
     """
     def __init__(self, fn, *args, **kwargs):
         super(Worker, self).__init__()
-        self.fn = fn
-        self.args = args
-        self.kwargs = kwargs
-        self.signals = WorkerSignals() # 処理結果を通知するためのシグナル
+        self.fn = fn                # 実行する関数
+        self.args = args            # 関数に渡す位置引数
+        self.kwargs = kwargs        # 関数に渡すキーワード引数
+        # ワーカーから結果や進捗を通知するためのシグナルオブジェクト
+        self.signals = WorkerSignals()
+        # ステータス定義を保持（ロードは一度だけ実施）
         self.status_definitions = self._load_status_definitions()
 
     @pyqtSlot()
@@ -208,54 +210,60 @@ class AppController(QObject):
         # ロガーの初期化
         self.logger = logging.getLogger(__name__)
 
-        self.app_settings = app_settings
-        self.main_window = None
-        self.nation_details_view = None
+        self.app_settings = app_settings       # アプリケーション設定オブジェクト
+        self.main_window = None                # メインウィンドウのインスタンス
+        self.nation_details_view = None        # 国家詳細ビューのインスタンス
 
         # キャッシュマネージャーの初期化（初期はNone）
-        self.cache_manager = None
+        self.cache_manager = None              # MODデータをキャッシュするマネージャー
 
         # 同期マネージャーの初期化
-        self.sync_manager = SyncManager(self.app_settings)
+        self.sync_manager = SyncManager(self.app_settings)  # データ同期用マネージャー
         self.sync_manager.sync_completed.connect(self.on_sync_completed)
         
         # MOD設計データキャッシュ（MOD設定時に初期化）
-        self.mod_data_cache = None
+        self.mod_data_cache = None             # MOD設計データキャッシュ
 
         # マップデータ格納用辞書を初期化
-        self.states = {}
-        self.strategic_regions = {}
+        self.states = {}                       # 州データを保持する辞書
+        self.strategic_regions = {}            # 戦略地域データを保持する辞書
 
         # QThreadPoolの初期化
-        self.threadpool = QThreadPool()
+        self.threadpool = QThreadPool()        # バックグラウンドタスク用スレッドプール
         logger.info(f"QThreadPool initialized with max thread count: {self.threadpool.maxThreadCount()}")
         
         # 国家・国旗データのプリロード状態管理
-        self._nations_preload_completed = False
-        self._preload_lock = False
+        self._nations_preload_completed = False  # 国家データプリロードが完了したか
+        self._preload_lock = False               # プリロード重複防止用フラグ
 
         # 装備モデルの初期化（データディレクトリをapp_settingsから取得）
+        # 装備データ管理モデル
         self.equipment_model = EquipmentModel(data_dir=self.app_settings.equipment_dir)
 
         # 船体モデルの初期化
+        # 船体データ管理モデル
         self.hull_model = HullModel(data_dir=os.path.join(self.app_settings.data_dir, "hulls"))
 
         # 装備テンプレートの読み込み
+        # 装備テンプレート辞書をロード
         self.equipment_templates = self.load_equipment_templates()
 
         # 初回起動時の処理
         if self.app_settings.get_setting("first_run"):
+            # 初回起動時のセットアップを実行
             self.on_first_run()
 
         # 現在のMODを確認
-        self.current_mod = self.app_settings.get_current_mod()
+        self.current_mod = self.app_settings.get_current_mod()  # 現在選択されているMOD
         print(f"AppController初期化: current_mod = {self.current_mod}")
 
         # 現在のMODが設定されている場合、キャッシュマネージャーを初期化
         if self.current_mod and self.current_mod.get("path"):
+            # MODが指定されていればキャッシュマネージャーを初期化
             self._initialize_cache_manager()
 
         # ステータス定義の読み込み
+        # ステータス定義をロード
         self.status_definitions = self._load_status_definitions()
 
         # アイコンマネージャーの初期化
