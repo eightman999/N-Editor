@@ -4,6 +4,7 @@
 import os
 
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
+from PyQt5.QtCore import QTimer
 from .mod_selector_widget import ModSelectorWidget
 
 class HomeView(QWidget):
@@ -149,6 +150,7 @@ class HomeView(QWidget):
         super().showEvent(event)
         # 現在のMOD情報を更新
         self.update_current_mod_info()
+        QTimer.singleShot(100, lambda: self.mod_selector.list_widget.setFocus())
 
     def update_current_mod_info(self):
         """現在選択中のMOD情報を表示更新"""

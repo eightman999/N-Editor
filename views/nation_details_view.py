@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QSizePolicy, QMessageBox, QTabWidget, QComboBox,
                              QTreeWidget, QTreeWidgetItem, QLineEdit, QCompleter,
                              QMenu)
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 from PyQt5.QtGui import QIcon, QPixmap, QFont
 import os
 from parser.EffectParser import EffectParser
@@ -1092,6 +1092,7 @@ class NationDetailsView(QWidget):
             index = self.nation_combo.findData(self.current_nation_tag)
             if index >= 0:
                 self.nation_combo.setCurrentIndex(index)
+        QTimer.singleShot(100, lambda: self.nation_search.setFocus())
 
     def show_mod_design_context_menu(self, position):
         """mod内の設計リストの右クリックメニューを表示"""
