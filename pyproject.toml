@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "n-editor"
+version = "0.1.0"
+description = ""
+authors = ["eightman <eightman124@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+numpy = "~2.2.5"
+PyQt5 = "~5.15.11"
+pillow = "~11.2.1"
+opencv-python = "~4.11.0.86"
+psutil = "~7.0.0"
+PyYAML = "~6.0.2"
+ply = "~3.11"
+requests = "~2.32.3"
+miyabi256 = "~0.1.2"
+hoi4-modding-tools = { git = "https://github.com/eightman999/useful_tools.git", branch = "master" }
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
