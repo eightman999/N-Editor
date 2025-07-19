@@ -13,6 +13,7 @@ import json
 import csv
 from utils.path_utils import get_data_dir
 
+
 class HullForm(QWidget):
     """船体登録フォーム"""
 
