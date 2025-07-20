@@ -13,6 +13,7 @@ import json
 import cv2
 import numpy as np
 import logging
+from utils.translator import Translator
 from concurrent.futures import ThreadPoolExecutor
 import psutil
 import time
@@ -103,12 +104,13 @@ class ImageProcessingWorker(QThread):
 class NavalDesignSystem(QMainWindow):
     """NavalDesignSystemのメインウィンドウ（コンフリクト対応版）"""
 
-    def __init__(self, app_controller=None, app_settings=None):
+    def __init__(self, app_controller=None, app_settings=None, translator: Translator=None):
         super().__init__()
 
         # コントローラーとアプリケーション設定
         self.app_controller = app_controller
         self.app_settings = app_settings
+        self.translator = translator or Translator(app_settings.get_setting("language", "ja") if app_settings else "ja")
 
         # 同期関連UI要素
         self.sync_progress_bar = None
@@ -241,6 +243,9 @@ class NavalDesignSystem(QMainWindow):
             self.showNormal()  # まず通常表示で初期化
             QTimer.singleShot(100, self.showFullScreen)  # 少し遅延させて全画面表示
 
+        # Apply translations to all widgets
+        self.translator.apply_to_widget(self)
+
         # 同期関連のシグナル接続
         if self.app_controller and hasattr(self.app_controller, 'sync_manager'):
             self.app_controller.sync_manager.sync_started.connect(self.on_sync_started)
@@ -253,19 +258,19 @@ class NavalDesignSystem(QMainWindow):
         self.addToolBar(toolbar)
         
         # 同期ボタン（絵文字を削除）
-        sync_action = QAction("同期", self)
+        sync_action = QAction(self.translator.gettext("sync"), self)
         sync_action.setStatusTip("データをオンラインと同期")
         sync_action.triggered.connect(self.sync_data)
         toolbar.addAction(sync_action)
         
         # プッシュボタン（絵文字を削除）
-        push_action = QAction("プッシュ", self)
+        push_action = QAction(self.translator.gettext("push"), self)
         push_action.setStatusTip("ローカルデータをリモートにアップロード")
         push_action.triggered.connect(self.push_data)
         toolbar.addAction(push_action)
         
         # プルボタン（絵文字を削除）
-        pull_action = QAction("プル", self)
+        pull_action = QAction(self.translator.gettext("pull"), self)
         pull_action.setStatusTip("リモートデータをダウンロード")
         pull_action.triggered.connect(self.pull_data)
         toolbar.addAction(pull_action)
@@ -273,7 +278,7 @@ class NavalDesignSystem(QMainWindow):
         toolbar.addSeparator()
         
         # 同期設定ボタン（絵文字を削除）
-        sync_settings_action = QAction("同期設定", self)
+        sync_settings_action = QAction(self.translator.gettext("sync_settings"), self)
         sync_settings_action.setStatusTip("データ同期の設定")
         sync_settings_action.triggered.connect(self.show_sync_settings)
         toolbar.addAction(sync_settings_action)
@@ -283,7 +288,7 @@ class NavalDesignSystem(QMainWindow):
         status_bar = self.statusBar()
         
         # 同期ステータス表示
-        self.sync_status_label = QLabel("同期未設定")
+        self.sync_status_label = QLabel(self.translator.gettext("sync_not_configured"))
         self.sync_status_label.setMinimumWidth(150)
         status_bar.addPermanentWidget(self.sync_status_label)
         
@@ -309,10 +314,10 @@ class NavalDesignSystem(QMainWindow):
             
             if sync_manager.is_configured():
                 repo_name = sync_manager.repo_url.split('/')[-1].replace('.git', '') if sync_manager.repo_url else "不明"
-                self.sync_status_label.setText(f"同期先: {repo_name}")
+                self.sync_status_label.setText(self.translator.gettext("sync_target").format(repo=repo_name))
                 self.sync_status_label.setStyleSheet("QLabel { color: green; }")
             else:
-                self.sync_status_label.setText("同期未設定")
+                self.sync_status_label.setText(self.translator.gettext("sync_not_configured"))
                 self.sync_status_label.setStyleSheet("QLabel { color: red; }")
 
     def sync_data(self):
@@ -496,7 +501,7 @@ class NavalDesignSystem(QMainWindow):
 
         # 読み込むビューのリスト
         views_to_load = [
-            ("home", HomeView(self, self.app_settings, self.app_controller)),
+            ("home", HomeView(self, self.app_settings, self.app_controller, translator=self.translator)),
             ("equipment", EquipmentView(self, self.app_controller)),
             ("hull_list", HullListView(self, self.app_controller)),
             ("hull_form", HullForm(self, self.app_controller)),
@@ -505,7 +510,7 @@ class NavalDesignSystem(QMainWindow):
             ("nation", NationView(self, self.app_controller)),
             ("nation_details", NationDetailsView(self, self.app_controller)),
             ("ship_list", ShipListView(self, self.app_controller)),
-            ("settings", SettingsView(self, self.app_settings))
+            ("settings", SettingsView(self, self.app_settings, translator=self.translator))
         ]
 
         # 各ビューをスタックウィジェットに追加

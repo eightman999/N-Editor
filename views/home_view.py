@@ -6,24 +6,26 @@ import os
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
 from PyQt5.QtCore import QTimer
 from .mod_selector_widget import ModSelectorWidget
+from utils.translator import Translator
 
 class HomeView(QWidget):
     """ホーム画面のビュー"""
-    def __init__(self, parent=None, app_settings=None, app_controller=None):
+    def __init__(self, parent=None, app_settings=None, app_controller=None, translator: Translator=None):
         super().__init__(parent)
         self.app_settings = app_settings
         self.app_controller = app_controller
+        self.translator = translator or Translator(app_settings.get_setting("language", "ja") if app_settings else "ja")
         self.initUI()
 
     def initUI(self):
         layout = QVBoxLayout(self)
 
         # ウェルカムメッセージ
-        welcome_label = QLabel("NavalDesignSystem へようこそ", self)
+        welcome_label = QLabel(self.translator.gettext("welcome_message"), self)
         welcome_label.setStyleSheet("font-size: 18px; font-weight: bold;")
         layout.addWidget(welcome_label)
 
-        description_label = QLabel("Hearts of Iron IV向け艦艇設計ツール", self)
+        description_label = QLabel(self.translator.gettext("description"), self)
         layout.addWidget(description_label)
 
         # 現在のMOD表示
@@ -32,7 +34,7 @@ class HomeView(QWidget):
         layout.addWidget(self.current_mod_label)
 
         # MOD選択リストを追加
-        mod_label = QLabel("編集対象MODを選択", self)
+        mod_label = QLabel(self.translator.gettext("select_mod"), self)
         mod_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
         layout.addWidget(mod_label)
 
@@ -44,17 +46,21 @@ class HomeView(QWidget):
         layout.addWidget(self.mod_selector)
 
         # デバッグボタンを追加（開発時のみ表示）
-        debug_button = QPushButton("デバッグ情報", self)
+        debug_button = QPushButton(self.translator.gettext("debug_info"), self)
         debug_button.clicked.connect(self.show_debug_info)
         layout.addWidget(debug_button)
 
         # データディレクトリ情報
         if self.app_settings:
-            data_dir_label = QLabel(f"データ保存先: {self.app_settings.data_dir}", self)
+            data_dir_text = self.translator.gettext("data_dir").format(path=self.app_settings.data_dir)
+            data_dir_label = QLabel(data_dir_text, self)
             data_dir_label.setStyleSheet("font-size: 10px; color: gray; margin-top: 10px;")
             layout.addWidget(data_dir_label)
 
         self.setLayout(layout)
+
+        # Apply translations to all widgets
+        self.translator.apply_to_widget(self)
 
         # 現在のMOD情報を更新
         self.update_current_mod_info()
@@ -64,7 +70,7 @@ class HomeView(QWidget):
         from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QTextEdit
 
         dialog = QDialog(self)
-        dialog.setWindowTitle("デバッグ情報")
+        dialog.setWindowTitle(self.translator.gettext("debug_info"))
         dialog.setMinimumWidth(600)
         dialog.setMinimumHeight(400)
 
