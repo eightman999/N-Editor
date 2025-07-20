@@ -7,7 +7,11 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
                              QPushButton, QGroupBox, QFileDialog, QMessageBox, QScrollArea)
 from PyQt5.QtCore import Qt, pyqtSignal
 from utils.web_search_widget import WebSearchButton
-from utils.ship_role_constraints import get_allowed_roles, get_ship_type_from_role_display, get_ship_types_for_role
+from utils.ship_role_constraints import (
+    get_allowed_roles,
+    get_ship_type_from_role_display,
+    get_ship_types_for_role,
+)
 import os
 import json
 import csv
@@ -23,6 +27,12 @@ class HullForm(QWidget):
     def __init__(self, parent=None, app_controller=None):
         super().__init__(parent)
         self.app_controller = app_controller
+        # HullModel の参照を保持
+        if self.app_controller and hasattr(self.app_controller, "hull_model"):
+            self.hull_model = self.app_controller.hull_model
+        else:
+            from models.hull_model import HullModel
+            self.hull_model = HullModel()
         self.initUI()
         
         # 機関装備一覧を読み込み
@@ -75,86 +85,8 @@ class HullForm(QWidget):
 
         # 種別（TYPE）
         self.type_combo = QComboBox()
-        # TYPEリストの追加（HOI4の艦艇種別）
-        ship_types =  [
-            "AM - 掃海艇",
-            "CMC - 沿岸敷設艇",
-            "MCM - 掃海艦",
-            "MCS - 掃海母艦",
-            "AV - 水上機母艦",
-            "CV - 航空母艦",
-            "CVE - 護衛空母",
-            "CVL - 軽空母",
-            "CVS - 対潜空母",
-            "SV - 飛行艇母艦",
-            "LCSL - 上陸支援艇",
-            "PC - 哨戒艇、駆潜艇",
-            "PT - 高速魚雷艇",
-            "FF - フリゲート",
-            "K - コルベット",
-            "MB - ミサイル艇",
-            "PF - 哨戒フリゲート",
-            "PG - 砲艦",
-            "TB - 魚雷艇",
-            "D - 水雷駆逐艦",
-            "DB - 通報艦",
-            "DD - 駆逐艦",
-            "DDE - 対潜護衛駆逐艦",
-            "DDG - ミサイル駆逐艦",
-            "DDR - レーダーピケット駆逐艦",
-            "DE - 護衛駆逐艦",
-            "DL - 嚮導駆逐艦",
-            "DM - 敷設駆逐艦",
-            "DMS - 掃海駆逐艦",
-            "CSS - 沿岸潜水艦",
-            "MSM - 特殊潜航艇",
-            "SC - 巡洋潜水艦",
-            "SCV - 潜水空母",
-            "SF - 艦隊型潜水艦",
-            "SM - 敷設型潜水艦",
-            "SS - 航洋型潜水艦",
-            "ACR - 装甲巡洋艦",
-            "IC - 装甲艦",
-            "B - 前弩級戦艦",
-            "BB - 戦艦",
-            "BBG - ミサイル戦艦",
-            "BC - 巡洋戦艦",
-            "BF - 航空戦艦",
-            "BM - モニター艦",
-            "CA - 重巡・一等巡洋艦",
-            "CB - 大型巡洋艦",
-            "CDB - 海防戦艦",
-            "CF - 航空巡洋艦",
-            "CG - ミサイル巡洋艦",
-            "FBB - 高速戦艦",
-            "PB - ポケット戦艦",
-            "SB - 超戦艦",
-            "C - 防護巡洋艦",
-            "CL - 軽巡洋艦/二等巡洋艦",
-            "CM - 敷設巡洋艦",
-            "CS - 偵察巡洋艦",
-            "HTC - 重雷装巡洋艦",
-            "TC - 水雷巡洋艦",
-            "TCL - 練習巡洋艦",
-            "AAA - 特設防空艦",
-            "AAG - 特設防空警備艦",
-            "AAM - 特設掃海艇",
-            "AAS - 特設駆潜艇",
-            "AAV - 特設水上機母艦",
-            "AC - 特設巡洋艦",
-            "AG - 特設砲艦",
-            "AMS - 特設敷設艦",
-            "APC - 特設監視艇",
-            "APS - 特設哨戒艦",
-            "CAM - CAMシップ",
-            "MAC - 特設空母",
-            "APB - 航行可能な宿泊艦",
-            "PL - 大型巡視船",
-            "PLH - ヘリ搭載型",
-            "PM - 中型巡視船",
-            "WHEC - 長距離カッター"
-        ]
-
+        self.ship_type_mapping = self.hull_model.ship_type_mapping
+        ship_types = list(self.ship_type_mapping.values())
         self.type_combo.addItems(ship_types)
         basic_layout.addRow("種別(TYPE):", self.type_combo)
 
@@ -174,7 +106,9 @@ class HullForm(QWidget):
 
         # archetype（制約適用）
         self.archetype_combo = QComboBox()
-        self.archetype_combo.addItems(pdx_tools.pdx_ssw.ship_types)
+        self.ship_archetype_mapping = self.hull_model.ship_archetype_mapping
+        archetypes = list(self.ship_archetype_mapping.values())
+        self.archetype_combo.addItems(archetypes)
         basic_layout.addRow("archetype:", self.archetype_combo)
         
         # 無限再帰を防ぐためのフラグ
@@ -837,6 +771,7 @@ class HullForm(QWidget):
             
             # 現在選択されているarchetype を保存
             current_archetype = self.archetype_combo.currentText()
+            current_archetype_code = get_ship_type_from_role_display(current_archetype)
             
             # archetypeコンボボックスをクリア
             self.archetype_combo.clear()
@@ -844,23 +779,27 @@ class HullForm(QWidget):
             if allowed_roles:
                 # 制約に基づいて選択肢を追加
                 for role in allowed_roles:
-                    self.archetype_combo.addItem(role)
-                
+                    display = self.ship_archetype_mapping.get(role, role)
+                    self.archetype_combo.addItem(display)
+
                 # 以前の選択が有効な場合は復元
-                if current_archetype in allowed_roles:
-                    index = self.archetype_combo.findText(current_archetype)
-                    if index >= 0:
-                        self.archetype_combo.setCurrentIndex(index)
+                if current_archetype_code in allowed_roles:
+                    for i in range(self.archetype_combo.count()):
+                        item_code = get_ship_type_from_role_display(self.archetype_combo.itemText(i))
+                        if item_code == current_archetype_code:
+                            self.archetype_combo.setCurrentIndex(i)
+                            break
                         
                 print(f"船体種別 '{ship_type}' に対して {len(allowed_roles)} 個のロール種別を設定しました")
             else:
-                # 制約が定義されていない場合は全てのship_typesを追加
-                self.archetype_combo.addItems(pdx_tools.pdx_ssw.ship_types)
-                
+                # 制約が定義されていない場合は全てのarchetypeを追加
+                self.archetype_combo.addItems(self.ship_archetype_mapping.values())
+
                 # 以前の選択を復元
-                index = self.archetype_combo.findText(current_archetype)
-                if index >= 0:
-                    self.archetype_combo.setCurrentIndex(index)
+                for i in range(self.archetype_combo.count()):
+                    if get_ship_type_from_role_display(self.archetype_combo.itemText(i)) == current_archetype_code:
+                        self.archetype_combo.setCurrentIndex(i)
+                        break
                     
                 print(f"船体種別 '{ship_type}' の制約が未定義のため、全ロール種別を表示しています")
                 
@@ -882,12 +821,14 @@ class HullForm(QWidget):
             
             # 現在選択されているarchetypeを取得
             current_archetype = self.archetype_combo.currentText()
-            
+
             if not current_archetype:
                 return
-            
+
+            current_archetype_code = get_ship_type_from_role_display(current_archetype)
+
             # そのarchetypeを利用可能なship_typeを取得
-            compatible_ship_types = get_ship_types_for_role(current_archetype)
+            compatible_ship_types = get_ship_types_for_role(current_archetype_code)
             
             # 現在選択されているship_typeを保存
             current_ship_type_text = self.type_combo.currentText()
@@ -898,30 +839,9 @@ class HullForm(QWidget):
             
             if compatible_ship_types:
                 # 制約に基づいて選択肢を追加
-                # 全ての船種リストから対象のもののみを抽出
-                ship_types = [
-                    "AM - 掃海艇", "CMC - 沿岸敷設艇", "MCM - 掃海艦", "MCS - 掃海母艦",
-                    "AV - 水上機母艦", "CV - 航空母艦", "CVE - 護衛空母", "CVL - 軽空母", "CVS - 対潜空母", "SV - 飛行艇母艦",
-                    "LCSL - 上陸支援艇", "PC - 哨戒艇、駆潜艇", "PT - 高速魚雷艇", "FF - フリゲート", "K - コルベット",
-                    "MB - ミサイル艇", "PF - 哨戒フリゲート", "PG - 砲艦", "TB - 魚雷艇",
-                    "D - 水雷駆逐艦", "DB - 通報艦", "DD - 駆逐艦", "DDE - 対潜護衛駆逐艦", "DDG - ミサイル駆逐艦",
-                    "DDR - レーダーピケット駆逐艦", "DE - 護衛駆逐艦", "DL - 嚮導駆逐艦", "DM - 敷設駆逐艦", "DMS - 掃海駆逐艦",
-                    "CSS - 沿岸潜水艦", "MSM - 特殊潜航艇", "SC - 巡洋潜水艦", "SCV - 潜水空母", "SF - 艦隊型潜水艦", "SM - 敷設型潜水艦", "SS - 航洋型潜水艦",
-                    "ACR - 装甲巡洋艦", "IC - 装甲艦", "B - 前弩級戦艦", "BB - 戦艦", "BBG - ミサイル戦艦", "BC - 巡洋戦艦", "BF - 航空戦艦",
-                    "BM - モニター艦", "CA - 重巡・一等巡洋艦", "CB - 大型巡洋艦", "CDB - 海防戦艦", "CF - 航空巡洋艦", "CG - ミサイル巡洋艦",
-                    "FBB - 高速戦艦", "PB - ポケット戦艦", "SB - 超戦艦", "C - 防護巡洋艦", "CL - 軽巡洋艦/二等巡洋艦",
-                    "CM - 敷設巡洋艦", "CS - 偵察巡洋艦", "HTC - 重雷装巡洋艦", "TC - 水雷巡洋艦", "TCL - 練習巡洋艦",
-                    "AAA - 特設防空艦", "AAG - 特設防空警備艦", "AAM - 特設掃海艇", "AAS - 特設駆潜艇", "AAV - 特設水上機母艦",
-                    "AC - 特設巡洋艦", "AG - 特設砲艦", "AMS - 特設敷設艦", "APC - 特設監視艇", "APS - 特設哨戒艦",
-                    "CAM - CAMシップ", "MAC - 特設空母", "APB - 航行可能な宿泊艦", "PL - 大型巡視船", "PLH - ヘリ搭載型",
-                    "PM - 中型巡視船", "WHEC - 長距離カッター"
-                ]
-                
-                # 制約に合致する船種のみを追加
-                for ship_type_display in ship_types:
-                    ship_type_abbrev = get_ship_type_from_role_display(ship_type_display)
-                    if ship_type_abbrev in compatible_ship_types:
-                        self.type_combo.addItem(ship_type_display)
+                for code, display in self.ship_type_mapping.items():
+                    if code in compatible_ship_types:
+                        self.type_combo.addItem(display)
                 
                 # 以前の選択が有効な場合は復元
                 if current_ship_type in compatible_ship_types:
@@ -935,28 +855,12 @@ class HullForm(QWidget):
                 print(f"archetype '{current_archetype}' に対して {len(compatible_ship_types)} 個の船体種別を設定しました: {compatible_ship_types}")
             else:
                 # 制約が見つからない場合は全ての種別を表示
-                ship_types =  [
-                    "AM - 掃海艇", "CMC - 沿岸敷設艇", "MCM - 掃海艦", "MCS - 掃海母艦",
-                    "AV - 水上機母艦", "CV - 航空母艦", "CVE - 護衛空母", "CVL - 軽空母", "CVS - 対潜空母", "SV - 飛行艇母艦",
-                    "LCSL - 上陸支援艇", "PC - 哨戒艇、駆潜艇", "PT - 高速魚雷艇", "FF - フリゲート", "K - コルベット",
-                    "MB - ミサイル艇", "PF - 哨戒フリゲート", "PG - 砲艦", "TB - 魚雷艇",
-                    "D - 水雷駆逐艦", "DB - 通報艦", "DD - 駆逐艦", "DDE - 対潜護衛駆逐艦", "DDG - ミサイル駆逐艦",
-                    "DDR - レーダーピケット駆逐艦", "DE - 護衛駆逐艦", "DL - 嚮導駆逐艦", "DM - 敷設駆逐艦", "DMS - 掃海駆逐艦",
-                    "CSS - 沿岸潜水艦", "MSM - 特殊潜航艇", "SC - 巡洋潜水艦", "SCV - 潜水空母", "SF - 艦隊型潜水艦", "SM - 敷設型潜水艦", "SS - 航洋型潜水艦",
-                    "ACR - 装甲巡洋艦", "IC - 装甲艦", "B - 前弩級戦艦", "BB - 戦艦", "BBG - ミサイル戦艦", "BC - 巡洋戦艦", "BF - 航空戦艦",
-                    "BM - モニター艦", "CA - 重巡・一等巡洋艦", "CB - 大型巡洋艦", "CDB - 海防戦艦", "CF - 航空巡洋艦", "CG - ミサイル巡洋艦",
-                    "FBB - 高速戦艦", "PB - ポケット戦艦", "SB - 超戦艦", "C - 防護巡洋艦", "CL - 軽巡洋艦/二等巡洋艦",
-                    "CM - 敷設巡洋艦", "CS - 偵察巡洋艦", "HTC - 重雷装巡洋艦", "TC - 水雷巡洋艦", "TCL - 練習巡洋艦",
-                    "AAA - 特設防空艦", "AAG - 特設防空警備艦", "AAM - 特設掃海艇", "AAS - 特設駆潜艇", "AAV - 特設水上機母艦",
-                    "AC - 特設巡洋艦", "AG - 特設砲艦", "AMS - 特設敷設艦", "APC - 特設監視艇", "APS - 特設哨戒艦",
-                    "CAM - CAMシップ", "MAC - 特設空母", "APB - 航行可能な宿泊艦", "PL - 大型巡視船", "PLH - ヘリ搭載型",
-                    "PM - 中型巡視船", "WHEC - 長距離カッター"
-                ]
-                self.type_combo.addItems(ship_types)
+                for display in self.ship_type_mapping.values():
+                    self.type_combo.addItem(display)
                 
                 # 以前の選択を復元
                 for i in range(self.type_combo.count()):
-                    if self.type_combo.itemText(i) == current_ship_type_text:
+                    if get_ship_type_from_role_display(self.type_combo.itemText(i)) == current_ship_type:
                         self.type_combo.setCurrentIndex(i)
                         break
                         
