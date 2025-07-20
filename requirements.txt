@@ -8,3 +8,4 @@ ply~=3.11
 
 requests~=2.32.3
 miyabi256~=0.1.2
+googletrans~=4.0.0-rc1

@@ -30,6 +30,7 @@ from utils.path_utils import get_data_dir
 from utils.cache_manager import CacheManager  # 追加: キャッシュマネージャー
 from utils.sync_manager import SyncManager  # 追加: 同期マネージャー
 from utils.mod_data_cache_manager import MODDataCacheManager  # MOD設計データキャッシュ
+from utils.translator import Translator
 
 # パーサーのインポート (コメントアウトを解除または追加)
 from parser.StateParser import StateParser
@@ -211,6 +212,8 @@ class AppController(QObject):
         self.logger = logging.getLogger(__name__)
 
         self.app_settings = app_settings       # アプリケーション設定オブジェクト
+        # 言語設定に基づく翻訳マネージャー
+        self.translator = Translator(self.app_settings.get_setting("language", "ja"))
         self.main_window = None                # メインウィンドウのインスタンス
         self.nation_details_view = None        # 国家詳細ビューのインスタンス
 
@@ -471,7 +474,7 @@ class AppController(QObject):
     def show_main_window(self):
         """メインウィンドウを表示"""
         if self.main_window is None:
-            self.main_window = NavalDesignSystem(self, self.app_settings)
+            self.main_window = NavalDesignSystem(self, self.app_settings, translator=self.translator)
 
             # ウィンドウサイズとポジションを復元
             window_size = self.app_settings.get_setting("window_size")

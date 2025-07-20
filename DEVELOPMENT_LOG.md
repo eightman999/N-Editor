@@ -1366,3 +1366,9 @@ self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
 - 起動時にversion.txtのビルド番号を自動更新する機能を追加
 ### 2025-07-20 10:44
 - ship_hull_formの艦種とarchetype項目に相互制約を実装
+
+### 2025-07-20 10:55
+- UI多言語対応のためtranslatorモジュールを追加し、HomeViewとSettingsViewを翻訳に対応
+### 2025-07-20 11:01
+- 多言語翻訳システムを強化し自動翻訳とウィジェット全体への適用を追加
+

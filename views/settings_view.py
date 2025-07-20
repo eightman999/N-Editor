@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdi
                              QComboBox, QSpinBox, QTabWidget, QMessageBox,
                              QTextEdit, QScrollArea)
 from PyQt5.QtCore import Qt, QTimer
+from utils.translator import Translator
 import subprocess
 import requests
 import logging
@@ -16,10 +17,11 @@ logger = logging.getLogger(__name__)
 class SettingsView(QWidget):
     """設定画面（Git同期設定を統合）"""
 
-    def __init__(self, parent=None, app_settings=None):
+    def __init__(self, parent=None, app_settings=None, translator: Translator=None):
         super().__init__(parent)
         self.app_settings = app_settings
         self.main_window = parent
+        self.translator = translator or Translator(app_settings.get_setting("language", "ja") if app_settings else "ja")
         self.init_ui()
         self.load_settings()
 
@@ -56,6 +58,9 @@ class SettingsView(QWidget):
 
         main_layout.addLayout(button_layout)
 
+        # Apply translations after widgets are created
+        self.translator.apply_to_widget(self)
+
     def create_general_tab(self):
         """一般設定タブ"""
         general_tab = QWidget()
@@ -75,13 +80,13 @@ class SettingsView(QWidget):
 
         self.language_combo = QComboBox()
         self.language_combo.addItems(["日本語", "English"])
-        app_layout.addRow("言語:", self.language_combo)
+        app_layout.addRow(self.translator.gettext("language_label"), self.language_combo)
 
         self.theme_combo = QComboBox()
         self.theme_combo.addItems(["Windows95", "Modern", "Dark"])
-        app_layout.addRow("テーマ:", self.theme_combo)
+        app_layout.addRow(self.translator.gettext("theme_label"), self.theme_combo)
 
-        self.auto_save_check = QCheckBox("自動保存を有効にする")
+        self.auto_save_check = QCheckBox(self.translator.gettext("auto_save"))
         app_layout.addRow(self.auto_save_check)
 
         app_group.setLayout(app_layout)
@@ -94,14 +99,14 @@ class SettingsView(QWidget):
         self.width_spin = QSpinBox()
         self.width_spin.setRange(800, 2560)
         self.width_spin.setValue(1080)
-        window_layout.addRow("幅:", self.width_spin)
+        window_layout.addRow(self.translator.gettext("width_label"), self.width_spin)
 
         self.height_spin = QSpinBox()
         self.height_spin.setRange(600, 1440)
         self.height_spin.setValue(720)
-        window_layout.addRow("高さ:", self.height_spin)
+        window_layout.addRow(self.translator.gettext("height_label"), self.height_spin)
 
-        self.fullscreen_check = QCheckBox("全画面表示で起動")
+        self.fullscreen_check = QCheckBox(self.translator.gettext("fullscreen"))
         window_layout.addRow(self.fullscreen_check)
 
         window_group.setLayout(window_layout)
@@ -331,7 +336,7 @@ class SettingsView(QWidget):
                 sync_manager.auto_sync_enabled = self.auto_sync_check.isChecked()
                 sync_manager.sync_on_exit = self.sync_on_exit_check.isChecked()
 
-            QMessageBox.information(self, "適用完了", "設定を適用しました。")
+            QMessageBox.information(self, self.translator.gettext("apply_done"), self.translator.gettext("apply_message"))
 
         except Exception as e:
             logger.error(f"設定適用エラー: {e}")
@@ -391,11 +396,15 @@ class SettingsView(QWidget):
                 )
 
                 if success:
-                    QMessageBox.information(self, "保存完了", "設定を保存し、リポジトリをセットアップしました。")
+                    QMessageBox.information(
+                        self,
+                        self.translator.gettext("save_done"),
+                        self.translator.gettext("save_message")
+                    )
                 else:
-                    QMessageBox.warning(self, "警告", "設定は保存されましたが、リポジトリのセットアップに失敗しました。")
+                    QMessageBox.warning(self, self.translator.gettext("warning"), "設定は保存されましたが、リポジトリのセットアップに失敗しました。")
             else:
-                QMessageBox.information(self, "保存完了", "設定を保存しました。")
+                QMessageBox.information(self, self.translator.gettext("save_done"), self.translator.gettext("save_message"))
 
         except Exception as e:
             logger.error(f"設定保存エラー: {e}")
@@ -407,7 +416,7 @@ class SettingsView(QWidget):
         github_token = self.github_token_edit.text().strip()
 
         if not repo_url:
-            QMessageBox.warning(self, "警告", "リポジトリURLを入力してください。")
+            QMessageBox.warning(self, self.translator.gettext("warning"), "リポジトリURLを入力してください。")
             return
 
         try:
@@ -422,7 +431,7 @@ class SettingsView(QWidget):
                 if response.status_code == 200:
                     QMessageBox.information(self, "成功", "GitHub APIでの接続に成功しました。")
                 else:
-                    QMessageBox.warning(self, "警告", f"GitHub API接続エラー: {response.status_code}")
+                    QMessageBox.warning(self, self.translator.gettext("warning"), f"GitHub API接続エラー: {response.status_code}")
             else:
                 # Git コマンドでテスト
                 result = subprocess.run(['git', 'ls-remote', repo_url],
@@ -431,7 +440,7 @@ class SettingsView(QWidget):
                 if result.returncode == 0:
                     QMessageBox.information(self, "成功", "リポジトリへの接続に成功しました。")
                 else:
-                    QMessageBox.warning(self, "警告", f"接続エラー: {result.stderr}")
+                    QMessageBox.warning(self, self.translator.gettext("warning"), f"接続エラー: {result.stderr}")
 
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"接続テストエラー: {e}")
@@ -445,7 +454,7 @@ class SettingsView(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "エラー", f"キャッシュクリアに失敗しました: {e}")
         else:
-            QMessageBox.warning(self, "警告", "アプリケーションコントローラーが利用できません。")
+            QMessageBox.warning(self, self.translator.gettext("warning"), "アプリケーションコントローラーが利用できません。")
 
     def showEvent(self, event):
         """ビューが表示された際にフォーカスを設定"""
@@ -481,4 +490,4 @@ class SettingsView(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "エラー", f"キャッシュ情報の取得に失敗しました: {e}")
         else:
-            QMessageBox.warning(self, "警告", "アプリケーションコントローラーが利用できません。")
+            QMessageBox.warning(self, self.translator.gettext("warning"), "アプリケーションコントローラーが利用できません。")
