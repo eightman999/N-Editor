@@ -1372,3 +1372,5 @@ self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
 ### 2025-07-20 11:01
 - 多言語翻訳システムを強化し自動翻訳とウィジェット全体への適用を追加
 
+### 2025-07-20 11:33
+- ship_hull_formの艦種とarchetype項目の相互制約を見直し、archetypeから艦種への一方的制約に変更
