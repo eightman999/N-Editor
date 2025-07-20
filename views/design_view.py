@@ -11,7 +11,6 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFo
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QColor, QPalette
 from utils.path_utils import get_data_dir
-from utils.ship_type_mapping import ship_type_mapping
 from utils.ship_icon_manager import ShipIconManager
 from utils.web_search_widget import WebSearchButton
 from utils.ship_role_constraints import get_allowed_roles, get_ship_type_from_role_display, is_role_allowed
