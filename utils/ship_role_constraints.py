@@ -31,7 +31,8 @@ SHIP_ROLE_CONSTRAINTS = {
         "CL", "C", "CM", "CS", "HTC", "TC", "TCL", "FF", "PF", "K"
     ],
     "MC": [  # 特設巡洋艦
-        "AC", "AG", "AAA", "AAG", "AAM", "AAS", "AAV", "AMS", "APC", "APS", "CAM", "MAC", "CM", "CS", "CL", "C"
+        "MC", "AC", "AG", "AAA", "AAG", "AAM", "AAS", "AAV", "AMS", "APC", "APS", "CAM",
+        "MAC", "CM", "CS", "CL", "C"
     ],
     "DD": [  # 一等駆逐艦
         "DD", "D", "DDE", "DDG", "DDR", "DL", "DE", "DM", "DMS", "DB", "AM", "CMC", "MCM", "MCS", "PC", "PT", "TB"

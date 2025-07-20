@@ -1373,3 +1373,6 @@ self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
 ### 2025-07-20 11:49
 - DesignViewの艦体フィルタリングでarchetype→ship_type制約取得をget_ship_types_for_role()へ変更
 - SHIP_ROLE_CONSTRAINTSを直接参照し、選択archetypeで利用可能なship_typeを判断
+### 2025-07-20 13:04
+- MC（特設巡洋艦）の制約適用漏れを修正し、ship_type_mapping・role_constraints・フォーム初期値を更新
+
