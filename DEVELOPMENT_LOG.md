@@ -1370,3 +1370,6 @@ self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
 
 ### 2025-07-20 11:33
 - ship_hull_formの艦種とarchetype項目の相互制約を見直し、archetypeから艦種への一方的制約に変更
+### 2025-07-20 11:49
+- DesignViewの艦体フィルタリングでarchetype→ship_type制約取得をget_ship_types_for_role()へ変更
+- SHIP_ROLE_CONSTRAINTSを直接参照し、選択archetypeで利用可能なship_typeを判断

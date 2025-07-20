@@ -555,8 +555,8 @@ class DesignView(QWidget):
             # 選択されたarchetypeでフィルタリング（制約適用）
             filtered_hulls = []
             
-            # 選択されたarchetypeのIDでSHIP_ROLE_CONSTRAINTSから利用可能なrole_typeリストを取得
-            from utils.ship_role_constraints import get_allowed_roles
+            # 選択されたarchetypeのIDでSHIP_ROLE_CONSTRAINTSから利用可能なship_typeリストを取得
+            from utils.ship_role_constraints import get_ship_types_for_role
             
             # 表示名からIDを抽出（例: "BB - 一等戦艦" → "BB"）
             print(f"デバッグ: selected_archetype_text='{selected_archetype_text}'")
@@ -576,11 +576,11 @@ class DesignView(QWidget):
                 print("選択されたarchetypeが無効です")
                 return
                 
-            allowed_role_types = get_allowed_roles(selected_archetype_id)
-            
+            allowed_ship_types = get_ship_types_for_role(selected_archetype_id)
+
             print(f"選択archetype表示名: '{selected_archetype_text}'")
-            print(f"選択archetypeID: '{selected_archetype_id}'") 
-            print(f"利用可能なrole_type: {allowed_role_types}")
+            print(f"選択archetypeID: '{selected_archetype_id}'")
+            print(f"利用可能なship_type: {allowed_ship_types}")
             
             for hull in hulls:
                 hull_type = hull.get("type", "")
@@ -589,11 +589,11 @@ class DesignView(QWidget):
                 # 船体種別から略称を抽出
                 hull_ship_type = get_ship_type_from_role_display(hull_type)
                 
-                # 制約チェック: 船体のtypeが選択されたarchetypeで利用可能なrole_typeに含まれているか
-                type_allowed = hull_ship_type in allowed_role_types
+                # 制約チェック: 船体のtypeが選択されたarchetypeで利用可能なship_typeに含まれているか
+                type_allowed = hull_ship_type in allowed_ship_types
                 
                 print(f"デバッグ: {hull.get('name', '不明')} - ship_type: {hull_ship_type}, archetype: {hull_archetype}")
-                print(f"  選択archetypeID '{selected_archetype_id}' で利用可能なrole_type: {allowed_role_types}")
+                print(f"  選択archetypeID '{selected_archetype_id}' で利用可能なship_type: {allowed_ship_types}")
                 print(f"  船体のship_type '{hull_ship_type}' が許可されているか: {type_allowed}")
                 
                 if type_allowed:
