@@ -114,11 +114,11 @@ class HullForm(QWidget):
         # 無限再帰を防ぐためのフラグ
         self._updating_constraints = False
         
-        # 種別変更時にarchetypeを制約する
-        self.type_combo.currentTextChanged.connect(self.update_archetype_constraints)
-        
         # archetype変更時にship_typeを制約する
         self.archetype_combo.currentTextChanged.connect(self.update_ship_type_constraints)
+
+        # 初期表示時にarchetypeから種別を制約
+        self.update_ship_type_constraints()
 
         # 物理的特性グループ
         physical_group = QGroupBox("物理的特性")
