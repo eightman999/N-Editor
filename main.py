@@ -6,6 +6,7 @@ import sys
 import logging
 import platform
 from logging.handlers import RotatingFileHandler
+from utils.version_manager import increment_build_number
 
 # macOS の Input Method Kit エラーを抑制
 if platform.system() == "Darwin":  # macOS
@@ -194,6 +195,7 @@ def main():
     MVCパターンに従い、コントローラーを通じてアプリケーションを起動します
     """
     logger.info(f"Starting NavalDesignSystem on {platform.system()} {platform.release()}")
+    increment_build_number()
 
     # 依存関係チェック
     if not check_dependencies():
