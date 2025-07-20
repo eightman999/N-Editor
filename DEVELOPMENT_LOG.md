@@ -1364,3 +1364,5 @@ self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
 
 ### 2025-07-20 10:27
 - 起動時にversion.txtのビルド番号を自動更新する機能を追加
+### 2025-07-20 10:44
+- ship_hull_formの艦種とarchetype項目に相互制約を実装
