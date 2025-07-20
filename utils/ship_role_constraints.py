@@ -46,7 +46,7 @@ SHIP_ROLE_CONSTRAINTS = {
         "K", "PC", "PT", "MB", "TB", "AM", "CMC", "MCM", "MCS", "LCSL"
     ],
     "FAV": [  # 一等補助艦
-        "APB", "PL", "PLH", "PM", "WHEC", "LCSL", "MAC", "CAM", "AAA", "AAG", "AAM", "AAS", "AAV", "AMS"
+        "APB", "PL", "PLH", "PM", "WHEC", "LCSL", "MAC", "CAM", "AAA", "AAG", "AAM", "AAS", "AAV", "AMS","CDB"
     ],
     "SAV": [  # 二等補助艦
         "APB", "PL", "PLH", "PM", "WHEC", "LCSL", "AM", "CMC", "MCM", "MCS", "AAA", "AAG", "AAM", "AAS", "AAV", "AMS"
