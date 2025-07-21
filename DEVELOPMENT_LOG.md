@@ -1379,3 +1379,6 @@ self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
 
 ### 2025-07-21 19:27
 - READMEの同期データ構造をNDSDB準拠で更新
+
+### 2025-07-21 20:07
+- `.gitignore` に `.DS_Store` を追加し、macOSのメタデータファイルを非追跡化
