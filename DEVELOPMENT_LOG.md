@@ -1376,3 +1376,6 @@ self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
 ### 2025-07-20 13:04
 - MC（特設巡洋艦）の制約適用漏れを修正し、ship_type_mapping・role_constraints・フォーム初期値を更新
 
+
+### 2025-07-21 19:27
+- READMEの同期データ構造をNDSDB準拠で更新
