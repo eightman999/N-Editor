@@ -203,16 +203,15 @@ git@github.com:username/repository.git
 
 
 データ構造
-同期されるデータ:
+同期されるデータ (参照: [NDSDB](https://github.com/eightman999/NDSDB)):
 ```
 data/
-├── equipments/     # 装備データ
-│   ├── SMLG/      # 小口径砲
-│   ├── SMHG/      # 大口径砲
-│   └── ...
-├── hulls/         # 船体データ
-├── designs/       # 設計データ
-└── fleets/        # 艦隊データ
+├── designs/                 # 艦の設計定義
+├── equipments/              # 装備データ (SMAA, SMLG など)
+├── equipments_templates.yml # 装備タイプのフィールド構造
+├── hulls_backup_*           # 船体データのバックアップ
+├── fleets/                  # 艦隊編成情報
+└── convert_*.py             # YAML→JSON 変換スクリプト
 ```
 セキュリティ考慮事項
 
