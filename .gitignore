@@ -31,3 +31,6 @@ config.yaml
 
 # Example directories
 EXAMPLE/
+
+# macOS metadata files
+.DS_Store
