@@ -75,10 +75,10 @@ class GunCalculator(BaseEquipmentCalculator):
             stats['hg_attack'] = attack * 0.8
             stats['hg_armor_piercing'] = piercing
         elif caliber >= 7.5:
-            stats['lg_attack'] = attack * 0.4
-            stats['hg_attack'] = attack * 1.0
-            stats['lg_armor_piercing'] = piercing * 0.5
-            stats['hg_armor_piercing'] = piercing
+            stats['lg_attack'] = attack * 0.5
+            stats['hg_attack'] = attack * 0.6
+            stats['lg_armor_piercing'] = piercing * 0.6
+            stats['hg_armor_piercing'] = piercing * 0.8
         else:
             stats['anti_air_attack'] = attack * 1.5
             stats['hg_attack'] = attack * 0.6
@@ -138,8 +138,8 @@ class GunCalculator(BaseEquipmentCalculator):
             attack_stats['lg_attack'] = base_attack * 0.8
             attack_stats['hg_attack'] = base_attack * 0.8
         elif caliber >= 7.5:
-            attack_stats['lg_attack'] = base_attack * 0.4
-            attack_stats['hg_attack'] = base_attack * 1.0
+            attack_stats['lg_attack'] = base_attack * 0.5
+            attack_stats['hg_attack'] = base_attack * 0.6
         else:
             attack_stats['anti_air_attack'] = base_attack * 1.5
             attack_stats['hg_attack'] = base_attack * 0.6
@@ -162,8 +162,8 @@ class GunCalculator(BaseEquipmentCalculator):
         elif caliber >= 15.0:
             piercing_stats['hg_armor_piercing'] = piercing
         else:
-            piercing_stats['lg_armor_piercing'] = piercing * 0.5
-            piercing_stats['hg_armor_piercing'] = piercing
+            piercing_stats['lg_armor_piercing'] = piercing * 0.6
+            piercing_stats['hg_armor_piercing'] = piercing * 0.8
 
         return piercing_stats
 
@@ -175,8 +175,8 @@ class GunCalculator(BaseEquipmentCalculator):
 
         total_guns = turret_count * barrel_count
         if total_guns > 1:
-            weight_increase = (total_guns - 1) * 0.1
-            crew_increase = (total_guns - 1) * 0.05
+            weight_increase = (total_guns - 1) * 0.05
+            crew_increase = (total_guns - 1) * 0.03
 
             base_weight = equipment_data.get('weight', 0.0)
             base_crew = equipment_data.get('personnel', 0.0)

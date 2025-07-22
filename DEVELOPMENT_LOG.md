@@ -1382,3 +1382,11 @@ self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
 
 ### 2025-07-21 20:07
 - `.gitignore` に `.DS_Store` を追加し、macOSのメタデータファイルを非追跡化
+
+## 2025年7月22日 (火)
+
+### ✅ 砲計算式調整
+**時刻**: 19:30
+**概要**: 12cm砲の重砲攻撃力が高すぎる問題を受け、中口径砲の攻撃・貫徹計算と重量人員補正を見直し。
+**影響範囲**:
+- utils/equipment_calculators/gun_calculator.py
