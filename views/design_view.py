@@ -716,6 +716,9 @@ class DesignView(QWidget):
             # スロット情報を取得し、開放状況に応じてUIを更新
             self.update_slot_availability()
 
+            # デフォルト内部スロットを自動追加
+            self.ensure_default_internal_slots()
+
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"船体データの設定中にエラーが発生しました: {e}")
 
@@ -1406,6 +1409,44 @@ class DesignView(QWidget):
             import traceback
             traceback.print_exc()
 
+    def ensure_default_internal_slots(self):
+        """内部スロットが空の場合にセンサー系スロットを自動追加"""
+        try:
+            if self.internal_slots:
+                return
+
+            default_sets = [
+                ["small_radar", "large_radar"],
+                ["sonar", "large_sonar"],
+                ["fire_control_system"],
+            ]
+
+            for categories in default_sets:
+                self.add_internal_slot()
+                if not self.internal_slots:
+                    continue
+                slot_info = self.internal_slots[-1]
+                slot_id = slot_info["id"]
+                self.slot_category_selections[slot_id] = categories
+
+                button = slot_info["category_button"]
+                names = [
+                    self.app_controller.get_equipment_display_name(c)
+                    if self.app_controller else c
+                    for c in categories
+                ]
+
+                if len(names) == 1:
+                    button.setText(names[0])
+                else:
+                    button.setText(f"{len(names)}種類選択")
+
+                self.update_equipment_combo(slot_id)
+        except Exception as e:
+            print(f"デフォルト内部スロット追加エラー: {e}")
+            import traceback
+            traceback.print_exc()
+
     def show_category_selection_dialog(self, slot_type):
         """カテゴリー選択ダイアログを表示"""
         try:
@@ -1771,6 +1812,9 @@ class DesignView(QWidget):
                                 equipment_id = slot_data.get("equipment_id")
                                 if equipment_id:
                                     self.set_equipment_selection(slot_id, equipment_id)
+
+                    if not design_data.get("internal_slots"):
+                        self.ensure_default_internal_slots()
 
                     # 性能表示を更新
                     # self.update_stats()
