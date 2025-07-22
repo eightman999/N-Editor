@@ -13,7 +13,7 @@ from PyQt5.QtGui import QColor, QPalette
 from utils.path_utils import get_data_dir
 from utils.ship_icon_manager import ShipIconManager
 from utils.web_search_widget import WebSearchButton
-from utils.ship_role_constraints import get_allowed_roles, get_ship_type_from_role_display, is_role_allowed
+from utils.ship_role_constraints import get_ship_type_from_role_display
 
 
 class DesignView(QWidget):
@@ -1584,19 +1584,6 @@ class DesignView(QWidget):
             return
 
         try:
-            # 制約チェック: 船体のarchetype が船体種別で許可されているかを確認
-            hull_type = self.current_hull.get("type", "")
-            hull_archetype = self.current_hull.get("archetype", "")
-            hull_ship_type = get_ship_type_from_role_display(hull_type)
-            
-            if not is_role_allowed(hull_ship_type, hull_archetype):
-                QMessageBox.warning(
-                    self, 
-                    "制約違反", 
-                    f"船体種別 '{hull_ship_type}' でarchetype '{hull_archetype}' は許可されていません。\n"
-                    f"船体登録時にarchetypeを修正してください。"
-                )
-                return
             
             # 設計データの構築
             design_data = {
