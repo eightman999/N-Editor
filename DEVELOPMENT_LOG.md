@@ -1391,9 +1391,15 @@ self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
 **影響範囲**:
 - utils/equipment_calculators/gun_calculator.py
 
+### ✅ 船体設計保存時の制約解除
+**時刻**: 19:40
+**概要**: 設計保存時のarchetypeとship_typeの制約チェックを撤廃
+**影響範囲**: views/design_view.py
+
 ### 🚀 デフォルト内部スロット追加
 **時刻**: 19:41
 **概要**: 新規設計時に電探・ソナー・火器管制用の内部スロットを自動生成。既存設計読
 み込みでも内部スロットが無い場合に追加するよう対応。
 **影響範囲**:
 - views/design_view.py
+
