@@ -13,7 +13,7 @@ from PyQt5.QtGui import QColor, QPalette
 from utils.path_utils import get_data_dir
 from utils.ship_icon_manager import ShipIconManager
 from utils.web_search_widget import WebSearchButton
-from utils.ship_role_constraints import get_allowed_roles, get_ship_type_from_role_display, is_role_allowed
+from utils.ship_role_constraints import get_ship_type_from_role_display
 
 
 class DesignView(QWidget):
@@ -716,6 +716,9 @@ class DesignView(QWidget):
             # スロット情報を取得し、開放状況に応じてUIを更新
             self.update_slot_availability()
 
+            # デフォルト内部スロットを自動追加
+            self.ensure_default_internal_slots()
+
         except Exception as e:
             QMessageBox.critical(self, "エラー", f"船体データの設定中にエラーが発生しました: {e}")
 
@@ -1406,6 +1409,44 @@ class DesignView(QWidget):
             import traceback
             traceback.print_exc()
 
+    def ensure_default_internal_slots(self):
+        """内部スロットが空の場合にセンサー系スロットを自動追加"""
+        try:
+            if self.internal_slots:
+                return
+
+            default_sets = [
+                ["small_radar", "large_radar"],
+                ["sonar", "large_sonar"],
+                ["fire_control_system"],
+            ]
+
+            for categories in default_sets:
+                self.add_internal_slot()
+                if not self.internal_slots:
+                    continue
+                slot_info = self.internal_slots[-1]
+                slot_id = slot_info["id"]
+                self.slot_category_selections[slot_id] = categories
+
+                button = slot_info["category_button"]
+                names = [
+                    self.app_controller.get_equipment_display_name(c)
+                    if self.app_controller else c
+                    for c in categories
+                ]
+
+                if len(names) == 1:
+                    button.setText(names[0])
+                else:
+                    button.setText(f"{len(names)}種類選択")
+
+                self.update_equipment_combo(slot_id)
+        except Exception as e:
+            print(f"デフォルト内部スロット追加エラー: {e}")
+            import traceback
+            traceback.print_exc()
+
     def show_category_selection_dialog(self, slot_type):
         """カテゴリー選択ダイアログを表示"""
         try:
@@ -1584,19 +1625,6 @@ class DesignView(QWidget):
             return
 
         try:
-            # 制約チェック: 船体のarchetype が船体種別で許可されているかを確認
-            hull_type = self.current_hull.get("type", "")
-            hull_archetype = self.current_hull.get("archetype", "")
-            hull_ship_type = get_ship_type_from_role_display(hull_type)
-            
-            if not is_role_allowed(hull_ship_type, hull_archetype):
-                QMessageBox.warning(
-                    self, 
-                    "制約違反", 
-                    f"船体種別 '{hull_ship_type}' でarchetype '{hull_archetype}' は許可されていません。\n"
-                    f"船体登録時にarchetypeを修正してください。"
-                )
-                return
             
             # 設計データの構築
             design_data = {
@@ -1784,6 +1812,9 @@ class DesignView(QWidget):
                                 equipment_id = slot_data.get("equipment_id")
                                 if equipment_id:
                                     self.set_equipment_selection(slot_id, equipment_id)
+
+                    if not design_data.get("internal_slots"):
+                        self.ensure_default_internal_slots()
 
                     # 性能表示を更新
                     # self.update_stats()

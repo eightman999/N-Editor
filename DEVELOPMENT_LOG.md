@@ -1382,6 +1382,28 @@ self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
 
 ### 2025-07-21 20:07
 - `.gitignore` に `.DS_Store` を追加し、macOSのメタデータファイルを非追跡化
+
+## 2025年7月22日 (火)
+
+### ✅ 砲計算式調整
+**時刻**: 19:30
+**概要**: 12cm砲の重砲攻撃力が高すぎる問題を受け、中口径砲の攻撃・貫徹計算と重量人員補正を見直し。
+**影響範囲**:
+- utils/equipment_calculators/gun_calculator.py
+
+### ✅ 船体設計保存時の制約解除
+**時刻**: 19:40
+**概要**: 設計保存時のarchetypeとship_typeの制約チェックを撤廃
+**影響範囲**: views/design_view.py
+
+### 🚀 デフォルト内部スロット追加
+**時刻**: 19:41
+**概要**: 新規設計時に電探・ソナー・火器管制用の内部スロットを自動生成。既存設計読
+み込みでも内部スロットが無い場合に追加するよう対応。
+**影響範囲**:
+- views/design_view.py
+
+
 ### 2025-07-22 19:40
 - hull専用装備計算ユーティリティとエンジン・装甲設定ダイアログを追加
 ### 2025-07-22 19:45
@@ -1391,3 +1413,4 @@ self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
 - ARMOR_TYPESを史実準拠の種類リストへ拡張
 ### 2025-07-22 21:57
 - 装甲計算に装甲種別係数を導入し装甲値とコストを厚さで変動
+
