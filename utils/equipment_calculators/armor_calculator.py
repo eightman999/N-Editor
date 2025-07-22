@@ -11,6 +11,40 @@
 from typing import Dict, Any, Optional
 from .base_calculator import BaseEquipmentCalculator
 
+# 装甲種別ごとの性能係数とコスト係数
+ARMOR_TYPE_FACTORS: Dict[str, Dict[str, float]] = {
+    # 表面硬化装甲
+    'KC': {'protection': 1.0, 'cost': 1.0},
+    'CA': {'protection': 1.0, 'cost': 1.0},
+    'Class A': {'protection': 1.0, 'cost': 1.1},
+    'VH': {'protection': 1.1, 'cost': 1.1},
+    'TC': {'protection': 1.05, 'cost': 1.05},
+    'KC n/A': {'protection': 1.05, 'cost': 1.1},
+    # 均質装甲
+    'KNC': {'protection': 0.9, 'cost': 0.9},
+    'Wh': {'protection': 0.9, 'cost': 0.9},
+    'Ww': {'protection': 0.8, 'cost': 0.8},
+    'Wsh': {'protection': 0.85, 'cost': 0.85},
+    'NCA': {'protection': 0.9, 'cost': 0.95},
+    'STS/Class B': {'protection': 0.95, 'cost': 1.0},
+    'MNC': {'protection': 1.0, 'cost': 1.05},
+    'NVNC': {'protection': 0.95, 'cost': 0.95},
+    'CNC': {'protection': 0.9, 'cost': 0.9},
+    'NCV': {'protection': 0.9, 'cost': 0.9},
+    'AOD': {'protection': 0.85, 'cost': 0.9},
+    # 構造用鋼
+    'HT': {'protection': 0.7, 'cost': 0.7},
+    'HHT': {'protection': 0.7, 'cost': 0.7},
+    'st52': {'protection': 0.7, 'cost': 0.7},
+    'DS': {'protection': 0.8, 'cost': 0.8},
+    'DW': {'protection': 0.8, 'cost': 0.8},
+    'BK': {'protection': 0.6, 'cost': 0.6},
+    'FBK': {'protection': 0.6, 'cost': 0.6},
+}
+
+# VC鋼(基準装甲)の305mm装甲で装甲値41となるよう調整した係数
+BASE_ARMOR_VALUE_COEF = 41.0 / 305.0
+
 
 class ArmorCalculator(BaseEquipmentCalculator):
     """装甲系統装備用ステータス計算機"""
@@ -123,20 +157,25 @@ class ArmorCalculator(BaseEquipmentCalculator):
             dict: 一般装甲防御ステータス
         """
         armor_stats = {}
-        
+
+        armor_type = equipment_data.get('armor_type') or equipment_data.get('specific_elements', {}).get('armor_type', '')
+        factors = ARMOR_TYPE_FACTORS.get(armor_type, {'protection': 1.0, 'cost': 1.0})
+
         # 砲弾防御効果
-        shell_protection = armor_thickness * 0.015 + armor_weight * 0.001
-        
+        shell_protection = (armor_thickness * 0.015 + armor_weight * 0.001) * factors['protection']
+
         # 耐久力向上
         durability_bonus = armor_weight * 0.08
-        
-        # ステータス設定
+
         armor_stats['max_strength'] = durability_bonus + shell_protection
-        
+
         # 装甲貫通抵抗
         armor_stats['lg_armor_piercing'] = -shell_protection * 0.15
         armor_stats['hg_armor_piercing'] = -shell_protection * 0.1
-        
+
+        # HOI4風の装甲値
+        armor_stats['armor_value'] = armor_thickness * BASE_ARMOR_VALUE_COEF * factors['protection']
+
         return armor_stats
     
     def _calculate_weight_penalty(self, equipment_data: Dict[str, Any], hull_data: Optional[Dict[str, Any]]) -> Dict[str, float]:
@@ -256,8 +295,8 @@ class ArmorCalculator(BaseEquipmentCalculator):
             # 装甲厚によるコスト増加（厚い装甲は加工が困難）
             thickness_cost = armor_thickness * 0.01 if armor_thickness > 0 else 0
             
-            # 装甲材質によるコスト（現時点では一律）
-            material_multiplier = 1.0
+            armor_type = equipment_data.get('armor_type') or equipment_data.get('specific_elements', {}).get('armor_type', '')
+            material_multiplier = ARMOR_TYPE_FACTORS.get(armor_type, {'protection': 1.0, 'cost': 1.0})['cost']
             
             # バルジの場合は構造複雑性によるコスト増加
             equipment_name = equipment_data.get('name', '').lower()
