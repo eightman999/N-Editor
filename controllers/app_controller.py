@@ -1034,18 +1034,34 @@ class AppController(QObject):
             print(f"装備データ読み込み中にエラーが発生しました: {e}")
             return None
 
-    def get_all_equipment(self, equipment_type=None):
+    def get_all_equipment(self, equipment_type=None, country_filter=None):
         """
         全装備データまたは指定タイプの装備データを取得
 
         Args:
             equipment_type (str, optional): 装備タイプ（指定しない場合は全装備）
+            country_filter (list, optional): フィルタリングする国のリスト
 
         Returns:
             list: 装備データのリスト
         """
         try:
-            return self.equipment_model.get_all_equipment(equipment_type)
+            # 基本的な装備データを取得
+            equipment_list = self.equipment_model.get_all_equipment(equipment_type)
+            
+            # 国フィルターが指定されている場合はフィルタリング
+            if country_filter:
+                filtered_equipment = []
+                for equipment in equipment_list:
+                    equipment_country = equipment.get('common', {}).get('開発国', None)
+                    
+                    # 開発国が指定された国リストに含まれるか、または共通装備（None/空文字）の場合
+                    if equipment_country in country_filter or equipment_country is None or equipment_country == "":
+                        filtered_equipment.append(equipment)
+                
+                return filtered_equipment
+            
+            return equipment_list
         except Exception as e:
             print(f"装備データ取得中にエラーが発生しました: {e}")
             return []
@@ -1202,17 +1218,33 @@ class AppController(QObject):
             print(f"船体データ読み込み中にエラーが発生しました: {e}")
             return None
 
-    def get_all_hulls(self):
+    def get_all_hulls(self, country_filter: Optional[str] = None):
         """
         全船体データを取得
+
+        Args:
+            country_filter: 国家TAGでのフィルター（Noneの場合は全て取得）
 
         Returns:
             list: 船体データのリスト
         """
         try:
-            return self.hull_model.get_all_hulls()
+            return self.hull_model.get_all_hulls(country_filter=country_filter)
         except Exception as e:
             print(f"船体データ取得中にエラーが発生しました: {e}")
+            return []
+
+    def get_all_countries(self) -> List[str]:
+        """
+        全ての国家TAGを取得
+
+        Returns:
+            List[str]: 国家TAGのリスト
+        """
+        try:
+            return self.hull_model.get_all_countries()
+        except Exception as e:
+            print(f"国家データ取得中にエラーが発生しました: {e}")
             return []
 
     def delete_hull(self, hull_id):
@@ -2136,6 +2168,14 @@ class AppController(QObject):
     def show_design_view(self, hull_data=None, ship_type=None):
         """設計ビューを表示"""
         try:
+            # 設計ビューが初期化されているか確認
+            if 'design' not in self.main_window.views:
+                self.logger.error("設計ビューが初期化されていません")
+                QMessageBox.critical(self.main_window, "エラー", "設計ビューが初期化されていません。アプリケーションを再起動してください。")
+                return
+            
+            design_view = self.main_window.views['design']
+            
             if hull_data:
                 # 船体IDからJSONファイルをロード
                 hull_id = hull_data.get('id')
@@ -2143,10 +2183,9 @@ class AppController(QObject):
                     loaded_hull_data = self.load_hull(hull_id)
                     if loaded_hull_data:
                         # ロードした船体データと艦種を渡して設計ビューを表示
-                        self.main_window.views['design'].on_hull_selected(loaded_hull_data)
+                        design_view.on_hull_selected(loaded_hull_data)
                         # 艦種が指定されている場合は設定
                         if ship_type:
-                            design_view = self.main_window.views['design']
                             index = design_view.ship_type_combo.findText(ship_type)
                             if index >= 0:
                                 design_view.ship_type_combo.setCurrentIndex(index)
@@ -3267,7 +3306,7 @@ class AppController(QObject):
             logger.error(f"全設計データ取得エラー: {e}")
             return []
 
-    def get_all_hulls(self) -> List[Dict[str, Any]]:
+    def get_all_hulls_for_export(self) -> List[Dict[str, Any]]:
         """全ての船体データを取得（エクスポート用）
         
         Returns:
