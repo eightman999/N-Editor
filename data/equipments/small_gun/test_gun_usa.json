@@ -1,0 +1,28 @@
+{
+  "equipment_type": "小口径砲",
+  "common": {
+    "名前": "5\"/38 Mk 12 砲",
+    "ID": "TEST_GUN_USA_001",
+    "重量": 2800.0,
+    "人員": 27,
+    "開発年": 1934.0,
+    "開発国": "USA",
+    "必要資源_鉄": 6,
+    "必要資源_クロム": 0,
+    "必要資源_アルミ": 0,
+    "必要資源_タングステン": 0,
+    "必要資源_ゴム": 0
+  },
+  "specific": {
+    "shell_weight_g": 25000.0,
+    "initial_velocity_mps": 792.0,
+    "rounds_per_minute": 15.0,
+    "caliber_mm": 127.0,
+    "barrel_length": 38.0,
+    "barrel_count": 1,
+    "max_elevation": "+85/-15",
+    "turret_count": 1,
+    "shell_weight_kg": 25,
+    "caliber_cm": 12.7
+  }
+}

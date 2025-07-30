@@ -18,6 +18,8 @@ requests = "~2.32.3"
 miyabi256 = "~0.1.2"
 googletrans = "~4.0.0-rc1"
 hoi4-modding-tools = { git = "https://github.com/eightman999/useful_tools.git", branch = "master" }
+beautifulsoup4 = "^4.13.4"
+lxml = "==6.0.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

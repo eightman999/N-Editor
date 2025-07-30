@@ -165,7 +165,7 @@ class HOI4ExportWorker(QThread):
             return []
         
         try:
-            all_hulls = self.app_controller.get_all_hulls()
+            all_hulls = self.app_controller.get_all_hulls_for_export()
             return all_hulls or []
         except:
             return []

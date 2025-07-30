@@ -260,9 +260,37 @@ class HullModel:
 
         return None
 
-    def get_all_hulls(self) -> List[Dict[str, Any]]:
+    def get_all_countries(self) -> List[str]:
         """
-        全船体データを取得（キャッシュ対応）
+        データ内の全てのユニークな国家TAGリストを取得
+
+        Returns:
+            List[str]: 国家TAGリスト（ソート済み）
+        """
+        countries = set()
+        
+        if os.path.exists(self.data_dir):
+            for file_name in os.listdir(self.data_dir):
+                if file_name.endswith('.json'):
+                    file_path = os.path.join(self.data_dir, file_name)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                        
+                        country = data.get('country', '').strip()
+                        if country:
+                            countries.add(country)
+                    except Exception as e:
+                        logger.error(f"国家TAG読み込みエラー ({file_path}): {e}")
+        
+        return sorted(list(countries))
+
+    def get_all_hulls(self, country_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        全船体データを取得（キャッシュ対応、国家フィルター対応）
+
+        Args:
+            country_filter: 国家TAGでのフィルター（Noneの場合は全て取得）
 
         Returns:
             List[Dict[str, Any]]: 船体データリスト
@@ -315,6 +343,11 @@ class HullModel:
             
         duration = time.time() - start_time
         logger.info(f"全船体データ読み込み完了: {len(result)}件, ファイル数: {file_count}, 時間: {duration:.3f}秒")
+        
+        # 国家フィルターが指定されている場合はフィルタリング
+        if country_filter:
+            result = [hull for hull in result if hull.get('country', '').strip() == country_filter]
+            logger.debug(f"国家フィルター適用後: {len(result)}件 (フィルター: {country_filter})")
         
         return result
 

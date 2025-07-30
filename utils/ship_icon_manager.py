@@ -4,7 +4,7 @@
 import os
 import logging
 from typing import Optional, Dict
-from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont, QPen, QBrush
+from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont, QPen, QBrush, QImageReader
 from PyQt5.QtCore import Qt, QSize
 from utils.ship_type_mapping import ship_type_mapping
 
@@ -12,6 +12,43 @@ logger = logging.getLogger(__name__)
 
 class ShipIconManager:
     """艦種アイコン管理クラス"""
+    
+    @staticmethod
+    def _load_pixmap_safely(icon_path: str) -> Optional[QPixmap]:
+        """
+        QImageReaderを使い、安全にPixmapを読み込む
+        
+        Args:
+            icon_path: 画像ファイルのパス
+            
+        Returns:
+            読み込まれたQPixmap、失敗時はNone
+        """
+        if not icon_path or not os.path.exists(icon_path):
+            return None
+            
+        try:
+            reader = QImageReader(icon_path)
+            
+            # 読み込み可能か、サポートされているフォーマットかチェック
+            if not reader.canRead():
+                error_string = reader.errorString()
+                logger.warning(f"QImageReader cannot read file: {icon_path}. Reason: {error_string}")
+                return None
+
+            pixmap = QPixmap.fromImageReader(reader)
+            
+            if pixmap.isNull():
+                # canRead()がtrueでも、デコード中にエラーが起きることがある
+                error_string = reader.errorString()
+                logger.error(f"Failed to create QPixmap from: {icon_path}. Reason: {error_string}")
+                return None
+                
+            return pixmap
+            
+        except Exception as e:
+            logger.error(f"Exception during pixmap loading: {icon_path}. Error: {e}")
+            return None
     
     def __init__(self, assets_base_dir: str = None):
         """
@@ -71,29 +108,25 @@ class ShipIconManager:
             icon = QIcon()
             
             if os.path.exists(icon_path):
-                try:
-                    # アイコンファイルが存在する場合
-                    pixmap = QPixmap(icon_path)
-                    if not pixmap.isNull():
-                        # サイズ調整
-                        scaled_pixmap = pixmap.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                        icon.addPixmap(scaled_pixmap)
-                        logger.debug(f"アイコン読み込み成功: {icon_path}")
-                    else:
-                        # ファイルが壊れている場合はデフォルトアイコンを生成
-                        icon.addPixmap(self._create_default_icon(abbreviation, size))
-                        logger.warning(f"アイコンファイルが壊れています: {icon_path}")
-                        # 壊れたファイルを削除して再生成
-                        try:
-                            os.remove(icon_path)
-                            default_pixmap = self._create_default_icon(abbreviation, size)
-                            default_pixmap.save(icon_path, "PNG")
-                            logger.info(f"アイコンファイルを再生成: {icon_path}")
-                        except Exception as e:
-                            logger.error(f"アイコンファイルの再生成に失敗: {e}")
-                except Exception as e:
-                    logger.error(f"アイコン読み込みエラー: {e}")
+                # 安全な画像読み込みを使用
+                pixmap = self._load_pixmap_safely(icon_path)
+                if pixmap and not pixmap.isNull():
+                    # サイズ調整
+                    scaled_pixmap = pixmap.scaled(size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    icon.addPixmap(scaled_pixmap)
+                    logger.debug(f"アイコン読み込み成功: {icon_path}")
+                else:
+                    # ファイルが壊れている場合はデフォルトアイコンを生成
                     icon.addPixmap(self._create_default_icon(abbreviation, size))
+                    logger.warning(f"アイコンファイルが壊れています: {icon_path}")
+                    # 壊れたファイルを削除して再生成
+                    try:
+                        os.remove(icon_path)
+                        default_pixmap = self._create_default_icon(abbreviation, size)
+                        default_pixmap.save(icon_path, "PNG")
+                        logger.info(f"アイコンファイルを再生成: {icon_path}")
+                    except Exception as e:
+                        logger.error(f"アイコンファイルの再生成に失敗: {e}")
             else:
                 # アイコンファイルが存在しない場合はデフォルトアイコンを生成
                 default_pixmap = self._create_default_icon(abbreviation, size)

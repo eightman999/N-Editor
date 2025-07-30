@@ -1,0 +1,28 @@
+{
+  "equipment_type": "小口径砲",
+  "common": {
+    "名前": "汎用12cm砲",
+    "ID": "TEST_GUN_COMMON_001",
+    "重量": 2300.0,
+    "人員": 23,
+    "開発年": 1910.0,
+    "開発国": "",
+    "必要資源_鉄": 4,
+    "必要資源_クロム": 0,
+    "必要資源_アルミ": 0,
+    "必要資源_タングステン": 0,
+    "必要資源_ゴム": 0
+  },
+  "specific": {
+    "shell_weight_g": 20000.0,
+    "initial_velocity_mps": 800.0,
+    "rounds_per_minute": 10.0,
+    "caliber_mm": 120.0,
+    "barrel_length": 45.0,
+    "barrel_count": 1,
+    "max_elevation": "+75/-5",
+    "turret_count": 1,
+    "shell_weight_kg": 20,
+    "caliber_cm": 12.0
+  }
+}

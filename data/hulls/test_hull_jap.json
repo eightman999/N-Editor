@@ -1,0 +1,31 @@
+{
+  "id": "TEST_HULL_JAP_001",
+  "name": "テスト駆逐艦",
+  "type": "駆逐艦",
+  "weight": 1800,
+  "length": 118,
+  "width": 10.8,
+  "power": 38000,
+  "speed": 34,
+  "range": 3000,
+  "cruise_speed": 18,
+  "fuel_type": "重油",
+  "fuel_capacity": 420,
+  "armor_max": 25,
+  "armor_min": 12,
+  "hull_structure": "鋼製",
+  "armor_type": "面硬化装甲",
+  "crew": 228,
+  "country": "JAP",
+  "class": "駆逐艦",
+  "year": 1928,
+  "archetype": "DD",
+  "slots": {
+    "PA": "x",
+    "SA": "x", 
+    "PSA": "-",
+    "SSA": "-",
+    "PLA": "x",
+    "SLA": "x"
+  }
+}

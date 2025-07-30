@@ -1,0 +1,28 @@
+{
+  "equipment_type": "小口径砲",
+  "common": {
+    "名前": "12.7cm単装砲",
+    "ID": "TEST_GUN_JAP_001",
+    "重量": 2500.0,
+    "人員": 25,
+    "開発年": 1920.0,
+    "開発国": "JAP",
+    "必要資源_鉄": 5,
+    "必要資源_クロム": 0,
+    "必要資源_アルミ": 0,
+    "必要資源_タングステン": 0,
+    "必要資源_ゴム": 0
+  },
+  "specific": {
+    "shell_weight_g": 23000.0,
+    "initial_velocity_mps": 850.0,
+    "rounds_per_minute": 12.0,
+    "caliber_mm": 127.0,
+    "barrel_length": 50.0,
+    "barrel_count": 1,
+    "max_elevation": "+85/-5",
+    "turret_count": 1,
+    "shell_weight_kg": 23,
+    "caliber_cm": 12.7
+  }
+}

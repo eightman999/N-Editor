@@ -25,7 +25,7 @@ class AppSettings:
         self.mods_file = os.path.join(self.settings_dir, "mods.json")
 
         # データディレクトリのパス
-        self.equipment_dir = os.path.join(self.data_dir, "equipments")
+        self.equipment_dir = os.path.join(self.data_dir, "equipments", "database")
         self.hull_dir = os.path.join(self.data_dir, "hulls")
         self.design_dir = os.path.join(self.data_dir, "designs")
         self.fleet_dir = os.path.join(self.data_dir, "fleets")

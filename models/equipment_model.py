@@ -6,6 +6,7 @@ import json
 import yaml
 import time
 import logging
+import csv
 from typing import Dict, List, Any, Optional, Union
 
 # ロガーの設定
@@ -20,14 +21,12 @@ class EquipmentModel:
         初期化
 
         Args:
-            data_dir: データディレクトリのパス（デフォルトは'../data/equipments'）
+            data_dir: データディレクトリのパス（必須）
             cache_manager: キャッシュマネージャーのインスタンス
         """
         if data_dir is None:
-            # デフォルトのデータディレクトリを設定
-            self.data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'equipments')
-        else:
-            self.data_dir = data_dir
+            raise ValueError("data_dir parameter is required for CSV-based equipment data")
+        self.data_dir = data_dir
 
         # データディレクトリが存在しない場合は作成
         os.makedirs(self.data_dir, exist_ok=True)
@@ -37,9 +36,21 @@ class EquipmentModel:
 
         # 装備テンプレート（装備種別など）
         self.equipment_templates = self._load_equipment_templates()
+        
+        # IDプレフィックスから装備タイプへの逆引きマップを作成
+        self.prefix_to_type_map = self._create_prefix_to_type_map()
 
         # キャッシュ（ID -> 装備データ）
         self.equipment_cache = {}
+
+    def _create_prefix_to_type_map(self) -> Dict[str, str]:
+        """IDプレフィックスから装備タイプ名へのマッピングを作成"""
+        prefix_map = {}
+        if hasattr(self, 'equipment_templates'):
+            for equipment_type, template in self.equipment_templates.items():
+                if 'id_prefix' in template:
+                    prefix_map[template['id_prefix']] = equipment_type
+        return prefix_map
 
     def _load_equipment_templates(self) -> Dict[str, Dict[str, Any]]:
         """
@@ -253,53 +264,10 @@ class EquipmentModel:
 
     def save_equipment(self, equipment_data: Dict[str, Any]) -> bool:
         """
-        装備データの保存（カテゴリー別サブディレクトリ対応）
-
-        Args:
-            equipment_data: 装備データ辞書
-
-        Returns:
-            bool: 保存成功時True
+        装備データの保存（CSVベースでは未実装）
         """
-        try:
-            equipment_type = equipment_data.get('equipment_type', '')
-            equipment_id = equipment_data.get('common', {}).get('ID', '')
-
-            if not equipment_type or not equipment_id:
-                logger.warning(f"装備データに必須情報が不足: equipment_type={equipment_type}, equipment_id={equipment_id}")
-                return False
-
-            # equipment_typeがテンプレートに含まれている場合、そのサブディレクトリを使用
-            if equipment_type in self.equipment_templates:
-                # テンプレートからサブディレクトリ名を取得
-                id_prefix = self.get_prefix_for_type(equipment_type)
-                if id_prefix:
-                    save_dir = os.path.join(self.data_dir, id_prefix)
-                else:
-                    # プレフィックスが取得できない場合は、equipment_typeをそのまま使用
-                    save_dir = os.path.join(self.data_dir, equipment_type)
-            else:
-                # テンプレートにない場合は、equipment_typeをそのままサブディレクトリ名として使用
-                save_dir = os.path.join(self.data_dir, equipment_type)
-
-            # 保存ディレクトリの作成
-            os.makedirs(save_dir, exist_ok=True)
-
-            # ファイル名は装備IDを使用
-            file_path = os.path.join(save_dir, f"{equipment_id}.json")
-
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(equipment_data, f, ensure_ascii=False, indent=2)
-
-            # キャッシュを更新
-            self.equipment_cache[equipment_id] = equipment_data
-
-            logger.info(f"装備データを保存: {equipment_id} -> {save_dir}")
-            return True
-
-        except Exception as e:
-            logger.error(f"装備データ保存エラー: {e}")
-            return False
+        logger.error("CSVをマスターデータとしているため、個別の装備保存は現在サポートされていません。")
+        raise NotImplementedError("Saving individual equipment is not supported when using CSV as the master data.")
 
     def load_equipment(self, equipment_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -311,31 +279,14 @@ class EquipmentModel:
         Returns:
             Optional[Dict[str, Any]]: 装備データ辞書（存在しない場合はNone）
         """
-        # キャッシュにあれば返す
+        # メモリキャッシュにあれば返す
         if equipment_id in self.equipment_cache:
             return self.equipment_cache[equipment_id]
 
-        # キャッシュにない場合はファイルから読み込み
-        for type_dir in os.listdir(self.data_dir):
-            dir_path = os.path.join(self.data_dir, type_dir)
-            if not os.path.isdir(dir_path):
-                continue
-
-            file_path = os.path.join(dir_path, f"{equipment_id}.json")
-            if os.path.exists(file_path):
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-
-                    # キャッシュに保存
-                    self.equipment_cache[equipment_id] = data
-                    return data
-
-                except Exception as e:
-                    print(f"装備データ読み込みエラー: {e}")
-                    return None
-
-        return None
+        # キャッシュにない場合は全データをロードして探す
+        self.get_all_equipment() # これで全データがロードされ、キャッシュされる
+        
+        return self.equipment_cache.get(equipment_id)
 
     def get_all_equipment(self, equipment_type: Optional[str] = None) -> List[Dict[str, Any]]:
         """
@@ -349,154 +300,56 @@ class EquipmentModel:
         """
         start_time = time.time()
         
-        # キャッシュキーを生成
-        cache_key = f"{self.data_dir}:{equipment_type if equipment_type else 'all'}"
+        # キャッシュキーを生成 (CSVベースなので、ディレクトリの最終更新時刻なども考慮するとより堅牢)
+        cache_key = f"{self.data_dir}:all_csv"
         
         # キャッシュから読み込み試行
         if self.cache_manager:
-            cached_data = self.cache_manager.load("equipment_all", cache_key)
+            cached_data = self.cache_manager.load("equipment_all_csv", cache_key)
             if cached_data is not None:
-                duration = time.time() - start_time
-                logger.debug(f"装備データをキャッシュから読み込み: {len(cached_data)}件, タイプ: {equipment_type or 'all'}, 時間: {duration:.3f}秒")
-                
                 # メモリキャッシュも更新
                 for equipment_data in cached_data:
                     equipment_id = equipment_data.get('common', {}).get('ID', '')
                     if equipment_id:
                         self.equipment_cache[equipment_id] = equipment_data
-                        
+                
+                duration = time.time() - start_time
+                logger.debug(f"全装備データをキャッシュから読み込み: {len(cached_data)}件, 時間: {duration:.3f}秒")
+                
+                if equipment_type:
+                    display_name = self.get_equipment_display_name(equipment_type)
+                    return [eq for eq in cached_data if eq.get("equipment_type") == display_name]
                 return cached_data
 
-        result = []
-        file_count = 0
-
-        if equipment_type:
-            # 特定タイプの装備のみ
-            id_prefix = self.get_prefix_for_type(equipment_type)
-            if id_prefix:
-                type_dir = os.path.join(self.data_dir, id_prefix)
-                if os.path.exists(type_dir) and os.path.isdir(type_dir):
-                    for file_name in os.listdir(type_dir):
-                        if file_name.endswith('.json'):
-                            file_path = os.path.join(type_dir, file_name)
-                            file_count += 1
-                            try:
-                                with open(file_path, 'r', encoding='utf-8') as f:
-                                    data = json.load(f)
-
-                                # キャッシュに保存
-                                equipment_id = data.get('common', {}).get('ID', '')
-                                if equipment_id:
-                                    self.equipment_cache[equipment_id] = data
-
-                                result.append(data)
-                            except Exception as e:
-                                logger.error(f"装備データ読み込みエラー ({file_path}): {e}")
-        else:
-            # 全装備
-            for type_dir in os.listdir(self.data_dir):
-                dir_path = os.path.join(self.data_dir, type_dir)
-                if not os.path.isdir(dir_path):
-                    continue
-
-                for file_name in os.listdir(dir_path):
-                    if file_name.endswith('.json'):
-                        file_path = os.path.join(dir_path, file_name)
-                        file_count += 1
-                        try:
-                            with open(file_path, 'r', encoding='utf-8') as f:
-                                data = json.load(f)
-
-                            # キャッシュに保存
-                            equipment_id = data.get('common', {}).get('ID', '')
-                            if equipment_id:
-                                self.equipment_cache[equipment_id] = data
-
-                            result.append(data)
-                        except Exception as e:
-                            logger.error(f"装備データ読み込みエラー ({file_path}): {e}")
-
-        # キャッシュに保存
-        if result and self.cache_manager:
-            self.cache_manager.save("equipment_all", cache_key, result)
+        # キャッシュがない場合、CSVから全データをロード
+        all_equipments = self._load_all_equipments_from_csv()
+        
+        # ファイルキャッシュに保存
+        if all_equipments and self.cache_manager:
+            self.cache_manager.save("equipment_all_csv", cache_key, all_equipments)
             
         duration = time.time() - start_time
-        logger.info(f"装備データ読み込み完了: {len(result)}件, タイプ: {equipment_type or 'all'}, ファイル数: {file_count}, 時間: {duration:.3f}秒")
+        logger.info(f"全装備データをCSVから読み込み完了: {len(all_equipments)}件, 時間: {duration:.3f}秒")
 
-        return result
+        if equipment_type:
+            display_name = self.get_equipment_display_name(equipment_type)
+            return [eq for eq in all_equipments if eq.get("equipment_type") == display_name]
+
+        return all_equipments
 
     def delete_equipment(self, equipment_id: str) -> bool:
         """
-        装備データの削除
-
-        Args:
-            equipment_id: 装備ID
-
-        Returns:
-            bool: 削除成功時True
+        装備データの削除（CSVベースでは未実装）
         """
-        # 装備データがどのタイプか検索
-        for type_dir in os.listdir(self.data_dir):
-            dir_path = os.path.join(self.data_dir, type_dir)
-            if not os.path.isdir(dir_path):
-                continue
-
-            file_path = os.path.join(dir_path, f"{equipment_id}.json")
-            if os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-
-                    # キャッシュから削除
-                    if equipment_id in self.equipment_cache:
-                        del self.equipment_cache[equipment_id]
-
-                    return True
-
-                except Exception as e:
-                    print(f"装備データ削除エラー: {e}")
-                    return False
-
-        return False
+        logger.error("CSVをマスターデータとしているため、個別の装備削除は現在サポートされていません。")
+        raise NotImplementedError("Deleting individual equipment is not supported when using CSV as the master data.")
 
     def get_next_id(self, equipment_type: str) -> str:
         """
-        指定装備タイプの次のIDを生成
-
-        Args:
-            equipment_type: 装備タイプ
-
-        Returns:
-            str: 次のID
+        指定装備タイプの次のIDを生成（CSVベースでは未実装）
         """
-        id_prefix = self.get_prefix_for_type(equipment_type)
-        if not id_prefix:
-            return ""
-
-        # プレフィックスディレクトリの装備を取得
-        type_dir = os.path.join(self.data_dir, id_prefix)
-        if not os.path.exists(type_dir):
-            os.makedirs(type_dir, exist_ok=True)
-            return f"{id_prefix}001"  # 最初の装備ID
-
-        # 既存のIDから最大値を取得
-        max_number = 0
-        for file_name in os.listdir(type_dir):
-            if file_name.endswith('.json'):
-                try:
-                    # ファイル名（拡張子なし）＝装備ID
-                    equipment_id = file_name[:-5]
-                    # プレフィックス部分を取り除いて数値部分を取得
-                    if equipment_id.startswith(id_prefix):
-                        number_part = equipment_id[len(id_prefix):]
-                        if number_part.isdigit():
-                            number = int(number_part)
-                            max_number = max(max_number, number)
-                except Exception:
-                    pass
-
-        # 次の番号を生成
-        next_number = max_number + 1
-        return f"{id_prefix}{next_number:03d}"
+        logger.error("CSVをマスターデータとしているため、IDの自動採番は現在サポートされていません。")
+        raise NotImplementedError("Automatic ID generation is not supported when using CSV as the master data.")
 
     def get_equipment_type_mapping(self) -> Dict[str, str]:
         """
@@ -521,3 +374,71 @@ class EquipmentModel:
                     processed.add(key)
 
         return mapping
+
+    def _load_all_equipments_from_csv(self) -> List[Dict[str, Any]]:
+        """
+        data/equipments 内の全CSVファイルから装備データを読み込み、JSONライクな構造に変換する
+        """
+        all_equipments = []
+        
+        # テンプレートからcommonとspecificのフィールドリストを作成
+        common_fields = set(['名前', 'ID', '重量', '人員', '開発年', '開発国'])
+        # resourcesはネストされているので特別扱い
+        resource_fields = set(['必要資源_鉄', '必要資源_クロム', '必要資源_アルミ', '必要資源_タングステン', '必要資源_ゴム'])
+
+        for file in os.listdir(self.data_dir):
+            if file.endswith('.csv'):
+                file_path = os.path.join(self.data_dir, file)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            equipment_id = row.get('ID')
+                            if not equipment_id:
+                                continue
+
+                            # IDプレフィックスから装備タイプを特定
+                            prefix = ''.join([c for c in equipment_id if c.isalpha()])
+                            equipment_type = self.prefix_to_type_map.get(prefix, 'その他')
+                            display_name = self.get_equipment_display_name(equipment_type)
+
+                            equipment_data = {
+                                "equipment_type": display_name,
+                                "common": {},
+                                "specific": {}
+                            }
+
+                            for key, value in row.items():
+                                # 空文字列は適切なデフォルト値に変換
+                                if value == '' or value is None:
+                                    value = 0 if key in ['重量', '人員', '開発年'] or key.startswith('必要資源_') else value
+                                
+                                # 数値変換を試みる
+                                try:
+                                    if isinstance(value, str) and value.replace('.', '').replace('-', '').isdigit():
+                                        if '.' in value:
+                                            value = float(value)
+                                        else:
+                                            value = int(value)
+                                except (ValueError, TypeError):
+                                    pass # 変換できない場合は文字列のまま
+
+                                if key in common_fields:
+                                    equipment_data["common"][key] = value
+                                elif key in resource_fields:
+                                    # "必要資源_"プレフィックスを除去してネスト構造作成
+                                    resource_name = key.replace('必要資源_', '')
+                                    if "必要資源" not in equipment_data["common"]:
+                                        equipment_data["common"]["必要資源"] = {}
+                                    equipment_data["common"]["必要資源"][resource_name] = value
+                                else:
+                                    equipment_data["specific"][key] = value
+
+                            all_equipments.append(equipment_data)
+                            # メモリキャッシュにも保存
+                            self.equipment_cache[equipment_id] = equipment_data
+
+                except Exception as e:
+                    logger.error(f"CSV装備データ読み込みエラー ({file_path}): {e}")
+        
+        return all_equipments

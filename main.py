@@ -121,10 +121,27 @@ setup_qt_plugin_path()
 # PyQt5のインポートを試行
 try:
     from PyQt5.QtWidgets import QApplication, QMessageBox
-    from PyQt5.QtCore import QT_VERSION_STR, PYQT_VERSION_STR
+    from PyQt5.QtCore import QT_VERSION_STR, PYQT_VERSION_STR, QtMsgType, qInstallMessageHandler
     from PyQt5.QtGui import QIcon
 
     logger.info(f"PyQt5 successfully imported. Qt version: {QT_VERSION_STR}, PyQt version: {PYQT_VERSION_STR}")
+    
+    # Qtメッセージハンドラーを設定（libpng errorなどを詳細ログ出力）
+    def qt_message_handler(mode, context, message):
+        """QtのログメッセージをPythonのloggingにリダイレクトする"""
+        level = {
+            QtMsgType.QtDebugMsg: logging.DEBUG,
+            QtMsgType.QtInfoMsg: logging.INFO,
+            QtMsgType.QtWarningMsg: logging.WARNING,
+            QtMsgType.QtCriticalMsg: logging.CRITICAL,
+            QtMsgType.QtFatalMsg: logging.CRITICAL
+        }.get(mode, logging.INFO)
+        
+        log_message = f"QtLog: {message}"
+        if context.file:
+            log_message += f" (File: {context.file}:{context.line})"
+        
+        logging.log(level, log_message)
 except ImportError as e:
     logger.error(f"Failed to import PyQt5: {e}")
     print("エラー: PyQt5がインストールされていません。")
@@ -205,6 +222,9 @@ def main():
     # PyQt5アプリケーションの初期化
     try:
         app = QApplication(sys.argv)
+        
+        # Qtメッセージハンドラーを有効化（libpng errorなどを詳細ログ出力）
+        qInstallMessageHandler(qt_message_handler)
         
         # macOS固有の設定を追加
         if platform.system() == "Darwin":

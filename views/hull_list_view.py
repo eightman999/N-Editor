@@ -3,7 +3,7 @@
 # 動作設計: hull_list_viewビュー
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QTableWidget, QTableWidgetItem,
-                             QHeaderView, QMessageBox, QDialog, QFileDialog)
+                             QHeaderView, QMessageBox, QDialog, QFileDialog, QComboBox)
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QColor
 import os
@@ -23,6 +23,9 @@ class HullListView(QWidget):
         super(HullListView, self).__init__(parent)
 
         self.app_controller = app_controller
+        
+        # 現在のフィルター状態
+        self.current_country_filter = None
 
         # 艦種アーキタイプマッピングの読み込み
         self.ship_archetype_mapping = self.load_ship_archetype_mapping()
@@ -46,6 +49,16 @@ class HullListView(QWidget):
         self.title_label = QLabel("船体リスト")
         self.title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         header_layout.addWidget(self.title_label)
+
+        # 国家フィルター用のComboBox
+        country_filter_label = QLabel("国家:")
+        header_layout.addWidget(country_filter_label)
+        
+        self.country_filter_combo = QComboBox()
+        self.country_filter_combo.setMinimumWidth(120)
+        self.populate_country_filter()
+        self.country_filter_combo.currentIndexChanged.connect(self.on_country_filter_changed)
+        header_layout.addWidget(self.country_filter_combo)
 
         # スペーサー
         header_layout.addStretch(1)
@@ -97,6 +110,32 @@ class HullListView(QWidget):
 
         main_layout.addWidget(self.hull_table)
 
+    def populate_country_filter(self):
+        """国家フィルターの選択肢をセットアップ"""
+        self.country_filter_combo.clear()
+        
+        # "全て"の選択肢を追加
+        self.country_filter_combo.addItem("全ての国家", None)
+        
+        # 国家リストを取得
+        if self.app_controller:
+            countries = self.app_controller.get_all_countries()
+        else:
+            # 従来の方法（モデル直接使用）
+            from models.hull_model import HullModel
+            hull_model = HullModel()
+            countries = hull_model.get_all_countries()
+        
+        # 各国家を選択肢に追加
+        for country in countries:
+            self.country_filter_combo.addItem(country, country)
+
+    def on_country_filter_changed(self, index):
+        """国家フィルターの選択が変更されたときの処理"""
+        selected_country = self.country_filter_combo.itemData(index)
+        self.current_country_filter = selected_country
+        self.load_hull_list()
+
     def load_ship_archetype_mapping(self):
         """ship_archetype_mappingを読み込む"""
         if self.app_controller and self.app_controller.hull_model:
@@ -113,14 +152,14 @@ class HullListView(QWidget):
         
         self.hull_table.setRowCount(0)  # テーブルをクリア
 
-        # コントローラーから船体データを取得
+        # コントローラーから船体データを取得（フィルター適用）
         if self.app_controller:
-            hull_list = self.app_controller.get_all_hulls()
+            hull_list = self.app_controller.get_all_hulls(country_filter=self.current_country_filter)
         else:
             # 従来の方法（モデル直接使用）
             from models.hull_model import HullModel
             hull_model = HullModel()
-            hull_list = hull_model.get_all_hulls()
+            hull_list = hull_model.get_all_hulls(country_filter=self.current_country_filter)
 
         # テーブルに追加
         for row, hull in enumerate(hull_list):

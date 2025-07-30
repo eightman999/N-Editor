@@ -39,6 +39,10 @@ class DesignView(QWidget):
         # 装備表示用の年代フィルタ（デフォルトは +10 / -25 年）
         self.year_range_plus = 10
         self.year_range_minus = 25
+        
+        # 装備表示用の国フィルタ設定
+        self.use_hull_country_filter = True  # 船体と同じ国の装備のみ表示するかどうか
+        self.selected_country_filter = None  # 手動選択した国フィルタ
 
         # アイコンマネージャーを追加
         self.ship_icon_manager = ShipIconManager()
@@ -1046,13 +1050,29 @@ class DesignView(QWidget):
             if not selected_categories:
                 return
 
+            # 国フィルタの準備
+            country_filter = None
+            if self.use_hull_country_filter and self.current_hull:
+                # 船体と同じ国の装備のみ表示
+                hull_country = self.current_hull.get("country", "")
+                if hull_country:
+                    country_filter = [hull_country]
+            elif not self.use_hull_country_filter and self.selected_country_filter:
+                # 手動選択した国の装備を表示
+                if self.selected_country_filter == "ALL":
+                    country_filter = None  # すべての国
+                elif self.selected_country_filter == "COMMON":
+                    country_filter = [None, ""]  # 共通装備のみ
+                else:
+                    country_filter = [self.selected_country_filter]
+
             # 該当するすべての装備を取得
             all_equipment = []
 
             for category in selected_categories:
                 if self.app_controller:
-                    # アプリコントローラーを使用して装備を取得
-                    equipment_list = self.app_controller.get_all_equipment(category)
+                    # アプリコントローラーを使用して装備を取得（国フィルタ付き）
+                    equipment_list = self.app_controller.get_all_equipment(category, country_filter)
                     all_equipment.extend(equipment_list)
                 else:
                     # 直接モデルを使用
@@ -1488,6 +1508,48 @@ class DesignView(QWidget):
             year_filter_group.setLayout(year_layout)
             layout.addWidget(year_filter_group)
 
+            # 国フィルタ設定
+            country_filter_group = QGroupBox("国フィルタ設定")
+            country_layout = QVBoxLayout()
+
+            # 船体と同じ国のチェックボックス
+            same_country_checkbox = QCheckBox("船体と同じ国の装備のみ表示")
+            same_country_checkbox.setChecked(True)  # デフォルトはON
+            country_layout.addWidget(same_country_checkbox)
+
+            # 国選択コンボボックス
+            country_combo_layout = QHBoxLayout()
+            country_combo_layout.addWidget(QLabel("表示する国:"))
+            country_combo = QComboBox()
+            
+            # 利用可能な国のリストを取得して追加
+            available_countries = self.get_available_countries()
+            country_combo.addItem("すべての国", "ALL")
+            country_combo.addItem("共通装備のみ", "COMMON")
+            for country in available_countries:
+                country_combo.addItem(country, country)
+            
+            # 現在の船体の国があれば選択
+            if self.current_hull:
+                hull_country = self.current_hull.get("country", "")
+                for i in range(country_combo.count()):
+                    if country_combo.itemData(i) == hull_country:
+                        country_combo.setCurrentIndex(i)
+                        break
+            
+            country_combo_layout.addWidget(country_combo)
+            country_layout.addLayout(country_combo_layout)
+
+            # チェックボックスの状態に応じてコンボボックスを有効/無効にする
+            def toggle_country_combo(checked):
+                country_combo.setEnabled(not checked)
+            
+            same_country_checkbox.toggled.connect(toggle_country_combo)
+            toggle_country_combo(same_country_checkbox.isChecked())  # 初期状態を設定
+
+            country_filter_group.setLayout(country_layout)
+            layout.addWidget(country_filter_group)
+
             # 説明ラベル
             description = QLabel("複数のカテゴリーを選択できます")
             layout.addWidget(description)
@@ -1572,6 +1634,11 @@ class DesignView(QWidget):
                 # スライダーの値を保存
                 self.year_range_minus = minus_slider.value()
                 self.year_range_plus = plus_slider.value()
+
+                # 国フィルタ設定を保存
+                self.use_hull_country_filter = same_country_checkbox.isChecked()
+                if not self.use_hull_country_filter:
+                    self.selected_country_filter = country_combo.currentData()
 
                 # self.slot_category_selectionsにキー名を保存
                 self.slot_category_selections[slot_type] = selected_categories
@@ -1880,4 +1947,27 @@ class DesignView(QWidget):
             
         except Exception as e:
             print(f"装備選択変更処理エラー: {e}")
+
+    def get_available_countries(self):
+        """
+        装備データから利用可能な国のリストを取得
+        
+        Returns:
+            list: 利用可能な国のリスト
+        """
+        try:
+            countries = set()
+            
+            if self.app_controller:
+                # 全装備を取得して開発国を集計
+                all_equipment = self.app_controller.get_all_equipment()
+                for equipment in all_equipment:
+                    country = equipment.get('common', {}).get('開発国', None)
+                    if country and country.strip():
+                        countries.add(country)
+            
+            return sorted(list(countries))
+        except Exception as e:
+            print(f"利用可能な国の取得エラー: {e}")
+            return []
 
