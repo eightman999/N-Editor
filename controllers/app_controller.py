@@ -3317,26 +3317,29 @@ class AppController(QObject):
             hulls_dir = get_data_dir('hulls')
             
             if not os.path.exists(hulls_dir):
-                logger.warning(f"船体ディレクトリが存在しません: {hulls_dir}")
+                self.logger.warning(f"船体ディレクトリが存在しません: {hulls_dir}")
                 return hulls
             
             # 船体ファイルを検索
             for root, dirs, files in os.walk(hulls_dir):
                 for file in files:
                     if file.endswith('.json'):
-                        file_path = os.path.join(root, file)
                         try:
-                            hull_data = self.load_hull_from_file(file_path)
+                            # ファイル名から船体IDを抽出
+                            hull_id = os.path.splitext(file)[0]
+                            
+                            # get_hull_for_exportを使用してデータ変換を行う
+                            hull_data = self.get_hull_for_export(hull_id)
                             if hull_data:
                                 hulls.append(hull_data)
                         except Exception as e:
-                            logger.warning(f"船体ファイル読み込みエラー ({file}): {e}")
+                            self.logger.warning(f"船体ファイル読み込みエラー ({file}): {e}")
             
-            logger.info(f"船体データ取得完了: {len(hulls)}件")
+            self.logger.info(f"船体データ取得完了: {len(hulls)}件")
             return hulls
             
         except Exception as e:
-            logger.error(f"全船体データ取得エラー: {e}")
+            self.logger.error(f"全船体データ取得エラー: {e}")
             return []
 
     def load_design_from_file(self, file_path: str) -> Optional[Dict[str, Any]]:
@@ -3544,3 +3547,76 @@ class AppController(QObject):
             return {'stats': {'lg_attack': 5, 'anti_air_attack': 5}}
         else:
             return {'stats': {}}
+
+    # Export related methods
+    
+    def export_ship_designs_and_hulls(self, output_dir: str, country_tag: str):
+        """
+        Exports all ship designs and hulls to HOI4 format in the background.
+
+        Args:
+            output_dir (str): The directory to export the files to.
+            country_tag (str): The country tag for the exported files.
+        """
+        task_name = f"Exporting {country_tag} Designs"
+        self.background_task_started.emit(task_name)
+
+        worker = Worker(
+            self._export_ship_designs_and_hulls_task,
+            output_dir=output_dir,
+            country_tag=country_tag
+        )
+        worker.signals.result.connect(
+            lambda result: self.background_task_finished.emit(task_name, result)
+        )
+        worker.signals.error.connect(
+            lambda error: self.background_task_error.emit(task_name, error)
+        )
+        worker.signals.progress.connect(
+            lambda progress: self.background_task_progress.emit(task_name, progress)
+        )
+        self.threadpool.start(worker)
+
+    def _export_ship_designs_and_hulls_task(self, output_dir: str, country_tag: str, progress_callback):
+        """
+        The actual task of exporting ship designs and hulls.
+        This method is run in a background thread.
+
+        Args:
+            output_dir (str): The directory to export the files to.
+            country_tag (str): The country tag for the exported files.
+            progress_callback: A function to report progress.
+
+        Returns:
+            dict: A summary of the export operation.
+        """
+        from exporters.hoi4_exporter import HOI4Exporter
+
+        exporter = HOI4Exporter(output_dir=output_dir, country_tag=country_tag)
+        
+        # Export all hulls using the specialized method
+        all_hulls = self.get_all_hulls_for_export()
+        if not all_hulls:
+            self.logger.warning("No hulls found to export.")
+        else:
+            def hull_progress_callback(i, total):
+                if progress_callback:
+                    progress_callback(int(50 * i / total))
+            exporter.export_batch_hulls(all_hulls, hull_progress_callback)
+
+        # Export all designs
+        all_designs = self.get_all_designs()
+        if not all_designs:
+            self.logger.warning("No designs found to export.")
+        else:
+            def design_progress_callback(i, total):
+                if progress_callback:
+                    progress_callback(50 + int(50 * i / total))
+            exporter.export_batch_designs(all_designs, design_progress_callback)
+
+        exporter.finalize_files()
+        
+        summary = exporter.get_export_summary()
+        self.logger.info(f"Export completed for {country_tag}. Summary: {summary}")
+        
+        return summary

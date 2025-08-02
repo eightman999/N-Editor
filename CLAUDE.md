@@ -1,4 +1,137 @@
-# Claude AI Assistant Settings
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+NavalDesignSystem (NDS) is a Python desktop application built with PyQt5 for creating Hearts of Iron IV (HOI4) modifications. It provides a graphical interface for editing naval OOB files, ship designs, equipment, and other HOI4 game data.
+
+## Technology Stack
+
+- **Language**: Python 3.12+
+- **GUI Framework**: PyQt5 (~5.15.11)
+- **Package Management**: Poetry
+- **Parsers**: PLY (Python Lex-Yacc) for HOI4 script parsing
+- **Key Dependencies**: NumPy, Pillow, OpenCV, PyYAML, Requests
+
+## Development Commands
+
+### Installation and Setup
+```bash
+# Install dependencies
+poetry install
+
+# Activate virtual environment
+poetry shell
+
+# Run the application
+python main.py
+```
+
+### Common Operations
+- **Start Application**: `python main.py`
+- **Add Dependencies**: `poetry add <package>`
+- **Update Dependencies**: `poetry update`
+
+## Architecture
+
+### MVC Structure
+- **Models** (`models/`): Data structures and business logic
+- **Views** (`views/`): PyQt5 UI components and forms  
+- **Controllers** (`controllers/`): Application logic coordination
+- **Parsers** (`parser/`): PLY-based HOI4 script parsers
+- **Utils** (`utils/`): Caching, performance monitoring, calculations
+
+### Key Classes
+- `AppController`: Central application coordinator with 70+ methods
+- `EquipmentModel`/`HullModel`: Data management
+- `NavalDesignSystem`: Main window implementation
+- Various calculator classes for equipment statistics
+
+## Code Style and Conventions
+
+### Python Conventions
+- **Classes**: PascalCase (`AppController`, `EquipmentModel`)
+- **Methods/Variables**: snake_case (`load_equipment`, `current_mod`)
+- **Constants**: UPPER_CASE (`VERSION_FILE`, `BASE_ARMOR_VALUE_COEF`)
+- **Strings**: Use raw strings (`r""`) for regex and paths to avoid SyntaxWarning
+
+### PyQt5 Patterns
+- Extensive use of signals/slots for component communication
+- Background operations via QThreadPool
+- Custom Windows 95-style CSS styling
+- MVC separation with clear responsibilities
+
+### Error Handling
+- Always check for zero division: `value/divisor if divisor != 0 else 0`
+- Comprehensive logging with rotating file handlers
+- Graceful degradation on errors with user feedback
+
+## Performance Guidelines
+
+### Caching System
+- Implement aggressive caching with timestamp-based invalidation
+- Use `CacheManager` for file-based operations
+- Cache heavy operations like image processing and data parsing
+- Check file modification times before using cached data
+
+### UI Optimization
+- Set QGraphicsView optimization flags:
+  ```python
+  view.setOptimizationFlag(QGraphicsView.DontSavePainterState, True)
+  view.setOptimizationFlag(QGraphicsView.DontAdjustForAntialiasing, True)
+  view.setViewportUpdateMode(QGraphicsView.MinimalViewportUpdate)
+  ```
+- Disable antialiasing for performance: `QPainter.Antialiasing, False`
+- Use `Qt.FastTransformation` for image scaling
+- Implement sprite sheets for multiple small images
+
+### Threading
+- Use QThreadPool for background file I/O and parsing
+- Implement worker classes with proper signal-based communication
+- Prevent duplicate processing with state management flags
+
+## File and Data Handling
+
+### Supported Formats
+- **HOI4 Scripts**: Custom PLY parsers for `.txt` files
+- **Configuration**: YAML and JSON for settings
+- **Data Storage**: File-based with extensive caching
+- **Images**: PNG/BMP processing with optimization
+
+### Parser Architecture
+- Separate parsers for different HOI4 file types
+- Thread-safe parsing with proper error handling
+- Caching of parsed results with metadata tracking
+
+## Testing and Debugging
+
+### Current Testing Approach
+- Manual testing through GUI interface
+- Built-in debug menu with cache functionality tests
+- Performance monitoring utilities in `utils/`
+- No automated test framework currently in use
+
+### Debug Features
+- Cache functionality testing via debug menu
+- Conflict resolution dialog testing
+- Performance benchmarking for heavy operations
+- Detailed logging for troubleshooting
+
+## Git Integration
+
+The application includes GitHub synchronization features for team collaboration:
+- Automatic data synchronization with remote repositories
+- Conflict resolution dialogs for merge conflicts
+- Background sync operations with progress tracking
+
+## Platform Considerations
+
+### Cross-Platform Support
+- Platform-specific Qt plugin path handling
+- macOS-specific environment variable settings
+- Windows-style UI theming across all platforms
+- Proper virtual environment detection and setup
 
 ## 🔨 最重要ルール - 新しいルールの追加プロセス
 

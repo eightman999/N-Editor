@@ -41,6 +41,13 @@ class HOI4Exporter(BaseExporter):
         
         # 既に初期化済みかのフラグ
         self._files_initialized = False
+        
+        # 軽減後装備の重複防止用セット
+        self.exported_reduced_equipments = set()
+        
+        # StatsCalculatorインスタンス
+        from utils.stats_calculator import StatsCalculator
+        self.stats_calculator = StatsCalculator()
     
     def export_design(self, design_data: Dict[str, Any]) -> bool:
         """設計データをcreate_equipment_variant形式でエクスポート
@@ -64,6 +71,24 @@ class HOI4Exporter(BaseExporter):
             # ファイル初期化（初回のみ）
             if not self._files_initialized:
                 self.initialize_files()
+            
+            # 船体データを取得して軽減後装備を書き出し
+            hull_id = design_data.get('hull_id')
+            if hull_id and hasattr(self.stats_calculator, 'app_controller') and self.stats_calculator.app_controller:
+                hull_stats = self.stats_calculator._get_hull_base_stats(hull_id)
+                hull_type = self.stats_calculator._infer_hull_type(hull_id)
+                
+                # 各モジュールの軽減後装備を書き出し
+                modules = design_data.get('modules', {})
+                for slot_id, module_id in modules.items():
+                    if module_id and module_id != 'empty':
+                        # 元の装備データを取得
+                        original_equipment = self.stats_calculator.app_controller.get_equipment_data(module_id)
+                        if original_equipment:
+                            # 軽減後装備IDを生成
+                            reduced_id = self._generate_reduced_equipment_id(module_id, hull_type)
+                            # 軽減後装備を書き出し
+                            self._export_reduced_equipment(original_equipment, hull_stats, reduced_id)
             
             # create_equipment_variant ブロックの生成
             variant_block = self._generate_variant_block(design_data)
@@ -149,7 +174,9 @@ class HOI4Exporter(BaseExporter):
             lines.append("        modules = {")
             for slot_id, module_id in modules.items():
                 if module_id and module_id != 'empty':
-                    lines.append(f"            {slot_id} = {module_id}")
+                    hull_type = 'destroyer' if not hasattr(self.stats_calculator, '_infer_hull_type') else self.stats_calculator._infer_hull_type(hull_id)
+                    reduced_id = self._generate_reduced_equipment_id(module_id, hull_type)
+                    lines.append(f"            {slot_id} = {reduced_id}")
             lines.append("        }")
         
         lines.append("    }")
@@ -298,6 +325,106 @@ class HOI4Exporter(BaseExporter):
         text = text.replace('\\t', '\\\\t')     # タブ
         
         return text
+
+    def _generate_reduced_equipment_id(self, original_id: str, hull_type: str) -> str:
+        """軽減後装備の新しいIDを生成
+        
+        Args:
+            original_id (str): 元の装備ID
+            hull_type (str): 船体タイプ
+            
+        Returns:
+            str: 軽減後装備ID
+        """
+        # 船体タイプを簡略化
+        hull_type_short = {
+            'destroyer': 'dd',
+            'light_cruiser': 'cl', 
+            'heavy_cruiser': 'ca',
+            'battle_cruiser': 'bc',
+            'battleship': 'bb',
+            'carrier': 'cv',
+            'submarine': 'ss'
+        }.get(hull_type.lower(), hull_type[:2].lower())
+        
+        return f"{original_id}_reduced_{hull_type_short}"
+
+    def _export_reduced_equipment(self, original_equipment: dict, hull_stats: dict, reduced_id: str) -> None:
+        """軽減後装備をHoI4ファイルに書き出し
+        
+        Args:
+            original_equipment (dict): 元の装備データ
+            hull_stats (dict): 船体統計
+            reduced_id (str): 軽減後装備ID
+        """
+        if reduced_id in self.exported_reduced_equipments:
+            return  # 既に書き出し済み
+        
+        # 軽減係数を計算
+        reduction_factor = self.stats_calculator._calculate_reduction_factor(hull_stats)
+        
+        # 軽減後ステータスを計算
+        reduced_stats = original_equipment.get('stats', {}).copy()
+        
+        # build_cost_icの軽減適用
+        if 'build_cost_ic' in reduced_stats:
+            reduced_stats['build_cost_ic'] *= (1 - reduction_factor)
+            
+        # 負のnaval_speedの軽減適用（速度低下ペナルティ軽減）
+        if 'naval_speed' in reduced_stats and reduced_stats['naval_speed'] < 0:
+            reduced_stats['naval_speed'] *= (1 - reduction_factor)
+        
+        # 軽減後装備データを作成
+        reduced_equipment = original_equipment.copy()
+        reduced_equipment['id'] = reduced_id
+        reduced_equipment['stats'] = reduced_stats
+        
+        # 軽減後装備ブロックを生成して書き出し
+        equipment_block = self._generate_reduced_equipment_block(reduced_equipment)
+        self._append_to_file(self.hulls_file, equipment_block)
+        
+        # 重複防止用セットに追加
+        self.exported_reduced_equipments.add(reduced_id)
+
+    def _generate_reduced_equipment_block(self, equipment_data: Dict[str, Any]) -> str:
+        """軽減後装備のequipmentsブロックを生成
+        
+        Args:
+            equipment_data (Dict[str, Any]): 軽減後装備データ
+            
+        Returns:
+            str: 生成された装備ブロックテキスト
+        """
+        equipment_id = equipment_data['id']
+        original_id = equipment_id.split('_reduced_')[0]
+        stats = equipment_data.get('stats', {})
+        
+        lines = []
+        lines.append(f"    {equipment_id} = {{")
+        
+        # 派生元（親）の装備を指定
+        lines.append(f"        parent = {original_id}")
+        
+        # is_archetype = no を設定
+        lines.append("        is_archetype = no")
+        
+        # 装備タイプや年度を元のデータから引き継ぐ
+        if 'type' in equipment_data:
+            lines.append(f"        type = {equipment_data['type']}")
+        if 'year' in equipment_data:
+            lines.append(f"        year = {equipment_data['year']}")
+        
+        # 軽減後のステータスを書き出す
+        for stat_name, value in stats.items():
+            if isinstance(value, float):
+                lines.append(f"        {stat_name} = {value:.2f}")
+            else:
+                lines.append(f"        {stat_name} = {value}")
+        
+        lines.append("    }")
+        lines.append("")  # 空行追加
+        
+        return "\\n".join(lines)
     
     def _append_to_file(self, file_path: str, content: str):
         """ファイルにコンテンツを追記

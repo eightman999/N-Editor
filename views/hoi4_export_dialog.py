@@ -43,106 +43,51 @@ class HOI4ExportWorker(QThread):
         try:
             self.log_message.emit("エクスポート処理を開始しています...")
             
-            # エクスポーターを初期化
-            exporter = HOI4Exporter(
-                self.export_config['output_dir'], 
-                self.export_config['country_tag']
+            # AppControllerの統合エクスポートメソッドを使用
+            output_dir = self.export_config['output_dir']
+            country_tag = self.export_config['country_tag']
+            
+            # バックグラウンドタスクとして実行
+            def progress_callback(progress):
+                if not self.cancel_requested:
+                    # 進捗を0-100の範囲で受け取り、current/totalに変換
+                    total = 100
+                    current = progress
+                    self.progress_updated.emit(current, total, f"エクスポート処理中... {progress}%")
+            
+            self.log_message.emit(f"出力先: {output_dir}")
+            self.log_message.emit(f"国家タグ: {country_tag}")
+            
+            # AppControllerの統合エクスポートメソッドを呼び出し
+            # バックグラウンドタスクメソッドを直接呼び出し
+            summary = self.app_controller._export_ship_designs_and_hulls_task(
+                output_dir=output_dir,
+                country_tag=country_tag,
+                progress_callback=progress_callback
             )
             
-            # 設定を適用
-            exporter.include_upgrades = self.export_config.get('include_upgrades', True)
+            if self.cancel_requested:
+                self.log_message.emit("エクスポート処理がキャンセルされました")
+                return
             
+            # 結果を旧形式に変換してダイアログと互換性を保持
             results = {
-                'designs': {'total': 0, 'success': 0, 'failed': 0, 'errors': []},
-                'hulls': {'total': 0, 'success': 0, 'failed': 0, 'errors': []},
-                'output_files': []
+                'designs': {
+                    'total': summary.get('designs_processed', 0),
+                    'success': summary.get('designs_successful', 0),
+                    'failed': summary.get('designs_failed', 0),
+                    'errors': summary.get('design_errors', [])
+                },
+                'hulls': {
+                    'total': summary.get('hulls_processed', 0),
+                    'success': summary.get('hulls_successful', 0),
+                    'failed': summary.get('hulls_failed', 0),
+                    'errors': summary.get('hull_errors', [])
+                },
+                'output_files': summary.get('output_files', [])
             }
             
-            total_items = 0
-            current_item = 0
-            
-            # エクスポート対象の計算
-            if self.export_config.get('export_designs', True):
-                designs = self._get_designs_to_export()
-                total_items += len(designs)
-                results['designs']['total'] = len(designs)
-            
-            if self.export_config.get('export_hulls', True):
-                hulls = self._get_hulls_to_export()
-                total_items += len(hulls)
-                results['hulls']['total'] = len(hulls)
-            
-            self.log_message.emit(f"エクスポート対象: 設計{results['designs']['total']}件, 船体{results['hulls']['total']}件")
-            
-            # 設計のエクスポート
-            if self.export_config.get('export_designs', True) and designs:
-                self.log_message.emit("設計データのエクスポートを開始...")
-                
-                for design in designs:
-                    if self.cancel_requested:
-                        break
-                    
-                    design_name = design.get('design_name', 'Unknown')
-                    self.progress_updated.emit(current_item, total_items, f"設計: {design_name}")
-                    
-                    # 性能計算を含む設計データの準備
-                    export_design = self._prepare_design_for_export(design)
-                    
-                    try:
-                        if exporter.export_design(export_design):
-                            results['designs']['success'] += 1
-                            self.log_message.emit(f"✓ 設計エクスポート成功: {design_name}")
-                        else:
-                            results['designs']['failed'] += 1
-                            results['designs']['errors'].append(f"設計エクスポート失敗: {design_name}")
-                            self.log_message.emit(f"✗ 設計エクスポート失敗: {design_name}")
-                    except Exception as e:
-                        results['designs']['failed'] += 1
-                        error_msg = f"設計エクスポートエラー: {design_name} - {str(e)}"
-                        results['designs']['errors'].append(error_msg)
-                        self.log_message.emit(f"✗ {error_msg}")
-                    
-                    current_item += 1
-                    self.msleep(50)  # UI更新のための小休止
-            
-            # 船体のエクスポート
-            if self.export_config.get('export_hulls', True) and hulls:
-                self.log_message.emit("船体データのエクスポートを開始...")
-                
-                for hull in hulls:
-                    if self.cancel_requested:
-                        break
-                    
-                    hull_name = hull.get('name', 'Unknown')
-                    self.progress_updated.emit(current_item, total_items, f"船体: {hull_name}")
-                    
-                    # 船体データの準備
-                    export_hull = self._prepare_hull_for_export(hull)
-                    
-                    try:
-                        if exporter.export_hull(export_hull):
-                            results['hulls']['success'] += 1
-                            self.log_message.emit(f"✓ 船体エクスポート成功: {hull_name}")
-                        else:
-                            results['hulls']['failed'] += 1
-                            results['hulls']['errors'].append(f"船体エクスポート失敗: {hull_name}")
-                            self.log_message.emit(f"✗ 船体エクスポート失敗: {hull_name}")
-                    except Exception as e:
-                        results['hulls']['failed'] += 1
-                        error_msg = f"船体エクスポートエラー: {hull_name} - {str(e)}"
-                        results['hulls']['errors'].append(error_msg)
-                        self.log_message.emit(f"✗ {error_msg}")
-                    
-                    current_item += 1
-                    self.msleep(50)
-            
-            # ファイル終了処理
-            if not self.cancel_requested:
-                self.log_message.emit("ファイルを完成中...")
-                exporter.finalize_files()
-                results['output_files'] = [exporter.designs_file, exporter.hulls_file]
-                self.log_message.emit("エクスポート処理が完了しました")
-            
+            self.log_message.emit("エクスポート処理が完了しました")
             self.export_completed.emit(results)
             
         except Exception as e:

@@ -11,6 +11,7 @@ from typing import Dict, Any, List, Optional
 import json
 import os
 import logging
+import math
 
 
 class StatsCalculator:
@@ -36,34 +37,55 @@ class StatsCalculator:
         
         # 性能計算ルール
         self.stat_rules = self._initialize_stat_rules()
+
+    
+    # --- 軽減係数に関する定数 ---
+    # サイズ軽減率が最大になる船体面積 (m^2)
+    MAX_AREA_FOR_REDUCTION = 25000
+    # 重量軽減率が最大になる推定排水量 (ton)
+    MAX_DISPLACEMENT_FOR_REDUCTION = 50000
+    # サイズによる最大軽減率
+    MAX_SIZE_REDUCTION_RATIO = 0.3
+    # 重量による最大軽減率
+    MAX_WEIGHT_REDUCTION_RATIO = 0.2
+    # 総合的な最大軽減率
+    TOTAL_MAX_REDUCTION_RATIO = 0.5
+
+    # --- 排水量推定に関する定数 ---
+    # 喫水と全幅の比率のデフォルト値
+    DEFAULT_DRAFT_TO_BEAM_RATIO = 0.35
+    # 方形係数のデフォルト値
+    DEFAULT_BLOCK_COEFFICIENT = 0.6
+    # 軍艦補正係数
+    MILITARY_SHIP_COEFFICIENT = 1.5
     
     def calculate_design_stats(self, design_data: Dict[str, Any]) -> Dict[str, Any]:
         """設計の総合性能を計算
-        
+
         Args:
             design_data (Dict[str, Any]): 設計データ
-            
+
         Returns:
             Dict[str, Any]: 計算された総合性能
         """
         try:
             self.logger.debug(f"性能計算開始: {design_data.get('design_name', 'Unknown')}")
-            
+
             # 各要素の性能を取得
             hull_stats = self._get_hull_base_stats(design_data.get('hull_id'))
-            module_stats = self._calculate_module_stats(design_data.get('modules', {}))
+            module_stats = self._calculate_module_stats(design_data.get('modules', {}), hull_stats)
             upgrade_stats = self._calculate_upgrade_stats(design_data.get('upgrades', {}))
-            
+
             # 統合計算
             total_stats = self._combine_stats(hull_stats, module_stats, upgrade_stats)
-            
+
             # 派生統計を計算
             derived_stats = self._calculate_derived_stats(total_stats)
             total_stats.update(derived_stats)
-            
+
             self.logger.debug(f"性能計算完了: {len(total_stats)}個の統計を計算")
             return total_stats
-            
+
         except Exception as e:
             self.logger.error(f"性能計算エラー: {e}")
             return {}
@@ -103,11 +125,12 @@ class StatsCalculator:
         
         return hull_stats
     
-    def _calculate_module_stats(self, modules: Dict[str, str]) -> Dict[str, Any]:
+    def _calculate_module_stats(self, modules: Dict[str, str], hull_stats: Dict[str, Any] = None) -> Dict[str, Any]:
         """モジュール性能の合計を計算
         
         Args:
             modules (Dict[str, str]): スロットIDとモジュールIDのマッピング
+            hull_stats (Dict[str, Any]): 船体統計（軽減計算用）
             
         Returns:
             Dict[str, Any]: モジュール性能の合計
@@ -119,9 +142,87 @@ class StatsCalculator:
                 continue
             
             module_stats = self._get_module_stats(module_id)
+            
+            # --- 船体サイズ/重量に応じた軽減ロジック（仮実装） ---
+            if hull_stats:
+                reduction_factor = self._calculate_reduction_factor(hull_stats)
+                if 'build_cost_ic' in module_stats:
+                    module_stats = module_stats.copy()  # 元のキャッシュを変更しないため
+                    module_stats['build_cost_ic'] *= (1 - reduction_factor)
+                if 'naval_speed' in module_stats and module_stats['naval_speed'] < 0:
+                    if 'naval_speed' not in module_stats or module_stats == self._get_module_stats(module_id):
+                        module_stats = module_stats.copy()
+                    module_stats['naval_speed'] *= (1 - reduction_factor)
+            # ----------------------------------------------------
+            
             total_stats = self._add_stats(total_stats, module_stats)
         
         return total_stats
+    
+    def _calculate_reduction_factor(self, hull_stats: Dict[str, Any]) -> float:
+        """船体サイズ/重量に基づく装備コスト・速度低下の軽減係数を計算
+        
+        Args:
+            hull_stats (Dict[str, Any]): 船体統計
+            
+        Returns:
+            float: 軽減係数（0.0-0.5の範囲）
+        """
+        try:
+            # 船体の物理的サイズを取得（全長・全幅）
+            length = hull_stats.get('length', 0)
+            width = hull_stats.get('width', 0)
+            
+            if length > 0 and width > 0:
+                # 全長・全幅から船体面積を計算（メートル単位想定）
+                hull_area = length * width
+                
+                # 船体面積に基づくサイズ軽減（指数減衰関数）
+                # 駆逐艦: 約100m x 10m = 1,000㎡
+                # 戦艦: 約250m x 35m = 8,750㎡
+                k_size = 1 / (self.MAX_AREA_FOR_REDUCTION * 0.8)  # 減衰係数
+                size_reduction = self.MAX_SIZE_REDUCTION_RATIO * (1 - math.exp(-k_size * hull_area))
+                
+            else:
+                # 全長・全幅データがない場合はフォールバック計算
+                base_cost = hull_stats.get('build_cost_ic', 0)
+                base_strength = hull_stats.get('max_strength', 0)
+                hull_area = (base_cost * 0.7 + base_strength * 3.0)
+                k_size = 1 / (10000 * 0.8)  # フォールバック用減衰係数
+                size_reduction = self.MAX_SIZE_REDUCTION_RATIO * (1 - math.exp(-k_size * hull_area))
+            
+            # 排水量を取得（weightが排水量）
+            displacement = hull_stats.get('weight', 0)
+            
+            if displacement <= 0:
+                # weightがない場合は全長・全幅から推定
+                if length > 0 and width > 0:
+                    # 簡易推定式: L × B × 喫水係数 × 方形係数
+                    draft = width * self.DEFAULT_DRAFT_TO_BEAM_RATIO
+                    displacement = length * width * draft * self.DEFAULT_BLOCK_COEFFICIENT * self.MILITARY_SHIP_COEFFICIENT
+                else:
+                    # 最終フォールバック: コストと強度から推定
+                    base_cost = hull_stats.get('build_cost_ic', 0)
+                    base_strength = hull_stats.get('max_strength', 0)
+                    displacement = base_cost * 3.5 + base_strength * 75
+            
+            # 軽減係数の計算（大型船ほど装備の相対的影響が小さくなる）
+            # 最大軽減率: 50%（大型戦艦クラス）
+            # 最小軽減率: 0%（駆逐艦クラス）
+            
+            # 重量ベースの軽減（指数減衰関数）
+            k_weight = 1 / (self.MAX_DISPLACEMENT_FOR_REDUCTION * 0.8)  # 減衰係数
+            weight_reduction = self.MAX_WEIGHT_REDUCTION_RATIO * (1 - math.exp(-k_weight * displacement))
+            
+            # 総合軽減係数（飽和関数で組み合わせ）
+            # 2つの軽減率を独立に適用し、相乗効果を考慮
+            combined_reduction = size_reduction + weight_reduction - (size_reduction * weight_reduction)
+            
+            return combined_reduction
+            
+        except Exception as e:
+            self.logger.warning(f"軽減係数計算エラー: {e}")
+            return 0.0
     
     def _get_module_stats(self, module_id: str) -> Dict[str, Any]:
         """モジュールの性能データを取得
