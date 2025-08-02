@@ -140,7 +140,7 @@ class HOI4Exporter(BaseExporter):
             return False
     
     def _generate_variant_block(self, design_data: Dict[str, Any]) -> str:
-        """create_equipment_variantブロックを生成
+        """create_equipment_variant ブロックを生成
         
         Args:
             design_data (Dict[str, Any]): 設計データ
@@ -154,37 +154,37 @@ class HOI4Exporter(BaseExporter):
         upgrades = design_data.get('upgrades', {})
         
         lines = []
-        lines.append("    create_equipment_variant = {")
-        lines.append(f'        name = "{self._escape_string(design_name)}"')
-        lines.append(f"        type = {hull_id}")
+        lines.append("\tcreate_equipment_variant = {")
+        lines.append(f'\t\tname = "{self._escape_string(design_name)}"')
+        lines.append(f"\t\ttype = {hull_id}")
         
         # name_group があれば追加
         if 'name_group' in design_data and design_data['name_group']:
-            lines.append(f"        name_group = {design_data['name_group']}")
+            lines.append(f"\t\tname_group = {design_data['name_group']}")
         
         # upgrades セクション
         if self.include_upgrades and upgrades:
-            lines.append("        upgrades = {")
+            lines.append("\t\tupgrades = {")
             for upgrade_type, level in upgrades.items():
-                lines.append(f"            {upgrade_type} = {level}")
-            lines.append("        }")
+                lines.append(f"\t\t\t{upgrade_type} = {level}")
+            lines.append("\t\t}")
         
         # modules セクション
         if modules:
-            lines.append("        modules = {")
+            lines.append("\t\tmodules = {")
             for slot_id, module_id in modules.items():
                 if module_id and module_id != 'empty':
                     hull_type = 'destroyer' if not hasattr(self.stats_calculator, '_infer_hull_type') else self.stats_calculator._infer_hull_type(hull_id)
                     reduced_id = self._generate_reduced_equipment_id(module_id, hull_type)
-                    lines.append(f"            {slot_id} = {reduced_id}")
-            lines.append("        }")
+                    lines.append(f"\t\t\t{slot_id} = {reduced_id}")
+            lines.append("\t\t}")
         
-        lines.append("    }")
+        lines.append("\t}")
 
-        return "\\n".join(lines)
+        return "\n".join(lines)
     
     def _generate_equipment_block(self, hull_data: Dict[str, Any]) -> str:
-        """equipmentsブロックを生成
+        """equipments ブロックを生成
         
         Args:
             hull_data (Dict[str, Any]): 船体データ
@@ -200,57 +200,57 @@ class HOI4Exporter(BaseExporter):
         base_stats = hull_data.get('base_stats', {})
         
         lines = []
-        lines.append(f"    {hull_id} = {{")
-        lines.append(f"        year = {year}")
-        lines.append("        is_archetype = yes")
-        lines.append("        is_buildable = no")
-        lines.append(f"        type = {hull_type}")
-        lines.append(f"        sprite = {hull_type}")
-        lines.append("        group_by = archetype")
-        lines.append("        priority = 1000")
+        lines.append(f"\t{hull_id} = {{")
+        lines.append(f"\t\tyear = {year}")
+        lines.append("\t\tis_archetype = yes")
+        lines.append("\t\tis_buildable = no")
+        lines.append(f"\t\ttype = {hull_type}")
+        lines.append(f"\t\tsprite = {hull_type}")
+        lines.append("\t\tgroup_by = archetype")
+        lines.append("\t\tpriority = 1000")
         
         # interface_categoryの設定
         interface_category = self._get_interface_category(hull_type)
-        lines.append(f"        interface_category = {interface_category}")
+        lines.append(f"\t\tinterface_category = {interface_category}")
         
         # module_slots セクション
         if slots:
-            lines.append("        module_slots = {")
+            lines.append("\t\tmodule_slots = {")
             for slot_id, slot_config in slots.items():
-                lines.append(f"            {slot_id} = {{")
-                lines.append(f"                required = {str(slot_config.get('required', False)).lower()}")
+                lines.append(f"\t\t\t{slot_id} = {{")
+                lines.append(f"\t\t\t\trequired = {str(slot_config.get('required', False)).lower()}")
                 
                 categories = slot_config.get('categories', [])
                 if categories:
-                    lines.append("                allowed_module_categories = {")
+                    lines.append("\t\t\t\tallowed_module_categories = {")
                     for category in categories:
-                        lines.append(f"                    {category}")
-                    lines.append("                }")
+                        lines.append(f"\t\t\t\t\t{category}")
+                    lines.append("\t\t\t\t}")
                 
                 if 'gfx' in slot_config:
-                    lines.append(f"                gfx = {slot_config['gfx']}")
+                    lines.append(f"\t\t\t\tgfx = {slot_config['gfx']}")
                     
-                lines.append("            }")
-            lines.append("        }")
+                lines.append("\t\t\t}")
+            lines.append("\t\t}")
         
         # default_modules セクション
         if slots:
-            lines.append("        default_modules = {")
+            lines.append("\t\tdefault_modules = {")
             for slot_id, slot_config in slots.items():
                 default_module = slot_config.get('default_module', 'empty')
-                lines.append(f"            {slot_id} = {default_module}")
-            lines.append("        }")
+                lines.append(f"\t\t\t{slot_id} = {default_module}")
+            lines.append("\t\t}")
         
         # 基本性能
         if base_stats:
             lines.append("")  # 空行を追加
-            lines.append("        # 基本性能")
+            lines.append("\t\t# 基本性能")
             for stat_name, value in base_stats.items():
-                lines.append(f"        {stat_name} = {value}")
+                lines.append(f"\t\t{stat_name} = {value}")
         
-        lines.append("    }")
+        lines.append("\t}")
         
-        return "\\n".join(lines)
+        return "\n".join(lines)
     
     def _generate_stats_comment(self, stats: Dict[str, Any]) -> str:
         """性能コメントを生成
@@ -319,10 +319,10 @@ class HOI4Exporter(BaseExporter):
             return str(text)
         
         # HOI4で問題になる文字をエスケープ
-        text = text.replace('\\\\', '\\\\\\\\')  # バックスラッシュ
-        text = text.replace('"', '\\\\"')      # ダブルクオート
-        text = text.replace('\\n', '\\\\n')     # 改行
-        text = text.replace('\\t', '\\\\t')     # タブ
+        text = text.replace('\\', '\\\\')  # バックスラッシュ
+        text = text.replace('"', '\\"')      # ダブルクオート
+        text = text.replace('\n', '\\n')     # 改行
+        text = text.replace('\t', '\\t')     # タブ
         
         return text
 
@@ -435,7 +435,7 @@ class HOI4Exporter(BaseExporter):
         """
         try:
             with open(file_path, 'a', encoding=self.file_encoding) as f:
-                f.write(content + "\\n\\n")
+                f.write(content + "\n\n")
         except Exception as e:
             raise Exception(f"ファイル書き込みエラー: {e}")
     
@@ -450,17 +450,17 @@ class HOI4Exporter(BaseExporter):
             
             # 設計ファイルの初期化
             with open(self.designs_file, 'w', encoding=self.file_encoding) as f:
-                f.write(f"# {self.country_tag} Naval Designs\\n")
-                f.write(f"# Generated by NavalDesignSystem\\n")
-                f.write(f"# Date: {self._get_timestamp()}\\n\\n")
-                f.write(f"{self.country_tag} = {{\\n")
+                f.write(f"# {self.country_tag} Naval Designs\n")
+                f.write(f"# Generated by NavalDesignSystem\n")
+                f.write(f"# Date: {self._get_timestamp()}\n\n")
+                f.write(f"{self.country_tag} = {{\n")
             
             # 船体ファイルの初期化
             with open(self.hulls_file, 'w', encoding=self.file_encoding) as f:
-                f.write(f"# {self.country_tag} Naval Hulls\\n")
-                f.write(f"# Generated by NavalDesignSystem\\n")
-                f.write(f"# Date: {self._get_timestamp()}\\n\\n")
-                f.write("equipments = {\\n")
+                f.write(f"# {self.country_tag} Naval Hulls\n")
+                f.write(f"# Generated by NavalDesignSystem\n")
+                f.write(f"# Date: {self._get_timestamp()}\n\n")
+                f.write("equipments = {\n")
             
             self._files_initialized = True
             self.logger.info(f"エクスポートファイルを初期化: {self.country_tag}")
@@ -473,11 +473,11 @@ class HOI4Exporter(BaseExporter):
         try:
             # 設計ファイルの終了
             with open(self.designs_file, 'a', encoding=self.file_encoding) as f:
-                f.write("}\\n")
+                f.write("}\n")
             
             # 船体ファイルの終了
             with open(self.hulls_file, 'a', encoding=self.file_encoding) as f:
-                f.write("}\\n")
+                f.write("}\n")
             
             self.logger.info(f"エクスポートファイルを完成: {self.country_tag}")
             
