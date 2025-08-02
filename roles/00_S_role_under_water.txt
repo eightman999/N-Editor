@@ -1,0 +1,119 @@
+equipment_modules = {
+	SRM_SCV = {
+		category = SUSRM_CV
+		gui_category = SRMs
+		add_stats = {
+			carrier_size = 1
+		}
+		multiply_stats = {
+			naval_range = 0.1
+			fuel_consumption = 0.05
+			naval_speed = -0.025
+			build_cost_ic = 0.1
+		}
+		can_convert_from = {
+			module_category = SUSRMs
+			convert_cost_ic = 100
+			convert_cost_resources = {
+				steel = 1
+				rubber = 1
+			}
+		}
+	}
+	SRM_SS = {
+		category = SUSRM_L
+		gui_category = SRMs
+		multiply_stats = {
+			reliability = 0.01
+			torpedo_attack = 0.01
+		}
+		can_convert_from = {
+			module_category = SUSRMs
+			convert_cost_ic = 100
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	SRM_SC = {
+		category = SUSRM_L
+		gui_category = SRMs
+		multiply_stats = {
+			naval_range = 0.1
+			fuel_consumption = 0.05
+			naval_speed = -0.025
+			build_cost_ic = 0.1
+		}
+		can_convert_from = {
+			module_category = SUSRMs
+			convert_cost_ic = 100
+			convert_cost_resources = {
+				steel = 1
+				rubber = 1
+			}
+		}
+	}
+	SRM_SF = {
+		category = SUSRMs
+		gui_category = SRMs
+		multiply_stats = {
+			fuel_consumption = 0.01
+			naval_speed = 0.05
+		}
+		can_convert_from = {
+			module_category = SUSRMs
+			convert_cost_ic = 50
+			convert_cost_resources = {
+				steel = 1
+				rubber = 1
+			}
+		}
+	}
+	SRM_SM = {
+		category = SUSRMs
+		gui_category = SRMs
+		multiply_stats = {
+			mines_planting = 0.5
+			naval_speed = -0.025
+			build_cost_ic = 0.05
+		}
+		can_convert_from = {
+			module_category = SUSRMs
+			convert_cost_ic = 100
+			convert_cost_resources = {
+				steel = 1
+				rubber = 1
+			}
+		}
+	}
+	SRM_CSS = {
+		category = SUSRMs
+		gui_category = SRMs
+		multiply_stats = {
+			max_organisation = -0.1
+			max_strength = -0.1
+			naval_range = -0.25
+			build_cost_ic = -0.25
+			fuel_consumption = -0.25
+		}
+		can_convert_from = {
+			module_category = SUSRMs
+			convert_cost_ic = 20
+		}
+	}
+	SRM_MSM = {
+		category = SUSRMs
+		gui_category = SRMs
+		multiply_stats = {
+			max_organisation = -0.25
+			max_strength = -0.25
+			naval_range = -0.75
+			build_cost_ic = -0.5
+			fuel_consumption = -0.5
+		}
+		can_convert_from = {
+			module_category = SUSRMs
+			convert_cost_ic = 20
+		}
+	}
+}

@@ -1,0 +1,160 @@
+equipment_modules = {
+    SRM_B = {
+        category = SRHC_B
+        gui_category = SRMs
+        add_stats = {
+            max_organisation = 25
+        }
+        multiply_stats = {
+            reliability = 0.25
+            max_strength = 0.25
+            naval_speed = -0.2
+        }
+    }
+    SRM_BB = {
+        category = SRHC_B
+        gui_category = SRMs
+        add_stats = {
+            max_organisation = 50
+        }
+        multiply_stats = {
+            max_strength = 0.25
+            naval_speed = -0.05
+            naval_range = 0.05
+        }
+    }
+    SRM_SB = {
+        category = SRHC_B
+        gui_category = SRMs
+        add_stats = {
+            max_organisation = 65
+        }
+        multiply_stats = {
+            max_strength = 0.5
+            naval_speed = -0.05
+            naval_range = 0.2
+            build_cost_ic = 0.1
+        }
+    }
+    SRM_PB = {
+        category = SRHC_B
+        gui_category = SRMs
+        add_stats = {
+            max_organisation = 15
+        }
+        multiply_stats = {
+            max_strength = -0.05
+            armor_value = 0.05
+            naval_speed = 0.025
+            naval_range = -0.01
+            build_cost_ic = -0.05
+        }
+    }
+    SRM_BC = {
+        category = SRHC_B
+        gui_category = SRMs
+        add_stats = {
+            max_organisation = 30
+        }
+        multiply_stats = {
+            max_strength = -0.2
+            armor_value = -0.2
+            naval_speed = 0.1
+            naval_range = 0.05
+        }
+    }
+    SRM_FBB = {
+        category = SRHC_B
+        gui_category = SRMs
+        add_stats = {
+            max_organisation = 40
+        }
+        multiply_stats = {
+            max_strength = -0.1
+            armor_value = -0.1
+            naval_speed = 0.2
+            naval_range = 0.1
+        }
+    }
+    SRM_BF = {
+        category = SRHC_B
+        gui_category = SRMs
+        add_stats = {
+            max_organisation = 40
+            carrier_size = 5
+        }
+        multiply_stats = {
+            max_strength = 0.15
+            naval_speed = 0.05
+            naval_range = 0.05
+        }
+    }
+    SRM_BBG = {
+        category = SRHC_B
+        gui_category = SRMs
+        add_equipment_type = missile_launcher
+        allow_equipment_type = { missile ballistic_missile nuclear_missile }
+        add_stats = {
+            max_organisation = 25
+        }
+        multiply_stats = {
+            max_strength = 0.5
+            naval_speed = 0.05
+            naval_range = 0.05
+            reliability_speed = -0.1
+        }
+    }
+    SRM_BM = {
+        category = SRHC_M
+        gui_category = SRMs
+        add_stats = {
+            max_organisation = 75
+        }
+        multiply_stats = {
+            max_strength = 0.2
+            naval_speed = -0.75
+            naval_range = 0.2
+            reliability = 0.1
+        }
+    }
+    SRM_BBY = {
+        category = SRHC_B
+        gui_category = SRMs
+        add_stats = {
+            max_organisation = 100
+            max_strength = 1000
+        }
+        multiply_stats = {
+            naval_speed = 9.99
+            naval_range = 9.99
+        }
+    }
+    SRM_CB = {
+        category = SRHC
+        gui_category = SRMs
+        add_stats = {
+            max_organisation = 5
+        }
+        multiply_stats = {
+            max_strength = -0.05
+            armor_value = -0.2
+			naval_speed = 0.05
+            naval_range = 0.25
+			reliability = -0.1
+        }
+    }
+	SRM_CDB = {
+        category = SRHC
+        gui_category = SRMs
+        add_stats = {
+            max_organisation = 7.5
+        }
+        multiply_stats = {
+            max_strength = -0.1
+            armor_value = -0.25
+            naval_range = 0.15
+			build_cost_ic = -0.05
+        }
+    }
+
+}

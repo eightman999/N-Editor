@@ -1,0 +1,200 @@
+equipment_modules = {
+    SRM_FF = {
+        category = SRM_ESC
+        gui_category = SRMs
+        multiply_stats = {
+            max_organisation = 0.1
+            port_capacity_usage = -0.01
+			sub_detection = 0.01
+			surface_detection = 0.01
+            naval_weather_penalty_factor = 0.1
+            build_cost_ic = -0.05
+        }
+        can_convert_from = {
+            module_category = SRM_ESC
+            convert_cost_ic = 50
+        }
+    }
+	SRM_PF = {
+        category = SRM_ESC
+        gui_category = SRMs
+        multiply_stats = {
+            max_organisation = 0.1
+            sub_detection = 0.05
+			surface_detection = 0.05
+            naval_weather_penalty_factor = 0.1
+        }
+        can_convert_from = {
+            module_category = SRM_ESC
+            convert_cost_ic = 50
+        }
+    }
+	SRM_K = {
+        category = SRM_ESC
+        gui_category = SRMs
+        multiply_stats = {
+            max_organisation = 0.15
+            port_capacity_usage = -0.05
+            naval_weather_penalty_factor = 0.15
+            build_cost_ic = -0.1
+        }
+        can_convert_from = {
+            module_category = SRM_ESC
+            convert_cost_ic = 50
+        }
+    }
+	SRM_MB = {
+        category = SRM_ESC
+        gui_category = SRMs
+		add_equipment_type = missile_launcher
+        allow_equipment_type = { missile }
+        multiply_stats = {
+            max_organisation = 0.15
+            port_capacity_usage = -0.1
+            naval_weather_penalty_factor = 0.5
+        }
+        can_convert_from = {
+            module_category = SRM_ESC
+            convert_cost_ic = 50
+        }
+    }
+	#Destroyer
+	SRM_D = {
+		category = SRM_ESC
+		gui_category = SRMs
+		multiply_stats = {
+			max_organisation = 0.25
+			reliability = -0.05
+			build_cost_ic = -0.01
+		}
+		can_convert_from = {
+			module_category = SRM_ESC
+			convert_cost_ic = 50
+		}
+	}
+	SRM_DD = {
+		category = SRM_ESC
+		gui_category = SRMs
+		multiply_stats = {
+			max_organisation = 0.1
+		}
+		can_convert_from = {
+			module_category = SRM_ESC
+			convert_cost_ic = 50
+		}
+	}
+	SRM_DB = {
+		category = SRM_ESC
+		gui_category = SRMs
+		multiply_stats = {
+			max_organisation = -0.05
+			max_strength = 0.05
+			surface_detection = 0.15
+			naval_range = 0.15
+			build_cost_ic = 0.025
+		}
+		can_convert_from = {
+			module_category = SRM_ESC
+			convert_cost_ic = 50
+		}
+	}
+	SRM_DDE = {
+		category = SRM_ESC
+		gui_category = SRMs
+		multiply_stats = {
+			build_cost_ic = 0.05
+			surface_detection = 0.05
+			sub_detection = 0.15
+		}
+		can_convert_from = {
+			module_category = SRM_ESC
+			convert_cost_ic = 50
+		}
+	}
+	SRM_DDG = {
+        category = SRM_ESC
+        gui_category = SRMs
+		add_equipment_type = missile_launcher
+        allow_equipment_type = { missile }
+        multiply_stats = {
+			build_cost_ic = 0.05
+			max_strength = 0.05
+			surface_visibility = 0.1
+			reliability = -0.05
+        }
+        can_convert_from = {
+            module_category = SRM_ESC
+            convert_cost_ic = 50
+        }
+    }
+	SRM_DDR = {
+		category = SRM_ESC
+		gui_category = SRMs
+		multiply_stats = {
+			max_organisation = -0.05
+			surface_detection = 0.1
+			naval_range = 0.05
+			build_cost_ic = 0.05
+		}
+		can_convert_from = {
+			module_category = SRM_ESC
+			convert_cost_ic = 50
+		}
+	}
+	SRM_DE = {
+		category = SRM_ESC
+		gui_category = SRMs
+		multiply_stats = {
+			build_cost_ic = -0.05
+			surface_detection = 0.05
+			sub_detection = 0.05
+			reliability = -0.05
+			max_strength = -0.05
+		}
+		can_convert_from = {
+			module_category = SRM_ESC
+			convert_cost_ic = 50
+		}
+	}
+	SRM_DL = {
+		category = SRM_ESC
+		gui_category = SRMs
+		multiply_stats = {
+			build_cost_ic = 0.05
+			surface_detection = 0.075
+			sub_detection = 0.075
+			reliability = 0.05
+			max_strength = 0.05
+		}
+		can_convert_from = {
+			module_category = SRM_ESC
+			convert_cost_ic = 50
+		}
+	}
+	SRM_DM = {
+		category = SRM_ESC
+		gui_category = SRMs
+		multiply_stats = {
+			torpedo_attack = -0.05
+			lg_attack = -0.05
+			mines_planting = 0.25
+		}
+		can_convert_from = {
+			module_category = SRM_ESC
+			convert_cost_ic = 50
+		}
+	}
+	SRM_DMS = {
+		category = SRM_ESC
+		gui_category = SRMs
+		multiply_stats = {
+			torpedo_attack = -0.05
+			lg_attack = -0.05
+			mines_sweeping = 0.25
+		}
+		can_convert_from = {
+			module_category = SRM_ESC
+			convert_cost_ic = 50
+		}
+	}
+}

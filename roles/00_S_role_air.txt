@@ -1,0 +1,136 @@
+equipment_modules = {
+	SRM_AV = {
+		category = SRM_AVs
+		gui_category = SRMs
+		gfx = SRM_AV
+		multiply_stats = {
+			surface_detection = 0.1
+			sub_detection = 0.05
+			naval_speed = -0.025
+		}
+		can_convert_from = {
+			module_category = SRM_AVs
+			convert_cost_ic = 50
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	SRM_SV = {
+		category = SRM_AVs
+		gui_category = SRMs
+		multiply_stats = {
+			surface_detection = 0.1
+			sub_detection = 0.05
+			naval_speed = -0.025
+		}
+
+		can_convert_from = {
+			module_category = SRM_AVs
+			convert_cost_ic = 50
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	SRM_CV = {
+		category = SRM_CVs
+		gui_category = SRMs
+		add_equipment_type = carrier
+		multiply_stats = {
+			surface_detection = 0.1
+			surface_visibility = 0.1
+			naval_speed = -0.05
+			carrier_size = 0.1
+		}
+		can_convert_from = {
+			module_category = SRM_CVs
+			convert_cost_ic = 50
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	
+	SRM_CVL = {
+		category = SRM_CVs
+		gui_category = SRMs
+		add_equipment_type = carrier
+		allow_equipment_type = { fighter cas }
+		multiply_stats = {
+			surface_detection = 0.1
+			surface_visibility = 0.05
+			naval_speed = -0.025
+			carrier_size = -0.1
+			build_cost_ic = -0.05
+		}
+		can_convert_from = {
+			module_category = SRM_CVs
+			convert_cost_ic = 50
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+
+	SRM_CVE = {
+		category = SRM_CVs
+		gui_category = SRMs
+		add_equipment_type = carrier
+		allow_equipment_type = { fighter }
+		multiply_stats = {
+			surface_detection = 0.1
+			surface_visibility = 0.05
+			naval_speed = -0.025
+			carrier_size = -0.25
+			build_cost_ic = -0.25
+		}
+		can_convert_from = {
+			module_category = SRM_CVs
+			convert_cost_ic = 50
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+
+	SRM_MAC = {
+		category = SRM_CVs
+		gui_category = SRMs
+		add_equipment_type = carrier
+		allow_equipment_type = { fighter }
+		multiply_stats = {
+			surface_detection = 0.1
+			surface_visibility = 0.05
+			naval_speed = -0.05
+			carrier_size = -0.5
+			build_cost_ic = -0.5
+		}
+		can_convert_from = {
+			module_category = SRM_CVs
+			convert_cost_ic = 50
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+
+	SRM_CVS = {
+		category = SRM_CVs
+		gui_category = SRMs
+		add_equipment_type = carrier
+		multiply_stats = {
+			sub_attack = 0.1
+			sub_detection = 0.1
+			naval_speed = 0.05
+		}
+		can_convert_from = {
+			module_category = SRM_CVs
+			convert_cost_ic = 50
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	
+}

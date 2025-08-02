@@ -1,0 +1,459 @@
+equipment_modules = {
+    #特設艦艇
+    SRM_AC = {
+        #特設巡洋艦
+        category = SRMA
+        gui_category = SRMs
+        gfx = SRM_AC
+        multiply_stats = {
+			port_capacity_usage = -0.1
+            lg_attack = 0.01
+            anti_air_attack = 0.01
+            sub_attack = 0.01
+            naval_speed = -0.05
+            build_cost_ic = -0.2
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+    SRM_AAV = {
+        #特設巡洋艦
+        category = SRMA
+        gui_category = SRMs
+        gfx = SRM_AC
+        multiply_stats = {
+			port_capacity_usage = -0.1
+            sub_detection = 0.05
+            surface_detection = 0.05
+            anti_air_attack = 0.01
+            sub_attack = 0.01
+            naval_speed = -0.05
+            build_cost_ic = -0.2
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+
+	SRM_APB = {
+        #特設巡洋艦
+        category = SRMA
+        gui_category = SRMs
+        gfx = SRM_AC
+        multiply_stats = {
+			port_capacity_usage = -0.1
+            reliability = -0.5
+			torpedo_attack = -1
+			sub_attack = -1
+			anti_air_attack = -0.95
+			lg_attack = -1
+			hg_attack = -1
+			naval_speed = -0.95
+			naval_range = -0.95
+            build_cost_ic = -0.2
+			manpower = 1
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+
+    SRM_AAA = {
+        #特設防空艦
+        category = SRMA_1
+        gui_category = SRMs
+        multiply_stats = {
+			port_capacity_usage = -0.1
+            lg_attack = -0.5
+            torpedo_attack = -0.5
+            sub_attack = -0.5
+            hg_attack = -0.5
+            anti_air_attack = 0.05
+            naval_speed = -0.5
+            build_cost_ic = -0.2
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+    SRM_AAG = {
+        #特設防空警備艦
+        category = SRMA_1
+        gui_category = SRMs
+        multiply_stats = {
+			port_capacity_usage = -0.1
+            lg_attack = -0.75
+            torpedo_attack = -0.75
+            sub_attack = -0.75
+            hg_attack = -0.75
+            naval_range = -0.75
+            anti_air_attack = 0.1
+            naval_speed = -0.85
+            build_cost_ic = -0.5
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+    SRM_AAM = {
+        #特設掃海艇
+        category = SRMA_2
+        gui_category = SRMs
+        multiply_stats = {
+			port_capacity_usage = -0.5
+            max_organisation = 0.05
+            max_strength = -0.25
+            mines_sweeping = 0.5
+            sub_attack = 0.05
+            naval_speed = -0.05
+            naval_range = -0.05
+            build_cost_ic = -0.5
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+
+	SRM_AM = {
+        #特設掃海艇
+        category = SRMA_2
+        gui_category = SRMs
+        multiply_stats = {
+            max_organisation = 0.05
+            max_strength = -0.2
+            # mines_planting = 1
+			mines_sweeping = 1
+            sub_attack = 0.05
+            naval_speed = -0.25
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+	SRM_CMC = {
+        #特設掃海艇
+        category = SRMA_2
+        gui_category = SRMs
+        multiply_stats = {
+            max_organisation = 0.05
+            max_strength = -0.15
+            # mines_planting = 1.5
+			mines_sweeping = 1.5
+            # sub_attack = 0.05
+            naval_range = -0.25
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+	SRM_MCM = {
+        #特設掃海艇
+        category = SRMA
+        gui_category = SRMs
+        multiply_stats = {
+            max_organisation = 0.05
+            mines_planting = 2
+			sub_detection = 0.05
+			naval_speed = -0.05
+            naval_range = 0.25
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+	SRM_MCS = {
+        #特設掃海艇
+        category = SRMA
+        gui_category = SRMs
+        multiply_stats = {
+            max_organisation = 0.05
+			max_strength = 0.05
+            mines_planting = 5
+			sub_detection = 0.1
+			naval_speed = -0.1
+            naval_range = 0.5
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+    SRM_AMS = {
+        #特設掃海艇
+        category = SRMA
+        gui_category = SRMs
+        multiply_stats = {
+			port_capacity_usage = -0.75
+            max_organisation = 0.05
+            max_strength = -0.25
+            mines_planting = 0.5
+            sub_attack = 0.05
+            naval_speed = -0.05
+            build_cost_ic = -0.5
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+
+    SRM_APS = {
+        #特設哨戒艦
+        category = SRMA
+        gui_category = SRMs
+        multiply_stats = {
+			port_capacity_usage = -0.5
+            max_organisation = 0.05
+            max_strength = -0.05
+            mines_sweeping = 0.25
+            sub_attack = 0.05
+            sub_detection = 0.05
+            naval_range = 0.25
+            naval_speed = -0.05
+            build_cost_ic = -0.05
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+
+    SRM_APC = {
+        #特設掃海艇
+        category = SRMA_2
+        gui_category = SRMs
+        multiply_stats = {
+			port_capacity_usage = -0.85
+            max_organisation = 0.25
+            max_strength = -0.95
+            naval_speed = -0.85
+            build_cost_ic = -0.9
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+    SRM_AG = {
+        category = SRMA_2
+        gui_category = SRMs
+        multiply_stats = {
+			port_capacity_usage = -0.75
+            sub_detection = 0.05
+            surface_detection = 0.01
+            max_organisation = 0.25
+            max_strength = -0.25
+            naval_speed = -0.15
+            naval_range = 0.05
+            build_cost_ic = -0.25
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+    SRM_AAS = {
+        #特設掃海艇
+        category = SRMA_2
+        gui_category = SRMs
+        multiply_stats = {
+			port_capacity_usage = -0.75
+            max_organisation = 0.05
+            max_strength = -0.25
+            mines_sweeping = 0.05
+            sub_attack = 0.25
+            naval_speed = -0.05
+            naval_range = -0.05
+            build_cost_ic = -0.5
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+    SRM_WHEC = {
+        #High endurance cutter
+        category = SRMA_3
+        gui_category = SRMs
+        multiply_stats = {
+			port_capacity_usage = -0.05
+            max_organisation = 0.01
+            max_strength = 0.01
+            sub_attack = 0.01
+            naval_speed = -0.05
+            naval_range = 1.5
+            sub_detection = 0.05
+            surface_detection = 0.05
+
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+    SRM_PL = {
+        #High endurance cutter
+        category = SRMA_3
+        gui_category = SRMs
+        multiply_stats = {
+			port_capacity_usage = -0.1
+            max_organisation = 0.05
+            max_strength = 0.05
+            naval_speed = 0.05
+            naval_range = 1
+            surface_detection = 0.05
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+    SRM_PLH = {
+        #High endurance cutter
+        category = SRMA_3
+        gui_category = SRMs
+        multiply_stats = {
+			port_capacity_usage = -0.1
+            max_organisation = 0.05
+            max_strength = 0.05
+            naval_speed = 0.1
+            naval_range = 2
+            surface_detection = 0.05
+            build_cost_ic = 0.1
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+    SRM_PM = {
+        #High endurance cutter
+        category = SRMA_2
+        gui_category = SRMs
+        multiply_stats = {
+			port_capacity_usage = -0.25
+            reliability = -0.05
+            max_organisation = 0.05
+            max_strength = -0.1
+            naval_speed = 0.5
+            build_cost_ic = -0.1
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+    SRM_CAM = {
+        category = SRMA_3
+        gui_category = SRMs
+        add_stats = {
+            carrier_size = 1
+        }
+        multiply_stats = {
+			port_capacity_usage = -0.5
+            max_organisation = 0.05
+            max_strength = -0.25
+            reliability = -0.5
+            build_cost_ic = -0.25
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+	SRM_LCSL = {
+        category = SRMA_2
+        gui_category = SRMs
+        multiply_stats = {
+			port_capacity_usage = -0.5
+			lg_armor_piercing = -0.5
+			lg_attack = 0.5
+            max_organisation = 0.25
+            naval_speed = -0.15
+            naval_range = 0.25
+            build_cost_ic = -0.1
+        }
+        can_convert_from = {
+            module_category = SRMA
+            convert_cost_ic = 50
+        }
+    }
+	SRM_PG = {
+		category = SRMA_2
+		gui_category = SRMs
+		multiply_stats = {
+			port_capacity_usage = -0.5
+			max_organisation = 0.5
+			surface_detection = 0.25
+			naval_speed = -0.25
+			naval_range = -0.25
+			build_cost_ic = -0.2
+			naval_weather_penalty_factor = 0.1
+		}
+		can_convert_from = {
+			module_category = SRMA
+			convert_cost_ic = 50
+		}
+	}
+	SRM_PC = {
+		category = SRMA_2
+		gui_category = SRMs
+		multiply_stats = {
+			port_capacity_usage = -0.5
+			max_organisation = 0.25
+			sub_detection = 0.1
+			surface_detection = 0.1
+			naval_speed = -0.1
+			naval_range = 0.1
+			build_cost_ic = -0.1
+		}
+		can_convert_from = {
+			module_category = SRMA
+			convert_cost_ic = 50
+		}
+	}
+	SRM_PT = {
+		category = SRMA_2
+		gui_category = SRMs
+		multiply_stats = {
+			port_capacity_usage = -0.5
+			max_organisation = 1
+			surface_visibility = -0.75
+			naval_speed = 0.75
+			naval_range = -0.75
+			build_cost_ic = -0.25
+			naval_weather_penalty_factor = 0.05
+		}
+		can_convert_from = {
+			module_category = SRMA
+			convert_cost_ic = 50
+		}
+	}
+	SRM_PB = {
+		category = SRMA_2
+		gui_category = SRMs
+		multiply_stats = {
+			port_capacity_usage = -0.5
+			max_organisation = 1
+			surface_visibility = -0.75
+			naval_speed = 0.5
+			naval_range = -0.5
+			build_cost_ic = -0.5
+		}
+		can_convert_from = {
+			module_category = SRMA
+			convert_cost_ic = 50
+		}
+	}
+
+}

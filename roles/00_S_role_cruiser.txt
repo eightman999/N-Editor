@@ -1,0 +1,221 @@
+equipment_modules = {
+	SRM_CA = {
+		gui_category = SRMs
+		category = SRMs_CRS
+		# gui_category = ship_mine_warfare
+		gfx = SRM_CA
+		multiply_stats = {
+			max_strength = 0.05
+			surface_detection = 0.05
+			naval_range = 0.05
+			naval_speed = -0.025
+		}
+		can_convert_from = {
+			module_category = SRMs
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	SRM_ACR = {
+		gui_category = SRMs
+		category = SRMs_CRS
+		# gui_category = ship_mine_warfare
+		multiply_stats = {
+			max_strength = 0.05
+			armor_value = 0.25
+			surface_detection = 0.05
+			naval_range = 0.05
+			naval_speed = -0.05
+		}
+		can_convert_from = {
+			module_category = SRMs
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	SRM_IC = {
+		gui_category = SRMs
+		category = SRMs_CRS
+		# gui_category = ship_mine_warfare
+		multiply_stats = {
+			reliability = 0.05
+			armor_value = 0.25
+			naval_range = -0.05
+			naval_speed = -0.25
+		}
+		can_convert_from = {
+			module_category = SRMs
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	SRM_CL = {
+		gui_category = SRMs
+		# gui_category = ship_mine_warfare
+		gfx = SRM_CL
+		category = SRMs_CRS
+		multiply_stats = {
+			max_organisation = 0.05
+			surface_detection = 0.05
+			naval_range = 0.05
+			naval_speed = 0.025
+		}
+		can_convert_from = {
+			module_category = SRMs
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	SRM_C = {
+		gui_category = SRMs
+		# gui_category = ship_mine_warfare
+		category = SRMs_CRS
+		multiply_stats = {
+			max_organisation = 0.15
+			max_strength = -0.05
+			build_cost_ic = -0.05
+			armor_value = -0.05
+		}
+		can_convert_from = {
+			module_category = SRMs
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	SRM_CS = {
+		gui_category = SRMs
+		# gui_category = ship_mine_warfare
+		category = SRMs_CRS
+		multiply_stats = {
+			max_organisation = -0.05
+			surface_detection = 0.25
+			sub_detection = 0.05
+			armor_value = -0.05
+		}
+		can_convert_from = {
+			module_category = SRMs
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	SRM_HTC = {
+		gui_category = SRMs
+		# gui_category = ship_mine_warfare
+		category = SRMs_CRS
+		multiply_stats = {
+			max_organisation = -0.05
+			torpedo_attack = 0.2
+			build_cost_ic = 0.15
+			reliability = -0.05
+		}
+		can_convert_from = {
+			module_category = SRMs
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	SRM_TC = {
+		gui_category = SRMs
+		# gui_category = ship_mine_warfare
+		category = SRMs_CRS
+		multiply_stats = {
+			torpedo_attack = 0.05
+			build_cost_ic = 0.1
+		}
+		can_convert_from = {
+			module_category = SRMs
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	SRM_TCL = {
+		gui_category = SRMs
+		# gui_category = ship_mine_warfare
+		category = SRMs_CRS
+		multiply_stats = {
+			max_organisation = -0.25
+			torpedo_attack = -0.25
+			naval_range = 0.25
+			reliability = 0.5
+			build_cost_ic = -0.15
+		}
+		can_convert_from = {
+			module_category = SRMs
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	SRM_CM = {
+		gui_category = SRMs
+		# gui_category = ship_mine_warfare
+		category = SRMs_CRS
+		multiply_stats = {
+			max_organisation = -0.05
+			naval_speed = -0.05
+			mines_planting = 2.5
+			armor_value = -0.05
+		}
+		can_convert_from = {
+			module_category = SRMs
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	SRM_CF = {
+		gui_category = SRMs
+		# gui_category = ship_mine_warfare
+		gfx = SRM_CL
+		category = SRMs_CRS
+		multiply_stats = {
+			reliability = -0.05
+			sub_detection = 0.05
+			surface_detection = 0.05
+			surface_visibility = 0.05
+		}
+		can_convert_from = {
+			module_category = SRMs
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+	SRM_CG = {
+		gui_category = SRMs
+		add_equipment_type = missile_launcher
+        allow_equipment_type = { missile ballistic_missile }
+		gfx = SRM_CL
+		category = SRMs_CRS
+		multiply_stats = {
+			reliability = -0.15
+			build_cost_ic = 0.1
+		}
+		can_convert_from = {
+			module_category = SRMs
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+	}
+}
