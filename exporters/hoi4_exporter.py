@@ -199,37 +199,20 @@ class HOI4Exporter(BaseExporter):
         slots = hull_data.get('slots', {})
         base_stats = hull_data.get('base_stats', {})
         
-        # is_archetypeの動的判定
-        # 1. データに明示的に指定があればそれを使用
-        # 2. カスタム船体タイプで標準タイプでない場合はis_archetype=false
-        # 3. 船体名に「アーキタイプ」が含まれている場合はis_archetype=true
-        if 'is_archetype' in hull_data:
-            is_archetype = hull_data['is_archetype']
-        else:
-            standard_types = ['destroyer', 'light_cruiser', 'heavy_cruiser', 'battle_cruiser', 
-                             'battleship', 'carrier', 'submarine']
-            
-            if hull_type not in standard_types:
-                # カスタム船体タイプの場合
-                if 'アーキタイプ' in hull_name or 'archetype' in hull_name.lower():
-                    is_archetype = True
-                    self.logger.info(f"カスタム船体 {hull_name} をアーキタイプとして設定")
-                else:
-                    is_archetype = False
-                    self.logger.info(f"カスタム船体 {hull_name} を建造可能船体として設定")
-            else:
-                # 標準船体タイプの場合はデフォルトでアーキタイプ
-                is_archetype = True
+        # カスタム艦種は常にis_archetype=false（建造可能船体）
+        is_archetype = False
+        is_buildable = True
         
-        is_buildable = not is_archetype  # アーキタイプでない場合は建造可能
+        # 船体タイプを標準HOI4アーキタイプにマッピング
+        archetype_type = self._get_archetype_type(hull_type)
         
         lines = []
         lines.append(f"\t{hull_id} = {{")
         lines.append(f"\t\tyear = {year}")
         lines.append(f"\t\tis_archetype = {str(is_archetype).lower()}")
         lines.append(f"\t\tis_buildable = {str(is_buildable).lower()}")
-        lines.append(f"\t\ttype = {hull_type}")
-        lines.append(f"\t\tsprite = {hull_type}")
+        lines.append(f"\t\ttype = {archetype_type}")  # 標準アーキタイプタイプを使用
+        lines.append(f"\t\tsprite = {hull_type}")      # スプライトは元の船体タイプ
         lines.append("\t\tgroup_by = archetype")
         lines.append("\t\tpriority = 1000")
         
@@ -244,7 +227,13 @@ class HOI4Exporter(BaseExporter):
                 lines.append(f"\t\t\t{slot_id} = {{")
                 lines.append(f"\t\t\t\trequired = {str(slot_config.get('required', False)).lower()}")
                 
+                # ship_type_slotの場合は適切なカテゴリを設定
                 categories = slot_config.get('categories', [])
+                if slot_id == 'ship_type_slot':
+                    # カスタム艦種のタイプに基づいてカテゴリを自動設定
+                    categories = self._get_ship_type_categories(hull_type)
+                    self.logger.info(f"船体タイプ {hull_type} に対してship_type_slotカテゴリを設定: {categories}")
+                
                 if categories:
                     lines.append("\t\t\t\tallowed_module_categories = {")
                     for category in categories:
@@ -261,7 +250,12 @@ class HOI4Exporter(BaseExporter):
         if slots:
             lines.append("\t\tdefault_modules = {")
             for slot_id, slot_config in slots.items():
-                default_module = slot_config.get('default_module', 'empty')
+                if slot_id == 'ship_type_slot':
+                    # ship_type_slotに対して適切なデフォルトモジュールを設定
+                    default_module = self._get_default_ship_type_module(hull_type)
+                    self.logger.info(f"船体タイプ {hull_type} に対してship_type_slotデフォルトモジュールを設定: {default_module}")
+                else:
+                    default_module = slot_config.get('default_module', 'empty')
                 lines.append(f"\t\t\t{slot_id} = {default_module}")
             lines.append("\t\t}")
         
@@ -348,6 +342,231 @@ class HOI4Exporter(BaseExporter):
                 return 'interface_category_capital_ships'
         
         return category_mapping[hull_type]
+
+    def _get_ship_type_categories(self, hull_type: str) -> List[str]:
+        """船体タイプに基づいてship_type_slotのカテゴリを取得
+        
+        Args:
+            hull_type (str): 船体タイプ
+            
+        Returns:
+            List[str]: 適用可能なモジュールカテゴリのリスト
+        """
+        # 船体タイプに応じたカテゴリマッピング
+        type_category_mapping = {
+            # 駆逐艦系
+            'destroyer': ['SRM_ESC'],
+            'DDG': ['SRM_ESC', 'SRMs_CRS'],  # ミサイル駆逐艦
+            'FFG': ['SRM_ESC'],  # フリゲート
+            'DD': ['SRM_ESC'],   # 駆逐艦
+            
+            # 巡洋艦系
+            'light_cruiser': ['SRMs_CRS'],
+            'heavy_cruiser': ['SRMs_CRS'],
+            'CL': ['SRMs_CRS'],  # 軽巡洋艦
+            'CA': ['SRMs_CRS'],  # 重巡洋艦
+            'CG': ['SRMs_CRS'],  # ミサイル巡洋艦
+            
+            # 戦艦系
+            'battleship': ['SRM_CAP'],
+            'battle_cruiser': ['SRM_CAP'],
+            'BB': ['SRM_CAP'],   # 戦艦
+            'BC': ['SRM_CAP'],   # 巡洋戦艦
+            
+            # 空母系
+            'carrier': ['SRM_AIR'],
+            'CV': ['SRM_AIR'],   # 空母
+            'CVN': ['SRM_AIR'],  # 原子力空母
+            'CVL': ['SRM_AIR'],  # 軽空母
+            
+            # 潜水艦系
+            'submarine': ['SRM_SUB'],
+            'SS': ['SRM_SUB'],   # 潜水艦
+            'SSN': ['SRM_SUB'],  # 原子力潜水艦
+            'SSK': ['SRM_SUB'],  # ディーゼル潜水艦
+            
+            # 補助艦艇系
+            'AUX': ['SRM_AUX'],  # 補助艦艇
+            'AS': ['SRM_AUX'],   # 潜水艦母艦
+            'AR': ['SRM_AUX'],   # 修理艦
+        }
+        
+        # 直接マッピングがある場合
+        if hull_type in type_category_mapping:
+            return type_category_mapping[hull_type]
+        
+        # パターンマッチング
+        hull_upper = hull_type.upper()
+        if any(pattern in hull_upper for pattern in ['DDG', 'FFG', 'DD']):
+            return ['SRM_ESC', 'SRMs_CRS']
+        elif any(pattern in hull_upper for pattern in ['CG', 'CA', 'CL']):
+            return ['SRMs_CRS']
+        elif any(pattern in hull_upper for pattern in ['CV']):
+            return ['SRM_AIR']
+        elif any(pattern in hull_upper for pattern in ['SS']):
+            return ['SRM_SUB']
+        elif any(pattern in hull_upper for pattern in ['BB', 'BC']):
+            return ['SRM_CAP']
+        else:
+            # デフォルトは巡洋艦カテゴリ
+            self.logger.warning(f"未知の船体タイプ {hull_type} - デフォルトカテゴリ SRMs_CRS を使用")
+            return ['SRMs_CRS']
+
+    def _get_default_ship_type_module(self, hull_type: str) -> str:
+        """船体タイプに基づいてship_type_slotのデフォルトモジュールを取得
+        
+        Args:
+            hull_type (str): 船体タイプ
+            
+        Returns:
+            str: デフォルトモジュールID
+        """
+        # 船体タイプに応じたデフォルトモジュールマッピング
+        default_module_mapping = {
+            # 駆逐艦系 - 護衛任務
+            'destroyer': 'SRM_FF',
+            'DDG': 'SRM_MB',    # ミサイル駆逐艦
+            'FFG': 'SRM_FF',    # フリゲート
+            'DD': 'SRM_FF',     # 駆逐艦
+            
+            # 巡洋艦系 - 巡洋任務
+            'light_cruiser': 'SRM_CL',
+            'heavy_cruiser': 'SRM_CA',
+            'CL': 'SRM_CL',     # 軽巡洋艦
+            'CA': 'SRM_CA',     # 重巡洋艦
+            'CG': 'SRM_CG',     # ミサイル巡洋艦
+            
+            # 戦艦系 - 主力艦任務
+            'battleship': 'SRM_BB',
+            'battle_cruiser': 'SRM_BC',
+            'BB': 'SRM_BB',     # 戦艦
+            'BC': 'SRM_BC',     # 巡洋戦艦
+            
+            # 空母系 - 航空任務
+            'carrier': 'SRM_CV',
+            'CV': 'SRM_CV',     # 空母
+            'CVN': 'SRM_CVN',   # 原子力空母
+            'CVL': 'SRM_CVL',   # 軽空母
+            
+            # 潜水艦系 - 潜水艦任務
+            'submarine': 'SRM_SS',
+            'SS': 'SRM_SS',     # 潜水艦
+            'SSN': 'SRM_SSN',   # 原子力潜水艦
+            'SSK': 'SRM_SS',    # ディーゼル潜水艦
+            
+            # 補助艦艇系
+            'AUX': 'SRM_AUX',   # 補助艦艇
+            'AS': 'SRM_AS',     # 潜水艦母艦
+            'AR': 'SRM_AR',     # 修理艦
+        }
+        
+        # 直接マッピングがある場合
+        if hull_type in default_module_mapping:
+            return default_module_mapping[hull_type]
+        
+        # パターンマッチング
+        hull_upper = hull_type.upper()
+        if 'DDG' in hull_upper:
+            return 'SRM_MB'  # ミサイル駆逐艦
+        elif any(pattern in hull_upper for pattern in ['FFG', 'DD']):
+            return 'SRM_FF'  # フリゲート/駆逐艦
+        elif 'CG' in hull_upper:
+            return 'SRM_CG'  # ミサイル巡洋艦
+        elif 'CA' in hull_upper:
+            return 'SRM_CA'  # 重巡洋艦
+        elif 'CL' in hull_upper:
+            return 'SRM_CL'  # 軽巡洋艦
+        elif 'CV' in hull_upper:
+            return 'SRM_CV'  # 空母
+        elif 'SS' in hull_upper:
+            return 'SRM_SS'  # 潜水艦
+        elif any(pattern in hull_upper for pattern in ['BB', 'BC']):
+            return 'SRM_BB'  # 戦艦
+        else:
+            # デフォルトは汎用巡洋艦
+            self.logger.warning(f"未知の船体タイプ {hull_type} - デフォルトモジュール SRM_C を使用")
+            return 'SRM_C'
+
+    def _get_archetype_type(self, hull_type: str) -> str:
+        """船体タイプを標準HOI4アーキタイプにマッピング
+        
+        Args:
+            hull_type (str): 船体タイプ
+            
+        Returns:
+            str: 対応する標準アーキタイプタイプ
+        """
+        # 船体タイプ → 標準アーキタイプのマッピング表
+        archetype_mapping = {
+            # 戦艦系
+            'BB': 'ship_hull_heavy',     # 戦艦
+            'BC': 'ship_hull_heavy',     # 巡洋戦艦
+            'BF': 'ship_hull_battle_carrier',  # 戦闘空母
+            'CDB': 'ship_hull_heavy',    # 沿岸防御戦艦
+            
+            # 巡洋艦系
+            'CB': 'ship_hull_cruiser',   # 巡洋戦艦
+            'CA': 'ship_hull_cruiser',   # 重巡洋艦
+            'CL': 'ship_hull_cruiser',   # 軽巡洋艦
+            'MC': 'ship_hull_medium',    # 中型巡洋艦
+            
+            # 駆逐艦系
+            'DD': 'ship_hull_light',     # 駆逐艦
+            'DE': 'ship_hull_light',     # 護衛駆逐艦
+            'FF': 'ship_hull_frigate',   # フリゲート
+            'K': 'ship_hull_frigate',    # コルベット
+            
+            # 補助戦闘艦
+            'FAV': 'ship_hull_heavy',    # 高速攻撃艦
+            'SAV': 'ship_hull_medium',   # 標準攻撃艦
+            'TAV': 'ship_hull_light',    # 魚雷攻撃艦
+            'CC': 'ship_hull_craft',     # 沿岸戦闘艦
+            'AV': 'ship_hull_medium',    # 水上機母艦
+            
+            # 空母系
+            'CV': 'ship_hull_carrier',   # 空母
+            'CVL': 'ship_hull_light_carrier',  # 軽空母
+            'CF': 'ship_hull_cruiser_carrier',  # 巡洋艦空母
+            
+            # 潜水艦系
+            'FS': 'ship_hull_submarine', # フリート潜水艦
+            'SS': 'ship_hull_submarine', # 潜水艦
+            'SCV': 'ship_hull_submarine_carrier',  # 潜水艦空母
+            
+            # 追加の一般的なタイプ
+            'DDG': 'ship_hull_light',    # ミサイル駆逐艦
+            'FFG': 'ship_hull_frigate',  # ミサイルフリゲート
+            'CG': 'ship_hull_cruiser',   # ミサイル巡洋艦
+            'CVN': 'ship_hull_carrier',  # 原子力空母
+            'SSN': 'ship_hull_submarine', # 原子力潜水艦
+            'SSK': 'ship_hull_submarine', # ディーゼル潜水艦
+            
+            # 標準HOI4タイプ（そのまま使用）
+            'destroyer': 'ship_hull_light',
+            'light_cruiser': 'ship_hull_cruiser',
+            'heavy_cruiser': 'ship_hull_cruiser',
+            'battle_cruiser': 'ship_hull_heavy',
+            'battleship': 'ship_hull_heavy',
+            'carrier': 'ship_hull_carrier',
+            'submarine': 'ship_hull_submarine'
+        }
+        
+        # 直接マッピングがある場合
+        if hull_type in archetype_mapping:
+            mapped_type = archetype_mapping[hull_type]
+            self.logger.info(f"船体タイプ {hull_type} を標準アーキタイプ {mapped_type} にマッピング")
+            return mapped_type
+        
+        # パターンマッチング（大文字小文字を無視）
+        hull_upper = hull_type.upper()
+        for pattern, archetype in archetype_mapping.items():
+            if pattern.upper() in hull_upper:
+                self.logger.info(f"船体タイプ {hull_type} をパターン {pattern} 経由で標準アーキタイプ {archetype} にマッピング")
+                return archetype
+        
+        # デフォルトフォールバック
+        self.logger.warning(f"未知の船体タイプ {hull_type} - デフォルトアーキタイプ ship_hull_cruiser を使用")
+        return 'ship_hull_cruiser'
     
     def _escape_string(self, text: str) -> str:
         """文字列のエスケープ処理
