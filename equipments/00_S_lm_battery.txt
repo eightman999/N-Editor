@@ -1,0 +1,478 @@
+equipment_modules = {
+	#Medium battery(for light cruiser)
+	ship_old_light_medium_battery_1 = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 5.40333793103449
+			build_cost_ic = 219.781
+		}
+		multiply_stats = {
+			naval_speed = -0.0219781
+		}
+		add_average_stats = {
+			lg_armor_piercing = 7.37396705882353
+			max_strength = 10
+		}
+		can_convert_from = {
+			module_category = ship_medium_battery
+			convert_cost_ic = 500
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_old_light_medium_battery_2 = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		parent = ship_old_light_medium_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 6.45735350375308
+			build_cost_ic = 261.31723272
+		}
+		multiply_stats = {
+			naval_speed = -0.026131723272
+		}
+		add_average_stats = {
+			lg_armor_piercing = 8.04046023529412
+			max_strength = 10
+		}
+		can_convert_from = {
+			module_category = ship_medium_battery
+			convert_cost_ic = 400
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+		can_convert_from = {
+			module = ship_old_light_medium_battery_1
+			convert_cost_ic = 300
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_old_light_medium_battery_3 = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		parent = ship_old_light_medium_battery_2
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 7.21057569681383
+			build_cost_ic = 307.432038494118
+		}
+		multiply_stats = {
+			naval_speed = -0.0307432038494118
+		}
+		add_average_stats = {
+			lg_armor_piercing = 9.5394915
+			max_strength = 10
+		}
+		build_cost_resources = {
+			steel = 1
+		}
+		can_convert_from = {
+			module_category = ship_medium_battery
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+		can_convert_from = {
+			module = ship_old_light_medium_battery_2
+			convert_cost_ic = 350
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_light_medium_battery_1 = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		parent = ship_old_light_medium_battery_3
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 9.40881353424656
+			build_cost_ic = 338.548235294118
+		}
+		multiply_stats = {
+			naval_speed = -0.0338548235294118
+		}
+		add_average_stats = {
+			lg_armor_piercing = 9.40881353424656
+			max_strength = 13
+		}
+		can_convert_from = {
+			module_category = ship_medium_battery
+			convert_cost_ic = 500
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_light_medium_battery_2 = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		parent = ship_light_medium_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 9
+			build_cost_ic = 375
+		}
+		multiply_stats = {
+			naval_speed = -0.04
+		}
+		add_average_stats = {
+			lg_armor_piercing = 10
+			max_strength = 13
+		}
+		can_convert_from = {
+			module_category = ship_medium_battery
+			convert_cost_ic = 400
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+		can_convert_from = {
+			module = ship_light_medium_battery_1
+			convert_cost_ic = 300
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_light_medium_battery_3 = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		parent = ship_light_medium_battery_2
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 10
+			build_cost_ic = 400
+		}
+		multiply_stats = {
+			naval_speed = -0.04
+		}
+		add_average_stats = {
+			lg_armor_piercing = 10.5
+			max_strength = 13
+		}
+		build_cost_resources = {
+			steel = 1
+		}
+		can_convert_from = {
+			module_category = ship_medium_battery
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+		can_convert_from = {
+			module = ship_light_medium_battery_2
+			convert_cost_ic = 350
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_light_medium_battery_4 = {
+		category = ship_medium_battery
+		sfx = sfx_ui_sd_module_turret
+		gui_category = ship_medium_battery
+		parent = ship_light_medium_battery_3
+		add_stats = {
+			lg_attack = 10.5
+			build_cost_ic = 450
+		}
+		multiply_stats = {
+			naval_speed = -0.05
+		}
+		add_average_stats = {
+			lg_armor_piercing = 11
+			max_strength = 13
+		}
+		build_cost_resources = {
+			steel = 1
+		}
+		can_convert_from = {
+			module_category = ship_medium_battery
+			convert_cost_ic = 600
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+		can_convert_from = {
+			module = ship_light_medium_battery_3
+			convert_cost_ic = 400
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_light_medium_battery_5 = {
+		category = ship_medium_battery
+		sfx = sfx_ui_sd_module_turret
+		gui_category = ship_medium_battery
+		parent = ship_light_medium_battery_4
+		add_stats = {
+			lg_attack = 12
+			build_cost_ic = 450
+		}
+		multiply_stats = {
+			naval_speed = -0.05
+		}
+		add_average_stats = {
+			lg_armor_piercing = 12
+			max_strength = 18
+		}
+		build_cost_resources = {
+			steel = 1
+		}
+		can_convert_from = {
+			module_category = ship_medium_battery
+			convert_cost_ic = 600
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+		can_convert_from = {
+			module = ship_light_medium_battery_4
+			convert_cost_ic = 400
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_USA_light_medium_battery = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 6
+			build_cost_ic = 300
+		}
+		multiply_stats = {
+			naval_speed = -0.04
+		}
+		add_average_stats = {
+			lg_armor_piercing = 7
+			max_strength = 10
+		}
+	}
+	ship_JAP_light_medium_battery_1 = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 3.8
+			build_cost_ic = 200
+		}
+		multiply_stats = {
+			naval_speed = -0.028
+		}
+		add_average_stats = {
+			lg_armor_piercing = 5.45
+			max_strength = 10
+		}
+	}
+	ship_ENG_light_medium_battery_1 = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_JAP_light_medium_battery_1
+		add_stats = {
+			lg_attack = 4.75
+			build_cost_ic = 205
+		}
+		multiply_stats = {
+			naval_speed = -0.028
+		}
+		add_average_stats = {
+			lg_armor_piercing = 6.25
+			max_strength = 10
+		}
+	}
+	ship_JAP_light_medium_battery_2 = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_JAP_light_medium_battery_1
+		add_stats = {
+			lg_attack = 4.75
+			build_cost_ic = 225
+			anti_air_attack = 2
+		}
+		multiply_stats = {
+			naval_speed = -0.028
+		}
+		add_average_stats = {
+			lg_armor_piercing = 6.75
+			max_strength = 10
+		}
+	}
+	ship_JAP_light_medium_battery_3 = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_JAP_light_medium_battery_2
+		add_stats = {
+			lg_attack = 5.8
+			anti_air_attack = 3
+			build_cost_ic = 275
+		}
+		multiply_stats = {
+			naval_speed = -0.028
+		}
+		add_average_stats = {
+			lg_armor_piercing = 7.8
+			max_strength = 12
+		}
+	}
+	ship_JAP_light_medium_battery_4 = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_JAP_light_medium_battery_2
+		add_stats = {
+			lg_attack = 8.7
+			anti_air_attack = 4
+			build_cost_ic = 300
+		}
+		multiply_stats = {
+			naval_speed = -0.028
+		}
+		add_average_stats = {
+			lg_armor_piercing = 7.8
+			max_strength = 12
+		}
+	}
+	ship_ITA_light_medium_battery = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 8
+			build_cost_ic = 325
+		}
+		multiply_stats = {
+			naval_speed = -0.03
+		}
+		add_average_stats = {
+			lg_armor_piercing = 10
+			max_strength = 16
+		}
+		can_convert_from = {
+			module_category = ship_medium_battery
+			convert_cost_ic = 500
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_GER_light_medium_battery = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 6.5
+			build_cost_ic = 310
+		}
+		multiply_stats = {
+			naval_speed = -0.04
+		}
+		add_average_stats = {
+			lg_armor_piercing = 7
+			max_strength = 10
+		}
+		build_cost_resources = {
+			steel = 1
+		}
+		can_convert_from = {
+			module_category = ship_medium_battery
+			convert_cost_ic = 500
+			convert_cost_resources = {
+				steel = 1
+			}
+		}
+		can_convert_from = {
+			module = ship_old_light_medium_battery_2
+			convert_cost_ic = 350
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_FRA_light_medium_battery = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 3.1
+			anti_air_attack = 0.6
+			build_cost_ic = 240
+		}
+		multiply_stats = {
+			naval_speed = -0.03
+		}
+		add_average_stats = {
+			lg_armor_piercing = 3
+			max_strength = 10
+		}
+		can_convert_from = {
+			module_category = ship_medium_battery
+			convert_cost_ic = 60
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_FRA_light_medium_battery_2 = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 5.2
+			anti_air_attack = 1.55
+			build_cost_ic = 275
+		}
+		multiply_stats = {
+			naval_speed = -0.022
+		}
+		add_average_stats = {
+			lg_armor_piercing = 4
+			max_strength = 10
+		}
+		can_convert_from = {
+			module_category = ship_medium_battery
+			convert_cost_ic = 60
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_JAP_light_medium_battery = {
+		category = ship_medium_battery
+		gui_category = ship_medium_battery
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 2.8
+			anti_air_attack = 2
+			build_cost_ic = 280
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+			steel = 1
+		}
+		add_average_stats = {
+			lg_armor_piercing = 3.85
+			max_strength = 8
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+}

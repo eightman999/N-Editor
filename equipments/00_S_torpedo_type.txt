@@ -1,0 +1,18 @@
+equipment_modules = {
+	#450mm:1900
+	SH_TP_TYPE_0 = {
+		category = SH_TP_TYPE_450mm
+		gui_category = SH_TP_TYPE
+		add_stats = {
+			torpedo_attack = 17.3
+		}
+		multiply_stats = {
+			build_cost_ic = 0.025
+		}
+		resources = {
+			steel = 1
+		}
+		manpower = 5
+	}
+}
+

@@ -31,6 +31,11 @@ class EquipmentModel:
         # データディレクトリが存在しない場合は作成
         os.makedirs(self.data_dir, exist_ok=True)
 
+        # ユーザーデータディレクトリの設定
+        self.user_data_dir = os.path.join(os.path.dirname(self.data_dir), 'user_data')
+        os.makedirs(self.user_data_dir, exist_ok=True)
+        self.unique_equipment_file = os.path.join(self.user_data_dir, 'unique_equipments.csv')
+
         # キャッシュマネージャー
         self.cache_manager = cache_manager
 
@@ -264,10 +269,92 @@ class EquipmentModel:
 
     def save_equipment(self, equipment_data: Dict[str, Any]) -> bool:
         """
-        装備データの保存（CSVベースでは未実装）
+        装備データをunique_equipments.csvに保存
+        
+        Args:
+            equipment_data: 保存する装備データ
+            
+        Returns:
+            bool: 保存成功時True、失敗時False
         """
-        logger.error("CSVをマスターデータとしているため、個別の装備保存は現在サポートされていません。")
-        raise NotImplementedError("Saving individual equipment is not supported when using CSV as the master data.")
+        equipment_id = equipment_data.get('common', {}).get('ID')
+        if not equipment_id:
+            logger.error("保存する装備データにIDがありません。")
+            return False
+
+        try:
+            # データをフラットな辞書に変換
+            flat_data = {}
+            
+            # commonデータを展開
+            if 'common' in equipment_data:
+                for key, value in equipment_data['common'].items():
+                    if key == '必要資源' and isinstance(value, dict):
+                        # ネストされた必要資源を展開
+                        for resource, resource_value in value.items():
+                            flat_data[f'必要資源_{resource}'] = resource_value
+                    else:
+                        flat_data[key] = value
+            
+            # specificデータを展開
+            if 'specific' in equipment_data:
+                flat_data.update(equipment_data['specific'])
+            
+            # equipment_typeも追加
+            if 'equipment_type' in equipment_data:
+                flat_data['equipment_type'] = equipment_data['equipment_type']
+
+            # unique.csvを読み込んで更新または追記
+            rows = []
+            header = []
+            updated = False
+            
+            if os.path.exists(self.unique_equipment_file):
+                with open(self.unique_equipment_file, 'r', newline='', encoding='utf-8') as f:
+                    reader = csv.reader(f)
+                    header = next(reader, [])
+                    if header:
+                        f.seek(0)  # ファイルポインタを先頭に戻す
+                        dict_reader = csv.DictReader(f)
+                        for row in dict_reader:
+                            if row.get('ID') == equipment_id:
+                                # データを更新
+                                updated_row = dict(row)
+                                updated_row.update(flat_data)
+                                rows.append(updated_row)
+                                updated = True
+                            else:
+                                rows.append(row)
+            
+            # 新規データの場合は追記
+            if not updated:
+                rows.append(flat_data)
+
+            # ヘッダーを決定（既存ヘッダー + 新しいキー）
+            if not header:
+                header = list(flat_data.keys())
+            else:
+                for key in flat_data.keys():
+                    if key not in header:
+                        header.append(key)
+
+            # ファイルに書き込み
+            with open(self.unique_equipment_file, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=header)
+                writer.writeheader()
+                writer.writerows(rows)
+
+            # メモリキャッシュとファイルキャッシュを更新
+            self.equipment_cache[equipment_id] = equipment_data
+            if self.cache_manager:
+                self.cache_manager.invalidate("equipment_all_csv")  # キャッシュを無効化
+
+            logger.info(f"装備 {equipment_id} を unique_equipments.csv に保存しました。")
+            return True
+
+        except Exception as e:
+            logger.error(f"ユニーク装備の保存中にエラーが発生しました: {e}")
+            return False
 
     def load_equipment(self, equipment_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -339,17 +426,116 @@ class EquipmentModel:
 
     def delete_equipment(self, equipment_id: str) -> bool:
         """
-        装備データの削除（CSVベースでは未実装）
+        装備データをunique_equipments.csvから削除
+        
+        Args:
+            equipment_id: 削除する装備ID
+            
+        Returns:
+            bool: 削除成功時True、失敗時False
         """
-        logger.error("CSVをマスターデータとしているため、個別の装備削除は現在サポートされていません。")
-        raise NotImplementedError("Deleting individual equipment is not supported when using CSV as the master data.")
+        if not equipment_id:
+            logger.error("削除する装備IDが指定されていません。")
+            return False
+
+        try:
+            # unique.csvが存在しない場合は削除対象なし
+            if not os.path.exists(self.unique_equipment_file):
+                logger.warning(f"装備 {equipment_id} はユニークファイルに存在しません。")
+                return False
+
+            rows = []
+            header = []
+            deleted = False
+            
+            with open(self.unique_equipment_file, 'r', newline='', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                header = next(reader, [])
+                if header:
+                    f.seek(0)  # ファイルポインタを先頭に戻す
+                    dict_reader = csv.DictReader(f)
+                    for row in dict_reader:
+                        if row.get('ID') == equipment_id:
+                            # この行は削除対象のため追加しない
+                            deleted = True
+                            logger.info(f"装備 {equipment_id} を削除しました")
+                        else:
+                            rows.append(row)
+
+            if not deleted:
+                logger.warning(f"装備 {equipment_id} はユニークファイルに存在しません。")
+                return False
+
+            # ファイルに書き戻し
+            with open(self.unique_equipment_file, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=header)
+                writer.writeheader()
+                writer.writerows(rows)
+
+            # メモリキャッシュからも削除
+            if equipment_id in self.equipment_cache:
+                del self.equipment_cache[equipment_id]
+            
+            # ファイルキャッシュを無効化
+            if self.cache_manager:
+                self.cache_manager.invalidate("equipment_all_csv")
+
+            logger.info(f"装備 {equipment_id} を unique_equipments.csv から削除しました。")
+            return True
+
+        except Exception as e:
+            logger.error(f"ユニーク装備の削除中にエラーが発生しました: {e}")
+            return False
 
     def get_next_id(self, equipment_type: str) -> str:
         """
-        指定装備タイプの次のIDを生成（CSVベースでは未実装）
+        指定装備タイプの次のIDを生成
+        マスターとユニークの両方のデータを参照して、最大IDに基づいて次のIDを生成
+        
+        Args:
+            equipment_type: 装備タイプ
+            
+        Returns:
+            str: 次のID
         """
-        logger.error("CSVをマスターデータとしているため、IDの自動採番は現在サポートされていません。")
-        raise NotImplementedError("Automatic ID generation is not supported when using CSV as the master data.")
+        if not equipment_type:
+            logger.error("装備タイプが指定されていません。")
+            return ""
+
+        try:
+            # 装備タイプに対応するプレフィックスを取得
+            prefix = self.get_prefix_for_type(equipment_type)
+            if not prefix:
+                logger.error(f"装備タイプ {equipment_type} のプレフィックスが見つかりません。")
+                return ""
+
+            # 全装備データを取得
+            all_equipments = self.get_all_equipment()
+            
+            # 該当プレフィックスの装備IDを検索
+            max_id_num = 0
+            for equipment in all_equipments:
+                equipment_id = equipment.get('common', {}).get('ID', '')
+                if equipment_id.startswith(prefix):
+                    # IDから数値部分を抽出
+                    numeric_part = ''.join([c for c in equipment_id if c.isdigit()])
+                    if numeric_part:
+                        try:
+                            current_num = int(numeric_part)
+                            max_id_num = max(max_id_num, current_num)
+                        except ValueError:
+                            continue
+
+            # 次のIDを生成（プレフィックス + 数値）
+            next_id_num = max_id_num + 1
+            next_id = f"{prefix}{next_id_num:04d}"  # 4桁0埋め
+
+            logger.info(f"装備タイプ {equipment_type} の次のIDを生成: {next_id}")
+            return next_id
+
+        except Exception as e:
+            logger.error(f"次のID生成中にエラーが発生しました: {e}")
+            return ""
 
     def get_equipment_type_mapping(self) -> Dict[str, str]:
         """
@@ -377,15 +563,18 @@ class EquipmentModel:
 
     def _load_all_equipments_from_csv(self) -> List[Dict[str, Any]]:
         """
-        data/equipments 内の全CSVファイルから装備データを読み込み、JSONライクな構造に変換する
+        data/equipments 内の全CSVファイルからマスター装備データを読み込み、
+        その後unique_equipments.csvからユーザー作成装備データを読み込んで統合し、
+        JSON ライクな構造に変換する
         """
-        all_equipments = []
+        equipments_map = {}  # IDをキーとする辞書で管理
         
         # テンプレートからcommonとspecificのフィールドリストを作成
         common_fields = set(['名前', 'ID', '重量', '人員', '開発年', '開発国'])
         # resourcesはネストされているので特別扱い
         resource_fields = set(['必要資源_鉄', '必要資源_クロム', '必要資源_アルミ', '必要資源_タングステン', '必要資源_ゴム'])
 
+        # 1. マスターCSVファイルの読み込み
         for file in os.listdir(self.data_dir):
             if file.endswith('.csv'):
                 file_path = os.path.join(self.data_dir, file)
@@ -434,11 +623,73 @@ class EquipmentModel:
                                 else:
                                     equipment_data["specific"][key] = value
 
-                            all_equipments.append(equipment_data)
-                            # メモリキャッシュにも保存
-                            self.equipment_cache[equipment_id] = equipment_data
+                            # マスターデータをマップに追加
+                            equipments_map[equipment_id] = equipment_data
 
                 except Exception as e:
                     logger.error(f"CSV装備データ読み込みエラー ({file_path}): {e}")
+        
+        # 2. ユニーク装備データの読み込み（存在する場合）
+        if os.path.exists(self.unique_equipment_file):
+            try:
+                with open(self.unique_equipment_file, 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        equipment_id = row.get('ID')
+                        if not equipment_id:
+                            continue
+
+                        # IDプレフィックスから装備タイプを特定
+                        prefix = ''.join([c for c in equipment_id if c.isalpha()])
+                        equipment_type = self.prefix_to_type_map.get(prefix, 'その他')
+                        display_name = self.get_equipment_display_name(equipment_type)
+
+                        equipment_data = {
+                            "equipment_type": display_name,
+                            "common": {},
+                            "specific": {}
+                        }
+
+                        for key, value in row.items():
+                            # 空文字列は適切なデフォルト値に変換
+                            if value == '' or value is None:
+                                value = 0 if key in ['重量', '人員', '開発年'] or key.startswith('必要資源_') else value
+                            
+                            # 数値変換を試みる
+                            try:
+                                if isinstance(value, str) and value.replace('.', '').replace('-', '').isdigit():
+                                    if '.' in value:
+                                        value = float(value)
+                                    else:
+                                        value = int(value)
+                            except (ValueError, TypeError):
+                                pass # 変換できない場合は文字列のまま
+
+                            if key in common_fields:
+                                equipment_data["common"][key] = value
+                            elif key in resource_fields:
+                                # "必要資源_"プレフィックスを除去してネスト構造作成
+                                resource_name = key.replace('必要資源_', '')
+                                if "必要資源" not in equipment_data["common"]:
+                                    equipment_data["common"]["必要資源"] = {}
+                                equipment_data["common"]["必要資源"][resource_name] = value
+                            else:
+                                equipment_data["specific"][key] = value
+
+                        # ユニークデータでマスターデータを上書き（または新規追加）
+                        equipments_map[equipment_id] = equipment_data
+                        logger.info(f"ユニーク装備 {equipment_id} をロードしました")
+
+            except Exception as e:
+                logger.error(f"ユニークCSV装備データ読み込みエラー ({self.unique_equipment_file}): {e}")
+
+        # 辞書の値をリストに変換
+        all_equipments = list(equipments_map.values())
+        
+        # メモリキャッシュに保存
+        for eq in all_equipments:
+            equipment_id = eq.get('common', {}).get('ID')
+            if equipment_id:
+                self.equipment_cache[equipment_id] = eq
         
         return all_equipments

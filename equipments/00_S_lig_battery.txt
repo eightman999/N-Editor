@@ -1,0 +1,1075 @@
+equipment_modules = {
+	#Light battery
+	ship_SER_light_battery_1 = {
+		category = ship_light_battery
+		gui_category = ship_light_battery
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 3.82
+			build_cost_ic = 200
+		}
+		multiply_stats = {
+			naval_speed = -0.028
+		}
+		add_average_stats = {
+			lg_armor_piercing = 5.55
+			max_strength = 10
+		}
+	}
+	ship_old_light_battery_1 = {
+		category = ship_light_battery
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 1
+			build_cost_ic = 80
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 40
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_old_light_battery_2 = {
+		category = ship_light_battery
+		parent = ship_old_light_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 1.5
+			build_cost_ic = 120
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1.2
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 60
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_old_light_battery_3 = {
+		category = ship_light_battery
+		parent = ship_old_light_battery_2
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 1.8
+			anti_air_attack = 0.4
+			build_cost_ic = 140
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 2
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 60
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	###------###
+	ship_light_battery_1 = {
+		category = ship_light_battery
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 2.2
+			anti_air_attack = 0.625
+			build_cost_ic = 120
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 2.4
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 60
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_light_battery_2 = {
+		category = ship_light_battery
+		parent = ship_light_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 2.4
+			anti_air_attack = 1
+			build_cost_ic = 140
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 3
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 75			#conversion cost from ANY ship_light_battery module
+		}
+		can_convert_from = {
+			module = ship_light_battery_1
+			convert_cost_ic = 45			#conversion cost from that specific module
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_light_battery_3 = {
+		category = ship_light_battery
+		parent = ship_light_battery_2
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 2.6
+			anti_air_attack = 1.6
+			build_cost_ic = 170
+		}
+		add_average_stats = {
+			lg_armor_piercing = 3
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 75
+		}
+		can_convert_from = {
+			module = ship_light_battery_2
+			convert_cost_ic = 45
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_light_battery_4 = {
+		category = ship_light_battery
+		parent = ship_light_battery_3
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 3.2
+			anti_air_attack = 1.7
+			build_cost_ic = 200
+		}
+		build_cost_resources = {
+			steel = 1
+		}
+		multiply_stats = {
+			naval_speed = -0.02
+		}
+		add_average_stats = {
+			lg_armor_piercing = 3.5
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 190
+		}
+		can_convert_from = {
+			module = ship_light_battery_3
+			convert_cost_ic = 120
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	###------###
+	ship_light_battery_5 = {
+		category = ship_light_battery
+		parent = ship_light_battery_4
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 3.8
+			build_cost_ic = 230
+		}
+		build_cost_resources = {
+			steel = 1
+		}
+		multiply_stats = {
+			naval_speed = -0.025
+		}
+		add_average_stats = {
+			lg_armor_piercing = 4.2
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 190
+		}
+		can_convert_from = {
+			module = ship_light_battery_4
+			convert_cost_ic = 110
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_GER_light_battery = {
+		category = ship_light_battery
+		parent = ship_old_light_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 2
+			build_cost_ic = 180
+		}
+		multiply_stats = {
+			naval_speed = -0.011
+			reliability = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 4
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 120
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_FRA_light_battery = {
+		category = ship_light_battery
+		parent = ship_old_light_battery_2
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 1.85
+			anti_air_attack = 1.05
+			build_cost_ic = 180
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+			reliability = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 3.8
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 120
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_JAP_light_battery_RR = {
+		category = ship_light_battery
+		# parent = ship_light_battery_4
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			hg_attack = 10
+			lg_attack = 10
+			build_cost_ic = 550
+		}
+		multiply_stats = {
+			naval_speed = -0.15
+			reliability = -0.1
+			naval_heavy_gun_hit_chance_factor = -0.2
+			naval_light_gun_hit_chance_factor = -0.2
+		}
+		add_average_stats = {
+			lg_armor_piercing = 15
+			hg_armor_piercing = 15
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 300
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_USA_light_battery_1 = {
+		category = ship_light_battery
+		parent = ship_light_battery_4
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			hg_attack = 5
+			lg_attack = 2.5
+			build_cost_ic = 250
+		}
+		multiply_stats = {
+			naval_speed = -0.04
+			reliability = -0.05
+		}
+		add_average_stats = {
+			lg_armor_piercing = 10
+			hg_armor_piercing = 18
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 300
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_USA_light_battery_2 = {
+		category = ship_light_battery
+		parent = ship_USA_light_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			hg_attack = 8
+			lg_attack = 4
+			build_cost_ic = 250
+		}
+		multiply_stats = {
+			naval_speed = -0.04
+			reliability = -0.05
+		}
+		add_average_stats = {
+			lg_armor_piercing = 18
+			hg_armor_piercing = 25
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 300
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_ENG_light_battery_1 = {
+		category = ship_light_battery
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 0.85
+			build_cost_ic = 70
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 0.85
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 30
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_ENG_light_battery_2 = {
+		category = ship_light_battery
+		parent = ship_ENG_light_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 1.1
+			anti_air_attack = 0.65
+			build_cost_ic = 90
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1.3
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 45
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_ENG_light_battery_3 = {
+		category = ship_light_battery
+		parent = ship_ENG_light_battery_2
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 1.4
+			anti_air_attack = 0.9
+			build_cost_ic = 100
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1.5
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 60
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_ENG_light_battery_4 = {
+		category = ship_light_battery
+		parent = ship_ENG_light_battery_3
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 1.6
+			anti_air_attack = 1
+			build_cost_ic = 115
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1.3
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 75
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_JAP_light_battery_1 = {
+		category = ship_light_battery
+		parent = ship_old_light_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 1.8
+			anti_air_attack = 1.5
+			build_cost_ic = 90
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1.2
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 50
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_JAP_light_battery_2 = {
+		category = ship_light_battery
+		parent = ship_JAP_light_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 2.1
+			anti_air_attack = 2.1
+			build_cost_ic = 110
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 2
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 60
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_short_light_battery = {
+		category = ship_light_battery
+		parent = ship_old_light_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 0.5
+			sub_attack = 0.5
+			anti_air_attack = 0.25
+			build_cost_ic = 40
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 0.2
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 50
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_short_light_battery_2 = {
+		category = ship_light_battery
+		parent = ship_short_light_battery
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 0.85
+			sub_attack = 0.85
+			anti_air_attack = 0.4
+			build_cost_ic = 55
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		add_average_stats = {
+			lg_armor_piercing = 0.4
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 50
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_oldest_light_battery = {
+		category = ship_light_battery
+		parent = ship_old_light_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 0.5
+			anti_air_attack = 0.125
+			build_cost_ic = 30
+		}
+		multiply_stats = {
+			naval_speed = -0.008
+		}
+		add_average_stats = {
+			lg_armor_piercing = 0.34
+		}
+		can_convert_from = {
+			module_category = ship_light_battery
+			convert_cost_ic = 50
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	#Light dp battery
+	ship_oldest_light_battery_2 = {
+		category = ship_light_battery
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 0.7
+			anti_air_attack = 0.15
+			build_cost_ic = 60
+		}
+		multiply_stats = {
+			naval_speed = -0.0
+		}
+		build_cost_resources = {
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 70
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_dp_old_light_battery_1 = {
+		category = dp_ship_light_battery
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 0.8
+			anti_air_attack = 0.7
+			build_cost_ic = 140
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 230
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+
+	ship_dp_SER_old_light_battery_1 = {
+		category = dp_ship_light_battery
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 1.1
+			anti_air_attack = 0.75
+			build_cost_ic = 145
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 230
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_dp_old_light_battery_2 = {
+		category = dp_ship_light_battery
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_dp_old_light_battery_1
+		add_stats = {
+			lg_attack = 1.2
+			anti_air_attack = 0.85
+			build_cost_ic = 160
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1.2
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 230
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_dp_old_light_battery_3 = {
+		category = dp_ship_light_battery
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_dp_old_light_battery_2
+		add_stats = {
+			lg_attack = 1.4
+			anti_air_attack = 1.2
+			build_cost_ic = 180
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1.2
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 230
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_dp_light_battery = {
+		category = dp_ship_light_battery
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_dp_old_light_battery_3
+		add_stats = {
+			lg_attack = 1.5
+			anti_air_attack = 1.5
+			build_cost_ic = 200
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1.2
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 230
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_dp_light_battery_2 = {
+		category = dp_ship_light_battery
+		parent = ship_dp_light_battery
+		#gfx = ship_light_dp_battery_2
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 2
+			anti_air_attack = 2
+			build_cost_ic = 280
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+			steel = 1
+		}
+		add_average_stats = {
+			lg_armor_piercing = 3
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 230
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_dp_light_battery_3 = {
+		category = dp_ship_light_battery
+		parent = ship_dp_light_battery_2
+		#gfx = ship_light_dp_battery_3
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 2.5
+			anti_air_attack = 3
+			build_cost_ic = 200
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+			steel = 1
+		}
+		add_average_stats = {
+			lg_armor_piercing = 3
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 230
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_dp_light_battery_4 = {
+		category = dp_ship_light_battery
+		parent = ship_dp_light_battery_3
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 3.2
+			anti_air_attack = 2.5
+			build_cost_ic = 300
+		}
+		build_cost_resources = {
+			steel = 1
+		}
+		multiply_stats = {
+			naval_speed = -0.02
+		}
+		add_average_stats = {
+			lg_armor_piercing = 3.5
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 190
+		}
+		can_convert_from = {
+			module = ship_dp_light_battery_3
+			convert_cost_ic = 120
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_dp_light_battery_5 = {
+		category = dp_ship_light_battery
+		parent = ship_dp_light_battery_4
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 3.8
+			anti_air_attack = 2.75
+			build_cost_ic = 330
+		}
+		build_cost_resources = {
+			steel = 1
+		}
+		multiply_stats = {
+			naval_speed = -0.02
+		}
+		add_average_stats = {
+			lg_armor_piercing = 4
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 200
+		}
+		can_convert_from = {
+			module = ship_dp_light_battery_4
+			convert_cost_ic = 120
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	dp_FRA_light_battery = {
+		category = dp_ship_light_battery
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_dp_old_light_battery_1
+		add_stats = {
+			lg_attack = 1.25
+			anti_air_attack = 1
+			build_cost_ic = 180
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1.45
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 200
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	dp_ITA_light_battery = {
+		category = dp_ship_light_battery
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_dp_old_light_battery_1
+		add_stats = {
+			lg_attack = 1.1
+			anti_air_attack = 1
+			build_cost_ic = 170
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1.45
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 200
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	dp_ITA_light_battery_2 = {
+		category = dp_ship_light_battery
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_dp_old_light_battery_1
+		add_stats = {
+			lg_attack = 2.1
+			anti_air_attack = 0.8
+			build_cost_ic = 170
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1.45
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 200
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	dp_ITA_light_battery_3 = {
+		category = dp_ship_light_battery
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_dp_old_light_battery_1
+		add_stats = {
+			lg_attack = 2.1
+			anti_air_attack = 0.8
+			build_cost_ic = 170
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1.45
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 200
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	dp_GER_light_battery = {
+		category = dp_ship_light_battery
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_dp_old_light_battery_2
+		add_stats = {
+			lg_attack = 2
+			anti_air_attack = 2
+			build_cost_ic = 280
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+			steel = 1
+		}
+		add_average_stats = {
+			lg_armor_piercing = 3.85
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 230
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_dp_JAP_light_battery_1 = {
+		category = dp_ship_light_battery
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 1
+			anti_air_attack = 0.75
+			build_cost_ic = 145
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 230
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_dp_JAP_light_battery_2 = {
+		category = dp_ship_light_battery
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		add_stats = {
+			lg_attack = 1.8
+			anti_air_attack = 1.4
+			build_cost_ic = 210
+		}
+		multiply_stats = {
+			naval_speed = -0.01
+		}
+		build_cost_resources = {
+		}
+		add_average_stats = {
+			lg_armor_piercing = 1
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 230
+		}
+		critical_parts = {
+			damaged_light_guns
+		}
+	}
+	ship_dp_Bofors_battery_1 = {
+		category = ship_anti_air
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_dp_old_light_battery_2
+		add_stats = {
+			lg_attack = 0.7
+			anti_air_attack = 0.9
+			build_cost_ic = 100
+		}
+		multiply_stats = {
+			build_cost_ic = 0.02
+			anti_air_attack = 0.1
+			naval_speed = -0.01
+		}
+		can_convert_from = {
+			module_category = ship_anti_air
+			convert_cost_ic = 160
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 160
+		}
+	}
+	ship_dp_Bofors_battery_2 = {
+		category = ship_anti_air
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_dp_Bofors_battery_1
+		add_stats = {
+			lg_attack = 0.5
+			anti_air_attack = 2
+			build_cost_ic = 110
+		}
+		multiply_stats = {
+			build_cost_ic = 0.02
+			anti_air_attack = 0.1
+			naval_speed = -0.01
+		}
+		can_convert_from = {
+			module_category = ship_anti_air
+			convert_cost_ic = 160
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 160
+		}
+	}
+	ship_dp_Bofors_battery_3 = {
+		category = ship_anti_air
+		#gfx = ship_light_dp_battery_1
+		sfx = sfx_ui_sd_module_turret
+		parent = ship_dp_Bofors_battery_2
+		add_stats = {
+			lg_attack = 0.6
+			anti_air_attack = 1.4
+			build_cost_ic = 110
+		}
+		multiply_stats = {
+			build_cost_ic = 0.02
+			anti_air_attack = 0.1
+			naval_speed = -0.01
+		}
+		can_convert_from = {
+			module_category = ship_anti_air
+			convert_cost_ic = 160
+		}
+		can_convert_from = {
+			module_category = dp_ship_light_battery
+			convert_cost_ic = 160
+		}
+	}
+}
