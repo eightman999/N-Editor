@@ -10,6 +10,7 @@ from utils.translator import Translator
 import subprocess
 import requests
 import logging
+import hashlib
 import miyabi
 
 logger = logging.getLogger(__name__)
@@ -285,20 +286,10 @@ class SettingsView(QWidget):
             # 同期設定
             self.repo_url_edit.setText(self.app_settings.get_setting("sync_repo_url", ""))
             
-            # 暗号化された設定を復号化
-            encoded_token = self.app_settings.get_setting("sync_github_token", "")
-            encoded_name = self.app_settings.get_setting("git_user_name", "")
-            encoded_email = self.app_settings.get_setting("git_user_email", "")
-            
-            try:
-                self.github_token_edit.setText(miyabi.decode_text(encoded_token) if encoded_token else "")
-                self.git_name_edit.setText(miyabi.decode_text(encoded_name) if encoded_name else "")
-                self.git_email_edit.setText(miyabi.decode_text(encoded_email) if encoded_email else "")
-            except Exception as e:
-                logger.error(f"設定の復号化エラー: {e}")
-                self.github_token_edit.setText("")
-                self.git_name_edit.setText("")
-                self.git_email_edit.setText("")
+            # ハッシュ化された機密情報はUIに表示しない
+            self.github_token_edit.setText("")
+            self.git_name_edit.setText("")
+            self.git_email_edit.setText("")
 
             self.auto_sync_check.setChecked(self.app_settings.get_setting("auto_sync_enabled", False))
             self.sync_on_exit_check.setChecked(self.app_settings.get_setting("sync_on_exit", True))
@@ -365,10 +356,23 @@ class SettingsView(QWidget):
             github_token = self.github_token_edit.text().strip()
             git_name = self.git_name_edit.text().strip()
             git_email = self.git_email_edit.text().strip()
-            
-            self.app_settings.set_setting("sync_github_token", miyabi.encode_text(github_token) if github_token else "")
-            self.app_settings.set_setting("git_user_name", miyabi.encode_text(git_name) if git_name else "")
-            self.app_settings.set_setting("git_user_email", miyabi.encode_text(git_email) if git_email else "")
+
+            def _hash_and_encode(value: str) -> str:
+                hashed = hashlib.sha256(value.encode('utf-8')).hexdigest()
+                return miyabi.encode_text(hashed)
+
+            self.app_settings.set_setting(
+                "sync_github_token",
+                _hash_and_encode(github_token) if github_token else ""
+            )
+            self.app_settings.set_setting(
+                "git_user_name",
+                _hash_and_encode(git_name) if git_name else ""
+            )
+            self.app_settings.set_setting(
+                "git_user_email",
+                _hash_and_encode(git_email) if git_email else ""
+            )
             
             self.app_settings.set_setting("auto_sync_enabled", self.auto_sync_check.isChecked())
             self.app_settings.set_setting("sync_on_exit", self.sync_on_exit_check.isChecked())
