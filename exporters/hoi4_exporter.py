@@ -1025,3 +1025,348 @@ class HOI4Exporter(BaseExporter):
                 'hulls': os.path.exists(self.hulls_file)
             }
         }
+
+    def export_equipment(self, equipment_data: Dict[str, Any]) -> bool:
+        """装備データをHOI4形式でエクスポート
+        
+        Args:
+            equipment_data: 装備データ
+            
+        Returns:
+            bool: エクスポート成功時True、失敗時False
+        """
+        equipment_id = equipment_data.get('common', {}).get('ID')
+        equipment_name = equipment_data.get('common', {}).get('名前', 'Unknown')
+        
+        if not equipment_id:
+            self.log_export_error('equipment', equipment_name, "装備IDが見つかりません")
+            return False
+        
+        try:
+            self.log_export_start('equipment', equipment_name)
+            
+            # ファイル初期化（初回のみ）
+            if not self._files_initialized:
+                self.initialize_files()
+            
+            # 装備タイプを取得
+            equipment_type = equipment_data.get('equipment_type', 'その他')
+            hoi4_category = self._get_hoi4_equipment_category(equipment_type)
+            
+            # 装備ファイルパスを取得または作成
+            equipment_file = self._get_equipment_file_path(hoi4_category)
+            
+            # 装備ブロックを生成
+            equipment_block = self._generate_equipment_definition_block(equipment_data, hoi4_category)
+            
+            # ファイルに書き込み
+            self._append_to_equipment_file(equipment_file, equipment_block, hoi4_category)
+            
+            self.log_export_success('equipment', equipment_name)
+            return True
+            
+        except Exception as e:
+            self.log_export_error('equipment', equipment_name, str(e))
+            return False
+    
+    def _get_hoi4_equipment_category(self, equipment_type: str) -> str:
+        """装備タイプをHOI4の装備カテゴリにマッピング
+        
+        Args:
+            equipment_type: 装備タイプ
+            
+        Returns:
+            str: HOI4装備カテゴリ
+        """
+        category_mapping = {
+            # 砲系装備
+            '小口径砲': 'ship_light_battery',
+            '中口径砲': 'ship_medium_battery', 
+            '大口径砲': 'ship_heavy_battery',
+            '超大口径砲': 'ship_heavy_battery',
+            '対空砲': 'ship_anti_air_battery',
+            
+            # 魚雷・ミサイル系
+            '魚雷': 'ship_torpedo',
+            '潜水艦魚雷': 'ship_torpedo',
+            '対艦ミサイル': 'ship_torpedo',  # HOI4では魚雷カテゴリとして扱う
+            '対空ミサイル': 'ship_anti_air_battery',
+            
+            # 機関系
+            '主機': 'ship_engine',
+            '補機': 'ship_engine',
+            
+            # 電子装備
+            'ソナー': 'ship_sonar',
+            '大型ソナー': 'ship_sonar', 
+            '小型電探': 'ship_radar',
+            '大型電探': 'ship_radar',
+            '火器管制/測距儀': 'ship_fire_control_system',
+            
+            # 航空装備
+            '水上機': 'ship_airplane',
+            '艦上偵察機': 'ship_airplane',
+            '回転翼機': 'ship_airplane',
+            '対潜哨戒機': 'ship_airplane',
+            '大型飛行艇': 'ship_airplane',
+            
+            # 対潜装備
+            '爆雷投射機': 'ship_depth_charge',
+            '爆雷': 'ship_depth_charge',
+            '対潜迫撃砲': 'ship_depth_charge',
+            
+            # その他
+            'ハンガー': 'ship_extra',
+            '中型バルジ': 'ship_armor',
+            '大型バルジ': 'ship_armor',
+            'その他': 'ship_extra'
+        }
+        
+        return category_mapping.get(equipment_type, 'ship_extra')
+    
+    def _get_equipment_file_path(self, hoi4_category: str) -> str:
+        """HOI4装備カテゴリに対応するファイルパスを取得
+        
+        Args:
+            hoi4_category: HOI4装備カテゴリ
+            
+        Returns:
+            str: ファイルパス
+        """
+        # 装備ファイルの管理辞書がない場合は作成
+        if not hasattr(self, 'equipment_files'):
+            self.equipment_files = {}
+        
+        if hoi4_category not in self.equipment_files:
+            # カテゴリ名からファイル名を生成
+            category_name = hoi4_category.replace('ship_', '').replace('_', '-')
+            file_path = os.path.join(self.output_dir, f"{self.country_tag}_{category_name}.txt")
+            self.equipment_files[hoi4_category] = file_path
+        
+        return self.equipment_files[hoi4_category]
+    
+    def _generate_equipment_definition_block(self, equipment_data: Dict[str, Any], hoi4_category: str) -> str:
+        """装備定義ブロックを生成
+        
+        Args:
+            equipment_data: 装備データ
+            hoi4_category: HOI4装備カテゴリ
+            
+        Returns:
+            str: 装備定義ブロック
+        """
+        common = equipment_data.get('common', {})
+        specific = equipment_data.get('specific', {})
+        
+        equipment_id = common.get('ID')
+        equipment_name = common.get('名前', '')
+        year = common.get('開発年', 1940)
+        
+        lines = []
+        lines.append(f"\t{equipment_id} = {{")
+        lines.append(f"\t\tyear = {year}")
+        lines.append("\t\tis_archetype = no")
+        
+        # ベースアーキタイプを設定
+        base_archetype = self._get_base_archetype(hoi4_category)
+        if base_archetype:
+            lines.append(f"\t\tarchetype = {base_archetype}")
+        
+        # コスト・資源
+        weight = common.get('重量', 0)
+        manpower = common.get('人員', 0)
+        resources = common.get('必要資源', {})
+        
+        if weight > 0:
+            lines.append(f"\t\tbuild_cost_ic = {weight}")
+        if manpower > 0:
+            lines.append(f"\t\tmanpower = {manpower}")
+        
+        if resources:
+            lines.append("\t\tresources = {")
+            resource_mapping = {
+                '鉄': 'steel',
+                'クロム': 'chromium', 
+                'アルミ': 'aluminium',
+                'タングステン': 'tungsten',
+                'ゴム': 'rubber'
+            }
+            for resource_jp, amount in resources.items():
+                if amount > 0:
+                    resource_en = resource_mapping.get(resource_jp, resource_jp.lower())
+                    lines.append(f"\t\t\t{resource_en} = {amount}")
+            lines.append("\t\t}")
+        
+        # 性能値を変換してHOI4形式で出力
+        hoi4_stats = self._convert_equipment_stats(specific, hoi4_category)
+        for stat_name, value in hoi4_stats.items():
+            if isinstance(value, float):
+                lines.append(f"\t\t{stat_name} = {value:.2f}")
+            else:
+                lines.append(f"\t\t{stat_name} = {value}")
+        
+        lines.append("\t}")
+        
+        return "\\n".join(lines)
+    
+    def _get_base_archetype(self, hoi4_category: str) -> str:
+        """HOI4装備カテゴリに対応するベースアーキタイプを取得
+        
+        Args:
+            hoi4_category: HOI4装備カテゴリ
+            
+        Returns:
+            str: ベースアーキタイプ
+        """
+        archetype_mapping = {
+            'ship_light_battery': 'ship_light_battery_1',
+            'ship_medium_battery': 'ship_medium_battery_1',
+            'ship_heavy_battery': 'ship_heavy_battery_1', 
+            'ship_anti_air_battery': 'ship_anti_air_1',
+            'ship_torpedo': 'ship_torpedo_1',
+            'ship_engine': 'ship_engine_1',
+            'ship_sonar': 'ship_sonar_1',
+            'ship_radar': 'ship_radar_1',
+            'ship_fire_control_system': 'ship_fire_control_system_1',
+            'ship_airplane': 'ship_airplane_1',
+            'ship_depth_charge': 'ship_depth_charge_1',
+            'ship_armor': 'ship_armor_1',
+            'ship_extra': 'ship_extra_1'
+        }
+        
+        return archetype_mapping.get(hoi4_category, 'ship_extra_1')
+    
+    def _convert_equipment_stats(self, specific_stats: Dict[str, Any], hoi4_category: str) -> Dict[str, Any]:
+        """装備固有の性能値をHOI4の性能値に変換
+        
+        Args:
+            specific_stats: 装備固有の性能値
+            hoi4_category: HOI4装備カテゴリ
+            
+        Returns:
+            Dict[str, Any]: HOI4形式の性能値
+        """
+        hoi4_stats = {}
+        
+        # カテゴリ別の性能値変換
+        if 'battery' in hoi4_category:  # 砲系装備
+            if '威力' in specific_stats:
+                if 'light' in hoi4_category:
+                    hoi4_stats['light_attack'] = specific_stats['威力']
+                elif 'medium' in hoi4_category:
+                    hoi4_stats['light_attack'] = specific_stats['威力'] * 0.8
+                    hoi4_stats['heavy_attack'] = specific_stats['威力'] * 0.6
+                elif 'heavy' in hoi4_category:
+                    hoi4_stats['heavy_attack'] = specific_stats['威力']
+                elif 'anti_air' in hoi4_category:
+                    hoi4_stats['anti_air_attack'] = specific_stats['威力']
+            
+            if '射程' in specific_stats:
+                # 射程は信頼性に変換（長射程 = 高信頼性）
+                range_val = specific_stats['射程']
+                hoi4_stats['reliability'] = min(0.95, 0.7 + (range_val / 10000))
+        
+        elif hoi4_category == 'ship_torpedo':  # 魚雷
+            if '威力' in specific_stats:
+                hoi4_stats['torpedo_attack'] = specific_stats['威力']
+            if '射程' in specific_stats:
+                hoi4_stats['reliability'] = min(0.95, 0.7 + (specific_stats['射程'] / 20000))
+        
+        elif hoi4_category == 'ship_engine':  # 機関
+            if '出力' in specific_stats:
+                hoi4_stats['naval_speed'] = specific_stats['出力'] / 1000  # 出力を速度に変換
+            if '燃費' in specific_stats:
+                hoi4_stats['fuel_consumption'] = specific_stats['燃費']
+        
+        elif 'radar' in hoi4_category or 'sonar' in hoi4_category:  # 電子装備
+            if '探知距離' in specific_stats:
+                detection_range = specific_stats['探知距離']
+                if 'radar' in hoi4_category:
+                    hoi4_stats['surface_detection'] = detection_range / 100
+                else:  # sonar
+                    hoi4_stats['sub_detection'] = detection_range / 100
+            if '精度' in specific_stats:
+                hoi4_stats['reliability'] = min(0.95, specific_stats['精度'] / 100)
+        
+        # 共通性能値
+        if '信頼性' in specific_stats:
+            hoi4_stats['reliability'] = min(0.95, specific_stats['信頼性'] / 100)
+        
+        return hoi4_stats
+    
+    def _append_to_equipment_file(self, file_path: str, equipment_block: str, hoi4_category: str):
+        """装備ファイルに装備ブロックを追記
+        
+        Args:
+            file_path: ファイルパス
+            equipment_block: 装備ブロック
+            hoi4_category: HOI4装備カテゴリ
+        """
+        # ファイルが存在しない場合は初期化
+        if not os.path.exists(file_path):
+            self._initialize_equipment_file(file_path, hoi4_category)
+        
+        try:
+            with open(file_path, 'a', encoding=self.file_encoding) as f:
+                f.write(equipment_block + "\\n\\n")
+        except Exception as e:
+            raise Exception(f"装備ファイル書き込みエラー: {e}")
+    
+    def _initialize_equipment_file(self, file_path: str, hoi4_category: str):
+        """装備ファイルを初期化
+        
+        Args:
+            file_path: ファイルパス
+            hoi4_category: HOI4装備カテゴリ
+        """
+        # 既存ファイルのバックアップ
+        if os.path.exists(file_path):
+            self.create_backup_file(file_path)
+        
+        category_name = hoi4_category.replace('ship_', '').replace('_', ' ').title()
+        
+        with open(file_path, 'w', encoding=self.file_encoding) as f:
+            f.write(f"# {self.country_tag} {category_name} Equipment\\n")
+            f.write(f"# Generated by NavalDesignSystem\\n")
+            f.write(f"# Date: {self._get_timestamp()}\\n\\n")
+            f.write(f"{hoi4_category} = {{\\n")
+    
+    def export_batch_equipments(self, equipments_list: List[Dict[str, Any]], 
+                               progress_callback=None) -> Dict[str, Any]:
+        """装備データの一括エクスポート
+        
+        Args:
+            equipments_list: 装備データのリスト
+            progress_callback: 進捗コールバック関数
+            
+        Returns:
+            Dict[str, Any]: エクスポート結果
+        """
+        results = {
+            'total': len(equipments_list),
+            'success': 0,
+            'failed': 0,
+            'errors': []
+        }
+        
+        for i, equipment_data in enumerate(equipments_list):
+            try:
+                if self.export_equipment(equipment_data):
+                    results['success'] += 1
+                else:
+                    results['failed'] += 1
+                    equipment_name = equipment_data.get('common', {}).get('名前', f'Equipment_{i}')
+                    results['errors'].append(f"装備エクスポート失敗: {equipment_name}")
+                
+                # 進捗コールバック
+                if progress_callback:
+                    progress_callback(i + 1, len(equipments_list))
+                    
+            except Exception as e:
+                results['failed'] += 1
+                equipment_name = equipment_data.get('common', {}).get('名前', f'Equipment_{i}')
+                error_msg = f"装備エクスポートエラー: {equipment_name} - {str(e)}"
+                results['errors'].append(error_msg)
+                self.logger.error(error_msg)
+        
+        return results
