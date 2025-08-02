@@ -3461,12 +3461,19 @@ class AppController(QObject):
         try:
             # 船体データを読み込み
             hull_data = self.load_hull(hull_id)
+            
+            # データの型チェック
             if not hull_data:
+                self.logger.warning(f"船体データが見つかりません: {hull_id}")
+                return None
+                
+            if not isinstance(hull_data, dict):
+                self.logger.error(f"船体データが辞書形式ではありません ({hull_id}): type={type(hull_data)}, data={hull_data}")
                 return None
             
             # HOI4エクスポート用に構造を統一
             export_data = {
-                'hull_id': hull_data.get('id', ''),
+                'hull_id': hull_data.get('id', hull_id),  # fallback to hull_id if 'id' is missing
                 'name': hull_data.get('name', ''),
                 'type': hull_data.get('type', ''),
                 'year': hull_data.get('year', 1940),
@@ -3476,20 +3483,22 @@ class AppController(QObject):
             
             # スロット情報の変換
             slots = hull_data.get('slots', [])
-            for slot in slots:
-                slot_id = slot.get('id', '')
-                if slot_id:
-                    export_data['slots'][slot_id] = {
-                        'required': slot.get('required', False),
-                        'categories': slot.get('categories', []),
-                        'default_module': slot.get('default_module', 'empty'),
-                        'gfx': slot.get('gfx', '')
-                    }
+            if isinstance(slots, list):
+                for slot in slots:
+                    if isinstance(slot, dict):
+                        slot_id = slot.get('id', '')
+                        if slot_id:
+                            export_data['slots'][slot_id] = {
+                                'required': slot.get('required', False),
+                                'categories': slot.get('categories', []),
+                                'default_module': slot.get('default_module', 'empty'),
+                                'gfx': slot.get('gfx', '')
+                            }
             
             return export_data
             
         except Exception as e:
-            logger.error(f"エクスポート用船体データ取得エラー ({hull_id}): {e}")
+            self.logger.error(f"エクスポート用船体データ取得エラー ({hull_id}): {e}")
             return None
 
     def get_equipment_data(self, equipment_id: str) -> Optional[Dict[str, Any]]:
