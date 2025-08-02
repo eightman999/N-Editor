@@ -130,11 +130,11 @@ class BaseExporter(ABC):
         
         # 船体タイプの検証
         hull_type = hull_data['type']
-        valid_types = ['destroyer', 'light_cruiser', 'heavy_cruiser', 'battle_cruiser', 
-                      'battleship', 'carrier', 'submarine']
+        standard_types = ['destroyer', 'light_cruiser', 'heavy_cruiser', 'battle_cruiser', 
+                         'battleship', 'carrier', 'submarine']
         
-        if hull_type not in valid_types:
-            self.logger.warning(f"未知の船体タイプ: {hull_type}")
+        if hull_type not in standard_types:
+            self.logger.info(f"カスタム船体タイプを検出: {hull_type} - 標準タイプ以外の船体として処理します")
         
         # スロットデータの検証
         slots = hull_data.get('slots', {})

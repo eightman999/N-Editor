@@ -199,11 +199,35 @@ class HOI4Exporter(BaseExporter):
         slots = hull_data.get('slots', {})
         base_stats = hull_data.get('base_stats', {})
         
+        # is_archetypeの動的判定
+        # 1. データに明示的に指定があればそれを使用
+        # 2. カスタム船体タイプで標準タイプでない場合はis_archetype=false
+        # 3. 船体名に「アーキタイプ」が含まれている場合はis_archetype=true
+        if 'is_archetype' in hull_data:
+            is_archetype = hull_data['is_archetype']
+        else:
+            standard_types = ['destroyer', 'light_cruiser', 'heavy_cruiser', 'battle_cruiser', 
+                             'battleship', 'carrier', 'submarine']
+            
+            if hull_type not in standard_types:
+                # カスタム船体タイプの場合
+                if 'アーキタイプ' in hull_name or 'archetype' in hull_name.lower():
+                    is_archetype = True
+                    self.logger.info(f"カスタム船体 {hull_name} をアーキタイプとして設定")
+                else:
+                    is_archetype = False
+                    self.logger.info(f"カスタム船体 {hull_name} を建造可能船体として設定")
+            else:
+                # 標準船体タイプの場合はデフォルトでアーキタイプ
+                is_archetype = True
+        
+        is_buildable = not is_archetype  # アーキタイプでない場合は建造可能
+        
         lines = []
         lines.append(f"\t{hull_id} = {{")
         lines.append(f"\t\tyear = {year}")
-        lines.append("\t\tis_archetype = yes")
-        lines.append("\t\tis_buildable = no")
+        lines.append(f"\t\tis_archetype = {str(is_archetype).lower()}")
+        lines.append(f"\t\tis_buildable = {str(is_buildable).lower()}")
         lines.append(f"\t\ttype = {hull_type}")
         lines.append(f"\t\tsprite = {hull_type}")
         lines.append("\t\tgroup_by = archetype")
@@ -304,7 +328,26 @@ class HOI4Exporter(BaseExporter):
             'submarine': 'interface_category_other_ships'
         }
         
-        return category_mapping.get(hull_type, 'interface_category_capital_ships')
+        # カスタム船体タイプの場合のフォールバック
+        if hull_type not in category_mapping:
+            # DDG, FFG等のミサイル艦は駆逐艦カテゴリに分類
+            if 'DDG' in hull_type.upper() or 'FFG' in hull_type.upper() or 'DD' in hull_type.upper():
+                return 'interface_category_screen_ships'
+            # CG, CA等の巡洋艦は主力艦カテゴリに分類
+            elif 'CG' in hull_type.upper() or 'CA' in hull_type.upper() or 'CL' in hull_type.upper():
+                return 'interface_category_capital_ships'
+            # CV, CVN等の空母は主力艦カテゴリに分類
+            elif 'CV' in hull_type.upper():
+                return 'interface_category_capital_ships'
+            # SS, SSN等の潜水艦はその他カテゴリに分類
+            elif 'SS' in hull_type.upper():
+                return 'interface_category_other_ships'
+            # その他は主力艦として扱う
+            else:
+                self.logger.info(f"カスタム船体タイプ {hull_type} を主力艦カテゴリに分類")
+                return 'interface_category_capital_ships'
+        
+        return category_mapping[hull_type]
     
     def _escape_string(self, text: str) -> str:
         """文字列のエスケープ処理
