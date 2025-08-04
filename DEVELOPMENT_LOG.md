@@ -75,6 +75,12 @@
 **影響範囲**:
 - models/equipment_model.py: __init__, _load_all_equipments_from_csv, save_equipment, delete_equipment, get_next_id
 
+### 🔐 Git情報ハッシュ保存対応
+**時刻**: 23:51
+**概要**: GitHubトークン、ユーザー名、メールアドレスを保存時にSHA-256でハッシュ化し、Miyabiでエンコードしてsettings.jsonへ保存するよう変更。UIには値を表示しない仕様に更新。
+**影響範囲**:
+- views/settings_view.py
+
 ## 2025年7月16日 (水)
 
 ### ✅ 計算ロジック更新
