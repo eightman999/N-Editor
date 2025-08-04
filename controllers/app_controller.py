@@ -3588,7 +3588,7 @@ class AppController(QObject):
 
     def _export_ship_designs_and_hulls_task(self, output_dir: str, country_tag: str, progress_callback):
         """
-        The actual task of exporting ship designs and hulls.
+        The actual task of exporting ship designs, hulls, and equipment.
         This method is run in a background thread.
 
         Args:
@@ -3610,7 +3610,7 @@ class AppController(QObject):
         else:
             def hull_progress_callback(i, total):
                 if progress_callback:
-                    progress_callback(int(50 * i / total))
+                    progress_callback(int(30 * i / total))
             exporter.export_batch_hulls(all_hulls, hull_progress_callback)
 
         # Export all designs
@@ -3620,8 +3620,21 @@ class AppController(QObject):
         else:
             def design_progress_callback(i, total):
                 if progress_callback:
-                    progress_callback(50 + int(50 * i / total))
+                    progress_callback(30 + int(30 * i / total))
             exporter.export_batch_designs(all_designs, design_progress_callback)
+
+        # Export all equipment
+        if hasattr(self, 'equipment_model') and self.equipment_model:
+            all_equipments = self.equipment_model.get_all_equipment()
+            if not all_equipments:
+                self.logger.warning("No equipment found to export.")
+            else:
+                def equipment_progress_callback(i, total):
+                    if progress_callback:
+                        progress_callback(60 + int(40 * i / total))
+                exporter.export_batch_equipments(all_equipments, equipment_progress_callback)
+        else:
+            self.logger.warning("Equipment model not available for export.")
 
         exporter.finalize_files()
         

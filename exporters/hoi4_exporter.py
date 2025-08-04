@@ -24,7 +24,7 @@ class HOI4Exporter(BaseExporter):
         """HOI4エクスポーターを初期化
         
         Args:
-            output_dir (str): 出力ディレクトリパス
+            output_dir (str): 出力ディレクトリパス（MODのルートディレクトリ）
             country_tag (str): 国家タグ（3文字）
         """
         super().__init__(output_dir)
@@ -33,6 +33,11 @@ class HOI4Exporter(BaseExporter):
         # 出力ファイルパス（アーキタイプ別）
         self.designs_file = os.path.join(output_dir, f"{self.country_tag}_designs.txt")
         self.archetype_files = {}  # アーキタイプ別ファイルパスを格納
+        
+        # 装備ファイルの出力先ディレクトリ
+        self.equipment_output_path = os.path.join(self.output_dir, 'common', 'units', 'equipment')
+        os.makedirs(self.equipment_output_path, exist_ok=True)
+        self.equipment_files = {}  # 装備カテゴリ別ファイルパスを格納
         
         # 設定
         self.include_stats_comments = True
@@ -904,6 +909,12 @@ class HOI4Exporter(BaseExporter):
                     with open(file_path, 'a', encoding=self.file_encoding) as f:
                         f.write("}\n")
             
+            # 装備ファイルの終了
+            for hoi4_category, file_path in self.equipment_files.items():
+                if os.path.exists(file_path):
+                    with open(file_path, 'a', encoding=self.file_encoding) as f:
+                        f.write("}\n")
+            
             self.logger.info(f"エクスポートファイルを完成: {self.country_tag}")
             
             # 一時ファイルのクリーンアップ
@@ -1011,18 +1022,25 @@ class HOI4Exporter(BaseExporter):
         """
         stats = self.get_stats()
         
+        # 装備ファイルの存在確認
+        equipment_files_exist = {}
+        for category, file_path in self.equipment_files.items():
+            equipment_files_exist[category] = os.path.exists(file_path)
+        
         return {
             'country_tag': self.country_tag,
             'output_directory': self.output_dir,
             'designs_file': self.designs_file,
-            'hulls_file': self.hulls_file,
-            'exported_designs': stats['exported_designs'],
-            'exported_hulls': stats['exported_hulls'],
-            'total_errors': stats['errors'],
-            'total_warnings': stats['warnings'],
+            'archetype_files': self.archetype_files,
+            'equipment_files': self.equipment_files,
+            'exported_designs': stats.get('exported_designs', 0),
+            'exported_hulls': stats.get('exported_hulls', 0),
+            'exported_equipments': stats.get('exported_equipments', 0),
+            'total_errors': stats.get('errors', 0),
+            'total_warnings': stats.get('warnings', 0),
             'files_exist': {
                 'designs': os.path.exists(self.designs_file),
-                'hulls': os.path.exists(self.hulls_file)
+                'equipment_files': equipment_files_exist
             }
         }
 
@@ -1049,23 +1067,32 @@ class HOI4Exporter(BaseExporter):
             if not self._files_initialized:
                 self.initialize_files()
             
-            # 装備タイプを取得
+            # StatsCalculatorを使って性能値を計算
+            hoi4_stats = self.stats_calculator.calculate_equipment_stats(equipment_data)
+            
+            # 装備タイプとHOI4カテゴリを取得
             equipment_type = equipment_data.get('equipment_type', 'その他')
-            hoi4_category = self._get_hoi4_equipment_category(equipment_type)
+            hoi4_category = self.stats_calculator._get_hoi4_equipment_category(equipment_type)
             
             # 装備ファイルパスを取得または作成
             equipment_file = self._get_equipment_file_path(hoi4_category)
             
             # 装備ブロックを生成
-            equipment_block = self._generate_equipment_definition_block(equipment_data, hoi4_category)
+            equipment_block = self._generate_equipment_definition_block(
+                equipment_data, hoi4_category, hoi4_stats
+            )
             
             # ファイルに書き込み
             self._append_to_equipment_file(equipment_file, equipment_block, hoi4_category)
+            
+            # 統計を更新
+            self.stats['exported_equipments'] += 1
             
             self.log_export_success('equipment', equipment_name)
             return True
             
         except Exception as e:
+            self.stats['errors'] += 1
             self.log_export_error('equipment', equipment_name, str(e))
             return False
     
@@ -1133,81 +1160,78 @@ class HOI4Exporter(BaseExporter):
         Returns:
             str: ファイルパス
         """
-        # 装備ファイルの管理辞書がない場合は作成
-        if not hasattr(self, 'equipment_files'):
-            self.equipment_files = {}
-        
         if hoi4_category not in self.equipment_files:
             # カテゴリ名からファイル名を生成
-            category_name = hoi4_category.replace('ship_', '').replace('_', '-')
-            file_path = os.path.join(self.output_dir, f"{self.country_tag}_{category_name}.txt")
+            # 例: ship_heavy_battery -> ship-heavy-battery.txt
+            file_name = f"{hoi4_category.replace('_', '-')}.txt"
+            file_path = os.path.join(self.equipment_output_path, file_name)
             self.equipment_files[hoi4_category] = file_path
         
         return self.equipment_files[hoi4_category]
     
-    def _generate_equipment_definition_block(self, equipment_data: Dict[str, Any], hoi4_category: str) -> str:
+    def _generate_equipment_definition_block(self, equipment_data: Dict[str, Any], 
+                                              hoi4_category: str, hoi4_stats: Dict[str, Any]) -> str:
         """装備定義ブロックを生成
         
         Args:
             equipment_data: 装備データ
             hoi4_category: HOI4装備カテゴリ
+            hoi4_stats: StatsCalculatorで計算済みの性能値
             
         Returns:
             str: 装備定義ブロック
         """
         common = equipment_data.get('common', {})
-        specific = equipment_data.get('specific', {})
         
         equipment_id = common.get('ID')
         equipment_name = common.get('名前', '')
         year = common.get('開発年', 1940)
         
+        # 年代を5年刻みに丸める
+        rounded_year = (year // 5) * 5
+        
+        # categoryにはTAGと年代を追加
+        category_with_tag = f"{self.country_tag}_{rounded_year}_{hoi4_category}"
+        
         lines = []
         lines.append(f"\t{equipment_id} = {{")
-        lines.append(f"\t\tyear = {year}")
-        lines.append("\t\tis_archetype = no")
+        lines.append(f"\tcategory = {category_with_tag}")
+        lines.append(f"\tgui_category = {hoi4_category}")
+        lines.append("\tsfx = sfx_ui_sd_module_turret")
         
-        # ベースアーキタイプを設定
-        base_archetype = self._get_base_archetype(hoi4_category)
-        if base_archetype:
-            lines.append(f"\t\tarchetype = {base_archetype}")
+        # add_stats セクション
+        add_stats = hoi4_stats.get('add_stats', {})
+        if add_stats:
+            lines.append("\tadd_stats = {")
+            for stat_name, value in add_stats.items():
+                if isinstance(value, float):
+                    lines.append(f"\t\t{stat_name} = {value:.2f}")
+                else:
+                    lines.append(f"\t\t{stat_name} = {value}")
+            lines.append("\t}")
         
-        # コスト・資源
-        weight = common.get('重量', 0)
-        manpower = common.get('人員', 0)
-        resources = common.get('必要資源', {})
+        # multiply_stats セクション
+        multiply_stats = hoi4_stats.get('multiply_stats', {})
+        if multiply_stats:
+            lines.append("\tmultiply_stats = {")
+            for stat_name, value in multiply_stats.items():
+                lines.append(f"\t\t{stat_name} = {value:.3f}")
+            lines.append("\t}")
         
-        if weight > 0:
-            lines.append(f"\t\tbuild_cost_ic = {weight}")
-        if manpower > 0:
-            lines.append(f"\t\tmanpower = {manpower}")
-        
-        if resources:
-            lines.append("\t\tresources = {")
-            resource_mapping = {
-                '鉄': 'steel',
-                'クロム': 'chromium', 
-                'アルミ': 'aluminium',
-                'タングステン': 'tungsten',
-                'ゴム': 'rubber'
-            }
-            for resource_jp, amount in resources.items():
-                if amount > 0:
-                    resource_en = resource_mapping.get(resource_jp, resource_jp.lower())
-                    lines.append(f"\t\t\t{resource_en} = {amount}")
-            lines.append("\t\t}")
-        
-        # 性能値を変換してHOI4形式で出力
-        hoi4_stats = self._convert_equipment_stats(specific, hoi4_category)
-        for stat_name, value in hoi4_stats.items():
-            if isinstance(value, float):
-                lines.append(f"\t\t{stat_name} = {value:.2f}")
-            else:
-                lines.append(f"\t\t{stat_name} = {value}")
+        # add_average_stats セクション
+        add_average_stats = hoi4_stats.get('add_average_stats', {})
+        if add_average_stats:
+            lines.append("\tadd_average_stats = {")
+            for stat_name, value in add_average_stats.items():
+                if isinstance(value, float):
+                    lines.append(f"\t\t{stat_name} = {value:.2f}")
+                else:
+                    lines.append(f"\t\t{stat_name} = {value}")
+            lines.append("\t}")
         
         lines.append("\t}")
         
-        return "\\n".join(lines)
+        return "\n".join(lines)
     
     def _get_base_archetype(self, hoi4_category: str) -> str:
         """HOI4装備カテゴリに対応するベースアーキタイプを取得
@@ -1308,7 +1332,7 @@ class HOI4Exporter(BaseExporter):
         
         try:
             with open(file_path, 'a', encoding=self.file_encoding) as f:
-                f.write(equipment_block + "\\n\\n")
+                f.write(equipment_block + "\n\n")
         except Exception as e:
             raise Exception(f"装備ファイル書き込みエラー: {e}")
     
@@ -1326,10 +1350,10 @@ class HOI4Exporter(BaseExporter):
         category_name = hoi4_category.replace('ship_', '').replace('_', ' ').title()
         
         with open(file_path, 'w', encoding=self.file_encoding) as f:
-            f.write(f"# {self.country_tag} {category_name} Equipment\\n")
-            f.write(f"# Generated by NavalDesignSystem\\n")
-            f.write(f"# Date: {self._get_timestamp()}\\n\\n")
-            f.write(f"{hoi4_category} = {{\\n")
+            f.write(f"# {self.country_tag} {category_name} Equipment\n")
+            f.write(f"# Generated by NavalDesignSystem\n")
+            f.write(f"# Date: {self._get_timestamp()}\n\n")
+            f.write(f"{hoi4_category} = {{\n")
     
     def export_batch_equipments(self, equipments_list: List[Dict[str, Any]], 
                                progress_callback=None) -> Dict[str, Any]:

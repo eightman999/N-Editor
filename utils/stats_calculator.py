@@ -617,3 +617,543 @@ class StatsCalculator:
             'hull_stats_cache': len(self.hull_stats_cache),
             'upgrade_effects_cache': len(self.upgrade_effects_cache)
         }
+
+    
+    def calculate_equipment_stats(self, equipment_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        装備データからHOI4用の性能値を計算・変換する
+        
+        Args:
+            equipment_data: 装備データ
+            
+        Returns:
+            Dict[str, Any]: HOI4形式の性能値（add_stats, multiply_stats, add_average_stats構造）
+        """
+        common = equipment_data.get('common', {})
+        specific = equipment_data.get('specific', {})
+        equipment_type = equipment_data.get('equipment_type', 'その他')
+        
+        # HOI4の新しい構造に合わせた出力
+        hoi4_stats = {
+            'add_stats': {},
+            'multiply_stats': {},
+            'add_average_stats': {}
+        }
+        
+        # 装備タイプからHOI4カテゴリを取得
+        hoi4_category = self._get_hoi4_equipment_category(equipment_type)
+        
+        # カテゴリ別の性能値変換ロジック
+        category_converters = {
+            'ship_light_battery': self._convert_light_battery_new,
+            'ship_medium_battery': self._convert_medium_battery_new,
+            'ship_heavy_battery': self._convert_heavy_battery_new,
+            'ship_anti_air_battery': self._convert_aa_battery_new,
+            'ship_torpedo': self._convert_torpedo_new,
+            'ship_engine': self._convert_engine_new,
+            'ship_sonar': self._convert_sonar_new,
+            'ship_radar': self._convert_radar_new,
+            'ship_fire_control_system': self._convert_fire_control_new,
+            'ship_airplane': self._convert_airplane_new,
+            'ship_depth_charge': self._convert_depth_charge_new,
+            'ship_armor': self._convert_armor_new,
+            'ship_extra': self._convert_extra_new
+        }
+        
+        converter = category_converters.get(hoi4_category)
+        if converter:
+            converted_stats = converter(common, specific)
+            # 各セクションにデータをマージ
+            for section in ['add_stats', 'multiply_stats', 'add_average_stats']:
+                if section in converted_stats:
+                    hoi4_stats[section].update(converted_stats[section])
+        
+        # 空のセクションは削除
+        hoi4_stats = {k: v for k, v in hoi4_stats.items() if v}
+        
+        return hoi4_stats
+
+    def _get_hoi4_equipment_category(self, equipment_type: str) -> str:
+        """装備タイプをHOI4の装備カテゴリにマッピング"""
+        category_mapping = {
+            # 砲系装備
+            '小口径砲': 'ship_light_battery',
+            '中口径砲': 'ship_medium_battery', 
+            '大口径砲': 'ship_heavy_battery',
+            '超大口径砲': 'ship_heavy_battery',
+            '対空砲': 'ship_anti_air_battery',
+            
+            # 魚雷・ミサイル系
+            '魚雷': 'ship_torpedo',
+            '潜水艦魚雷': 'ship_torpedo',
+            '対艦ミサイル': 'ship_torpedo',  # HOI4では魚雷カテゴリとして扱う
+            '対空ミサイル': 'ship_anti_air_battery',
+            
+            # 機関系
+            '主機': 'ship_engine',
+            '補機': 'ship_engine',
+            
+            # 電子装備
+            'ソナー': 'ship_sonar',
+            '大型ソナー': 'ship_sonar', 
+            '小型電探': 'ship_radar',
+            '大型電探': 'ship_radar',
+            '火器管制/測距儀': 'ship_fire_control_system',
+            
+            # 航空装備
+            '水上機': 'ship_airplane',
+            '艦上偵察機': 'ship_airplane',
+            '回転翼機': 'ship_airplane',
+            '対潜哨戒機': 'ship_airplane',
+            '大型飛行艇': 'ship_airplane',
+            
+            # 対潜装備
+            '爆雷投射機': 'ship_depth_charge',
+            '爆雷': 'ship_depth_charge',
+            '対潜迫撃砲': 'ship_depth_charge',
+            
+            # その他
+            'ハンガー': 'ship_extra',
+            '中型バルジ': 'ship_armor',
+            '大型バルジ': 'ship_armor',
+            'その他': 'ship_extra'
+        }
+        
+        return category_mapping.get(equipment_type, 'ship_extra')
+
+    def _convert_resource_keys(self, resources: Dict[str, Any]) -> Dict[str, Any]:
+        """日本語リソース名をHOI4英語名に変換"""
+        resource_mapping = {
+            '鉄': 'steel',
+            'クロム': 'chromium', 
+            'アルミ': 'aluminium',
+            'タングステン': 'tungsten',
+            'ゴム': 'rubber'
+        }
+        
+        converted = {}
+        for resource_jp, amount in resources.items():
+            if amount > 0:
+                resource_en = resource_mapping.get(resource_jp, resource_jp.lower())
+                converted[resource_en] = amount
+        
+        return converted
+
+    def _convert_light_battery(self, specific: Dict[str, Any]) -> Dict[str, Any]:
+        """小口径砲の性能値を変換"""
+        stats = {}
+        if '威力' in specific:
+            stats['light_attack'] = specific['威力']
+        if '対空威力' in specific:
+            stats['anti_air_attack'] = specific['対空威力']
+        if '射程' in specific:
+            # 射程は信頼性に変換（長射程 = 高信頼性）
+            range_val = specific['射程']
+            stats['reliability'] = min(0.95, 0.7 + (range_val / 15000))
+        if '発射速度' in specific:
+            # 発射速度は攻撃力にボーナス
+            fire_rate = specific['発射速度']
+            if 'light_attack' in stats:
+                stats['light_attack'] *= (1 + fire_rate / 100)
+        return stats
+
+    def _convert_medium_battery(self, specific: Dict[str, Any]) -> Dict[str, Any]:
+        """中口径砲の性能値を変換"""
+        stats = {}
+        if '威力' in specific:
+            power = specific['威力']
+            stats['light_attack'] = power * 0.8
+            stats['heavy_attack'] = power * 0.6
+        if '対空威力' in specific:
+            stats['anti_air_attack'] = specific['対空威力']
+        if '射程' in specific:
+            range_val = specific['射程']
+            stats['reliability'] = min(0.95, 0.75 + (range_val / 20000))
+        return stats
+
+    def _convert_heavy_battery(self, specific: Dict[str, Any]) -> Dict[str, Any]:
+        """大口径砲の性能値を変換"""
+        stats = {}
+        if '威力' in specific:
+            stats['heavy_attack'] = specific['威力']
+        if '対空威力' in specific:
+            stats['anti_air_attack'] = specific['対空威力'] * 0.5  # 対空には不向き
+        if '射程' in specific:
+            range_val = specific['射程']
+            stats['reliability'] = min(0.95, 0.8 + (range_val / 25000))
+        if '貫通力' in specific:
+            stats['ap_attack'] = specific['貫通力']
+        return stats
+
+    def _convert_aa_battery(self, specific: Dict[str, Any]) -> Dict[str, Any]:
+        """対空砲の性能値を変換"""
+        stats = {}
+        if '威力' in specific:
+            stats['anti_air_attack'] = specific['威力']
+        if '対艦威力' in specific:
+            stats['light_attack'] = specific['対艦威力'] * 0.3  # 対艦には不向き
+        if '射程' in specific:
+            range_val = specific['射程']
+            stats['reliability'] = min(0.95, 0.75 + (range_val / 12000))
+        return stats
+
+    def _convert_torpedo(self, specific: Dict[str, Any]) -> Dict[str, Any]:
+        """魚雷の性能値を変換"""
+        stats = {}
+        if '威力' in specific:
+            stats['torpedo_attack'] = specific['威力']
+        if '射程' in specific:
+            range_val = specific['射程']
+            stats['reliability'] = min(0.95, 0.7 + (range_val / 30000))
+        if '速度' in specific:
+            # 魚雷速度は命中率に影響
+            speed = specific['速度']
+            if 'torpedo_attack' in stats:
+                stats['torpedo_attack'] *= (1 + speed / 200)
+        return stats
+
+    def _convert_engine(self, specific: Dict[str, Any]) -> Dict[str, Any]:
+        """機関の性能値を変換"""
+        stats = {}
+        if '出力' in specific:
+            stats['naval_speed'] = specific['出力'] / 1000  # 出力を速度に変換
+        if '燃費' in specific:
+            stats['fuel_consumption'] = specific['燃費']
+        if '信頼性' in specific:
+            stats['reliability'] = min(0.95, specific['信頼性'] / 100)
+        return stats
+
+    def _convert_sonar(self, specific: Dict[str, Any]) -> Dict[str, Any]:
+        """ソナーの性能値を変換"""
+        stats = {}
+        if '探知距離' in specific:
+            detection_range = specific['探知距離']
+            stats['sub_detection'] = detection_range / 100
+        if '精度' in specific:
+            stats['reliability'] = min(0.95, specific['精度'] / 100)
+        return stats
+
+    def _convert_radar(self, specific: Dict[str, Any]) -> Dict[str, Any]:
+        """レーダーの性能値を変換"""
+        stats = {}
+        if '探知距離' in specific:
+            detection_range = specific['探知距離']
+            stats['surface_detection'] = detection_range / 100
+        if '精度' in specific:
+            stats['reliability'] = min(0.95, specific['精度'] / 100)
+        return stats
+
+    def _convert_fire_control(self, specific: Dict[str, Any]) -> Dict[str, Any]:
+        """火器管制システムの性能値を変換"""
+        stats = {}
+        if '精度向上' in specific:
+            accuracy = specific['精度向上']
+            stats['light_attack_modifier'] = accuracy / 100
+            stats['heavy_attack_modifier'] = accuracy / 100
+        if '射程延長' in specific:
+            range_ext = specific['射程延長']
+            stats['reliability'] = min(0.95, 0.8 + (range_ext / 100))
+        return stats
+
+    def _convert_airplane(self, specific: Dict[str, Any]) -> Dict[str, Any]:
+        """航空機の性能値を変換"""
+        stats = {}
+        if '偵察能力' in specific:
+            recon = specific['偵察能力']
+            stats['surface_detection'] = recon / 50
+            stats['sub_detection'] = recon / 100
+        if '攻撃力' in specific:
+            stats['naval_strike_attack'] = specific['攻撃力']
+        return stats
+
+    def _convert_depth_charge(self, specific: Dict[str, Any]) -> Dict[str, Any]:
+        """対潜兵器の性能値を変換"""
+        stats = {}
+        if '威力' in specific:
+            stats['sub_attack'] = specific['威力']
+        if '射程' in specific:
+            range_val = specific['射程']
+            stats['reliability'] = min(0.95, 0.7 + (range_val / 5000))
+        return stats
+
+    def _convert_armor(self, specific: Dict[str, Any]) -> Dict[str, Any]:
+        """装甲の性能値を変換"""
+        stats = {}
+        if '装甲値' in specific:
+            stats['armor_value'] = specific['装甲値']
+        if '重量軽減' in specific:
+            weight_reduction = specific['重量軽減']
+            stats['build_cost_ic_modifier'] = -weight_reduction / 100
+        return stats
+
+    def _convert_extra(self, specific: Dict[str, Any]) -> Dict[str, Any]:
+        """その他装備の性能値を変換"""
+        stats = {}
+        # 汎用的な変換ロジック
+        if '効果' in specific:
+            stats['modifier_value'] = specific['効果']
+        return stats
+
+    # === 新しいHOI4形式対応の変換メソッド ===
+    
+    def _convert_light_battery_new(self, common: Dict[str, Any], specific: Dict[str, Any]) -> Dict[str, Any]:
+        """小口径砲の性能値を新HOI4形式に変換"""
+        result = {
+            'add_stats': {},
+            'multiply_stats': {},
+            'add_average_stats': {}
+        }
+        
+        # 威力 -> lg_attack
+        if '威力' in specific:
+            result['add_stats']['lg_attack'] = specific['威力'] / 10.0
+        
+        # 重量 -> build_cost_ic
+        if '重量' in common:
+            result['add_stats']['build_cost_ic'] = common['重量']
+        
+        # 速度低下 -> naval_speed (負の値)
+        if '重量' in common:
+            weight = common['重量']
+            speed_penalty = -(weight / 5000.0)  # 重量5000で-1.0の速度低下
+            result['multiply_stats']['naval_speed'] = speed_penalty
+        
+        # 装甲貫通力
+        if '威力' in specific:
+            result['add_average_stats']['lg_armor_piercing'] = specific['威力'] / 4.0
+        
+        # 耐久力への貢献
+        if '重量' in common:
+            result['add_average_stats']['max_strength'] = common['重量'] / 20.0
+        
+        return result
+    
+    def _convert_medium_battery_new(self, common: Dict[str, Any], specific: Dict[str, Any]) -> Dict[str, Any]:
+        """中口径砲の性能値を新HOI4形式に変換"""
+        result = {
+            'add_stats': {},
+            'multiply_stats': {},
+            'add_average_stats': {}
+        }
+        
+        if '威力' in specific:
+            power = specific['威力']
+            result['add_stats']['lg_attack'] = power / 8.0
+            result['add_stats']['hg_attack'] = power / 15.0
+        
+        if '重量' in common:
+            result['add_stats']['build_cost_ic'] = common['重量']
+            speed_penalty = -(common['重量'] / 4000.0)
+            result['multiply_stats']['naval_speed'] = speed_penalty
+            result['add_average_stats']['max_strength'] = common['重量'] / 15.0
+        
+        if '威力' in specific:
+            result['add_average_stats']['lg_armor_piercing'] = specific['威力'] / 3.0
+            result['add_average_stats']['hg_armor_piercing'] = specific['威力'] / 6.0
+        
+        return result
+    
+    def _convert_heavy_battery_new(self, common: Dict[str, Any], specific: Dict[str, Any]) -> Dict[str, Any]:
+        """大口径砲の性能値を新HOI4形式に変換"""
+        result = {
+            'add_stats': {},
+            'multiply_stats': {},
+            'add_average_stats': {}
+        }
+        
+        if '威力' in specific:
+            result['add_stats']['hg_attack'] = specific['威力'] / 12.0
+        
+        if '重量' in common:
+            result['add_stats']['build_cost_ic'] = common['重量']
+            speed_penalty = -(common['重量'] / 3000.0)
+            result['multiply_stats']['naval_speed'] = speed_penalty
+            result['add_average_stats']['max_strength'] = common['重量'] / 10.0
+        
+        if '威力' in specific:
+            result['add_average_stats']['hg_armor_piercing'] = specific['威力'] / 2.0
+        
+        return result
+    
+    def _convert_aa_battery_new(self, common: Dict[str, Any], specific: Dict[str, Any]) -> Dict[str, Any]:
+        """対空砲の性能値を新HOI4形式に変換"""
+        result = {
+            'add_stats': {},
+            'multiply_stats': {},
+            'add_average_stats': {}
+        }
+        
+        if '威力' in specific:
+            result['add_stats']['anti_air_attack'] = specific['威力'] / 8.0
+        
+        if '重量' in common:
+            result['add_stats']['build_cost_ic'] = common['重量']
+            speed_penalty = -(common['重量'] / 6000.0)
+            result['multiply_stats']['naval_speed'] = speed_penalty
+            result['add_average_stats']['max_strength'] = common['重量'] / 25.0
+        
+        return result
+    
+    def _convert_torpedo_new(self, common: Dict[str, Any], specific: Dict[str, Any]) -> Dict[str, Any]:
+        """魚雷の性能値を新HOI4形式に変換"""
+        result = {
+            'add_stats': {},
+            'multiply_stats': {},
+            'add_average_stats': {}
+        }
+        
+        if '威力' in specific:
+            result['add_stats']['torpedo_attack'] = specific['威力'] / 8.0
+        
+        if '重量' in common:
+            result['add_stats']['build_cost_ic'] = common['重量']
+            speed_penalty = -(common['重量'] / 7000.0)
+            result['multiply_stats']['naval_speed'] = speed_penalty
+            result['add_average_stats']['max_strength'] = common['重量'] / 30.0
+        
+        return result
+    
+    def _convert_engine_new(self, common: Dict[str, Any], specific: Dict[str, Any]) -> Dict[str, Any]:
+        """機関の性能値を新HOI4形式に変換"""
+        result = {
+            'add_stats': {},
+            'multiply_stats': {},
+            'add_average_stats': {}
+        }
+        
+        if '出力' in specific:
+            power = specific['出力']
+            result['add_stats']['naval_speed'] = power / 2000.0
+        
+        if '重量' in common:
+            result['add_stats']['build_cost_ic'] = common['重量']
+        
+        if '燃費' in specific:
+            result['multiply_stats']['fuel_consumption'] = specific['燃費'] / 100.0
+        
+        return result
+    
+    def _convert_sonar_new(self, common: Dict[str, Any], specific: Dict[str, Any]) -> Dict[str, Any]:
+        """ソナーの性能値を新HOI4形式に変換"""
+        result = {
+            'add_stats': {},
+            'multiply_stats': {},
+            'add_average_stats': {}
+        }
+        
+        if '探知距離' in specific:
+            result['add_stats']['sub_detection'] = specific['探知距離'] / 200.0
+        
+        if '重量' in common:
+            result['add_stats']['build_cost_ic'] = common['重量']
+            speed_penalty = -(common['重量'] / 10000.0)
+            result['multiply_stats']['naval_speed'] = speed_penalty
+        
+        return result
+    
+    def _convert_radar_new(self, common: Dict[str, Any], specific: Dict[str, Any]) -> Dict[str, Any]:
+        """レーダーの性能値を新HOI4形式に変換"""
+        result = {
+            'add_stats': {},
+            'multiply_stats': {},
+            'add_average_stats': {}
+        }
+        
+        if '探知距離' in specific:
+            result['add_stats']['surface_detection'] = specific['探知距離'] / 150.0
+        
+        if '重量' in common:
+            result['add_stats']['build_cost_ic'] = common['重量']
+            speed_penalty = -(common['重量'] / 8000.0)
+            result['multiply_stats']['naval_speed'] = speed_penalty
+        
+        return result
+    
+    def _convert_fire_control_new(self, common: Dict[str, Any], specific: Dict[str, Any]) -> Dict[str, Any]:
+        """火器管制システムの性能値を新HOI4形式に変換"""
+        result = {
+            'add_stats': {},
+            'multiply_stats': {},
+            'add_average_stats': {}
+        }
+        
+        if '精度向上' in specific:
+            accuracy = specific['精度向上']
+            result['multiply_stats']['lg_attack'] = accuracy / 200.0
+            result['multiply_stats']['hg_attack'] = accuracy / 200.0
+        
+        if '重量' in common:
+            result['add_stats']['build_cost_ic'] = common['重量']
+        
+        return result
+    
+    def _convert_airplane_new(self, common: Dict[str, Any], specific: Dict[str, Any]) -> Dict[str, Any]:
+        """航空機の性能値を新HOI4形式に変換"""
+        result = {
+            'add_stats': {},
+            'multiply_stats': {},
+            'add_average_stats': {}
+        }
+        
+        if '偵察能力' in specific:
+            recon = specific['偵察能力']
+            result['add_stats']['surface_detection'] = recon / 80.0
+            result['add_stats']['sub_detection'] = recon / 160.0
+        
+        if '重量' in common:
+            result['add_stats']['build_cost_ic'] = common['重量']
+        
+        return result
+    
+    def _convert_depth_charge_new(self, common: Dict[str, Any], specific: Dict[str, Any]) -> Dict[str, Any]:
+        """対潜兵器の性能値を新HOI4形式に変換"""
+        result = {
+            'add_stats': {},
+            'multiply_stats': {},
+            'add_average_stats': {}
+        }
+        
+        if '威力' in specific:
+            result['add_stats']['sub_attack'] = specific['威力'] / 10.0
+        
+        if '重量' in common:
+            result['add_stats']['build_cost_ic'] = common['重量']
+            speed_penalty = -(common['重量'] / 8000.0)
+            result['multiply_stats']['naval_speed'] = speed_penalty
+        
+        return result
+    
+    def _convert_armor_new(self, common: Dict[str, Any], specific: Dict[str, Any]) -> Dict[str, Any]:
+        """装甲の性能値を新HOI4形式に変換"""
+        result = {
+            'add_stats': {},
+            'multiply_stats': {},
+            'add_average_stats': {}
+        }
+        
+        if '装甲値' in specific:
+            result['add_stats']['armor_value'] = specific['装甲値'] / 10.0
+        
+        if '重量' in common:
+            result['add_stats']['build_cost_ic'] = common['重量']
+            speed_penalty = -(common['重量'] / 5000.0)
+            result['multiply_stats']['naval_speed'] = speed_penalty
+            result['add_average_stats']['max_strength'] = common['重量'] / 8.0
+        
+        return result
+    
+    def _convert_extra_new(self, common: Dict[str, Any], specific: Dict[str, Any]) -> Dict[str, Any]:
+        """その他装備の性能値を新HOI4形式に変換"""
+        result = {
+            'add_stats': {},
+            'multiply_stats': {},
+            'add_average_stats': {}
+        }
+        
+        if '重量' in common:
+            result['add_stats']['build_cost_ic'] = common['重量']
+        
+        if '効果' in specific:
+            result['add_stats']['modifier_value'] = specific['効果']
+        
+        return result

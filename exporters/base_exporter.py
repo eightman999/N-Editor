@@ -36,6 +36,7 @@ class BaseExporter(ABC):
         self.stats = {
             'exported_designs': 0,
             'exported_hulls': 0,
+            'exported_equipments': 0,
             'errors': 0,
             'warnings': 0
         }
