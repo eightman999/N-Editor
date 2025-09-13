@@ -159,7 +159,7 @@ class GunCalculator(BaseEquipmentCalculator):
 
         if caliber >= 30.0:
             piercing_stats['lg_armor_piercing'] = piercing
-        elif caliber >= 15.0:
+        elif caliber >= 13.0:
             piercing_stats['hg_armor_piercing'] = piercing
         else:
             piercing_stats['lg_armor_piercing'] = piercing * 0.6

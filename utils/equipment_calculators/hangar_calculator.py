@@ -40,35 +40,35 @@ class HangarCalculator(BaseEquipmentCalculator):
         stats['build_cost_ic'] = self._calculate_ic_cost(equipment_data, stats)
         
         return stats
-    
+
     def _calculate_carrier_size(self, equipment_data: Dict[str, Any]) -> float:
         """
         ハンガーの艦載機容量を計算
-        
+
         Args:
             equipment_data (dict): 装備データ
-            
+
         Returns:
             float: 艦載機容量
         """
         # 基本容量
         base_capacity = equipment_data.get('carrier_size', 0.0)
-        
+
         # 重量ベースの容量計算（大型ハンガーの場合）
         weight = equipment_data.get('weight', 0.0)
         is_large = equipment_data.get('specific_elements', {}).get('is_large', False)
-        
-        if is_large:
-            # 大型ハンガーは重量あたりの容量が高い
-            weight_bonus = weight * 0.02  # 1トンあたり0.02機
-        else:
-            # 通常ハンガーは効率が低い
-            weight_bonus = weight * 0.01  # 1トンあたり0.01機
-            
-        total_capacity = base_capacity + weight_bonus
-        
+
+        # if is_large:
+        #     # 大型ハンガーは重量あたりの容量が高い
+        #     weight_bonus = weight * 0.02  # 1トンあたり0.02機
+        # else:
+        #     # 通常ハンガーは効率が低い
+        #     weight_bonus = weight * 0.01  # 1トンあたり0.01機
+        #
+        total_capacity = base_capacity # + weight_bonus
+
         return max(0.0, total_capacity)
-    
+
     def _calculate_hangar_adjustments(self, equipment_data: Dict[str, Any]) -> Dict[str, float]:
         """
         ハンガー装備による調整値計算
