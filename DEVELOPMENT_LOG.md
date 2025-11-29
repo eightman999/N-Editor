@@ -2,6 +2,20 @@
 
 ## 2025年11月29日 (金)
 
+### ✅ Phase 2: コア計算ロジック移植完了
+**時刻**: 16:00
+**概要**: 船体エンティティ、船体性能計算機、装備影響計算機を実装し、55個の全テストが成功。旧システムのHullModel.calculate_hull_performance()とHullEquipmentEffectCalculatorのロジックを新アーキテクチャで再実装。
+
+**実装内容**:
+- **船体エンティティ** (domain/entities/hull.py - 330行): Hull、ビジネスメソッド、データ変換、妥当性検証
+- **船体性能計算機** (domain/calculators/hull_calculator.py - 210行): 燃料容量逆算、表示速度計算、機関効率適用
+- **装備影響計算機** (domain/calculators/equipment_calculator.py - 240行): ペナルティ計算、装備可能重量推定
+- **統合テスト** (tests/unit/test_hull_and_calculators.py - 360行): 55個のテストケース
+
+**テスト結果**: Ran 55 tests in 0.003s - OK ✅
+
+**次のステップ**: Phase 3（リポジトリパターン実装）
+
 ### ✅ Phase 1: 新システム基盤準備完了
 **時刻**: 15:30
 **概要**: 船体性能計算システムの新システム移行プロジェクト Phase 1（基盤準備）を完了。Clean Architecture + DDD原則に基づく新アーキテクチャの基礎を構築し、27個の全テストが成功。
