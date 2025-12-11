@@ -2,6 +2,85 @@
 
 ## 2025年11月29日 (金)
 
+### ✅ Phase 5: レガシーシステム統合完了
+**時刻**: 19:00
+**概要**: アダプターパターンとファサードによるレガシーシステムとの統合、マイグレーションヘルパーを実装。133個の全テストが成功。新旧システムの完全な共存と段階的移行を実現。
+
+**実装内容**:
+- **LegacyHullAdapter** (infrastructure/adapters/legacy_hull_adapter.py - 295行)
+  - レガシー辞書形式 ↔ Hullエンティティの双方向変換
+  - フィールドマッピング: 30+ フィールド対応
+  - バッチ変換: batch_from_legacy(), batch_to_legacy()
+  - 性能データ変換: convert_performance_to_legacy()
+  - 装備データ変換: convert_equipment_to_legacy()
+  - レガシーの'speed'/'range'を新システムの'max_speed'/'naval_range'に自動マッピング
+
+- **HullModelFacade** (infrastructure/adapters/hull_model_facade.py - 264行)
+  - レガシーHullModelと完全互換のインターフェース
+  - 内部的には新システム（HullPerformanceService）を使用
+  - レガシーメソッド: load_hull(), save_hull(), get_all_hulls(), calculate_hull_performance()
+  - 新機能追加: get_statistics(), batch_calculate_performance()
+  - 透過的なデータ変換（レガシー ↔ 新形式）
+  - 既存コードの変更不要で新システムに移行可能
+
+- **MigrationHelper** (infrastructure/migration/migration_helper.py - 364行)
+  - レガシーデータ → 新システムへの一括マイグレーション
+  - MigrationReport: 詳細なマイグレーション結果レポート
+  - マイグレーション計画生成: 国別/艦種別/年代別の統計
+  - 検証機能: マイグレーション後のデータ整合性確認
+  - 上書き制御: 既存データの保護/更新制御
+  - JSON形式レポート出力
+  - CSVからの直接マイグレーション対応
+
+- **互換性テスト** (tests/integration/test_legacy_compatibility.py - 420行)
+  - アダプターテスト: 6件
+    - レガシー → Hull 変換
+    - Hull → レガシー 変換
+    - 双方向変換の整合性
+    - バッチ変換
+  - ファサードテスト: 5件
+    - レガシーインターフェース互換性
+    - CSV入出力
+    - 新機能の利用可能性
+  - マイグレーションテスト: 6件
+    - 辞書/CSV からのマイグレーション
+    - 上書き制御
+    - データ検証
+    - レポート生成/出力
+
+**テスト結果**:
+- **Unit Tests**: Ran 98 tests in 0.031s - OK ✅
+- **Integration Tests**: Ran 30 tests in 0.061s - OK ✅
+  - Phase 3: 13 tests (リポジトリ統合)
+  - Phase 5: 17 tests (レガシー互換性)
+- **E2E Tests**: Ran 5 tests in 0.016s - OK ✅
+- **Total**: 133 tests - 100% pass rate ✅
+
+**技術的成果**:
+- 完全なレガシー互換性（既存コードの変更不要）
+- 段階的マイグレーション戦略
+- データ整合性の検証機能
+- 詳細なマイグレーションレポート
+- 新旧システムの透過的な切り替え
+- フィールドマッピングの自動化
+- バッチ処理による効率的移行
+
+**移行戦略**:
+1. **Phase 5a（現在）**: アダプター経由で新システムを使用
+   - 既存コード: HullModel → HullModelFacade に差し替え
+   - データ: MigrationHelper でバッチ移行
+   - テスト: 互換性確認済み
+
+2. **Phase 5b（次段階）**: 段階的な新システム移行
+   - 新機能から順次新システムAPIに移行
+   - レガシーAPIは後方互換維持
+
+3. **Phase 6（最終段階）**: レガシーコード削除
+   - 完全に新システムに移行
+   - アダプター/ファサード削除
+
+**次のステップ**: Phase 6（完全移行）またはパフォーマンス最適化
+
 ### ✅ Phase 4: サービス層実装完了
 **時刻**: 18:00
 **概要**: サービス層とエンドツーエンドテストを実装し、116個の全テストが成功。ドメイン層とインフラストラクチャ層を繋ぐアプリケーションサービスにより、完全なユースケースを実現。
