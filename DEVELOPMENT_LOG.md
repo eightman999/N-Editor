@@ -1,5 +1,295 @@
 # 開発ログ
 
+## 2025年11月29日 (金)
+
+### ✅ Phase 5: レガシーシステム統合完了
+**時刻**: 19:00
+**概要**: アダプターパターンとファサードによるレガシーシステムとの統合、マイグレーションヘルパーを実装。133個の全テストが成功。新旧システムの完全な共存と段階的移行を実現。
+
+**実装内容**:
+- **LegacyHullAdapter** (infrastructure/adapters/legacy_hull_adapter.py - 295行)
+  - レガシー辞書形式 ↔ Hullエンティティの双方向変換
+  - フィールドマッピング: 30+ フィールド対応
+  - バッチ変換: batch_from_legacy(), batch_to_legacy()
+  - 性能データ変換: convert_performance_to_legacy()
+  - 装備データ変換: convert_equipment_to_legacy()
+  - レガシーの'speed'/'range'を新システムの'max_speed'/'naval_range'に自動マッピング
+
+- **HullModelFacade** (infrastructure/adapters/hull_model_facade.py - 264行)
+  - レガシーHullModelと完全互換のインターフェース
+  - 内部的には新システム（HullPerformanceService）を使用
+  - レガシーメソッド: load_hull(), save_hull(), get_all_hulls(), calculate_hull_performance()
+  - 新機能追加: get_statistics(), batch_calculate_performance()
+  - 透過的なデータ変換（レガシー ↔ 新形式）
+  - 既存コードの変更不要で新システムに移行可能
+
+- **MigrationHelper** (infrastructure/migration/migration_helper.py - 364行)
+  - レガシーデータ → 新システムへの一括マイグレーション
+  - MigrationReport: 詳細なマイグレーション結果レポート
+  - マイグレーション計画生成: 国別/艦種別/年代別の統計
+  - 検証機能: マイグレーション後のデータ整合性確認
+  - 上書き制御: 既存データの保護/更新制御
+  - JSON形式レポート出力
+  - CSVからの直接マイグレーション対応
+
+- **互換性テスト** (tests/integration/test_legacy_compatibility.py - 420行)
+  - アダプターテスト: 6件
+    - レガシー → Hull 変換
+    - Hull → レガシー 変換
+    - 双方向変換の整合性
+    - バッチ変換
+  - ファサードテスト: 5件
+    - レガシーインターフェース互換性
+    - CSV入出力
+    - 新機能の利用可能性
+  - マイグレーションテスト: 6件
+    - 辞書/CSV からのマイグレーション
+    - 上書き制御
+    - データ検証
+    - レポート生成/出力
+
+**テスト結果**:
+- **Unit Tests**: Ran 98 tests in 0.031s - OK ✅
+- **Integration Tests**: Ran 30 tests in 0.061s - OK ✅
+  - Phase 3: 13 tests (リポジトリ統合)
+  - Phase 5: 17 tests (レガシー互換性)
+- **E2E Tests**: Ran 5 tests in 0.016s - OK ✅
+- **Total**: 133 tests - 100% pass rate ✅
+
+**技術的成果**:
+- 完全なレガシー互換性（既存コードの変更不要）
+- 段階的マイグレーション戦略
+- データ整合性の検証機能
+- 詳細なマイグレーションレポート
+- 新旧システムの透過的な切り替え
+- フィールドマッピングの自動化
+- バッチ処理による効率的移行
+
+**移行戦略**:
+1. **Phase 5a（現在）**: アダプター経由で新システムを使用
+   - 既存コード: HullModel → HullModelFacade に差し替え
+   - データ: MigrationHelper でバッチ移行
+   - テスト: 互換性確認済み
+
+2. **Phase 5b（次段階）**: 段階的な新システム移行
+   - 新機能から順次新システムAPIに移行
+   - レガシーAPIは後方互換維持
+
+3. **Phase 6（最終段階）**: レガシーコード削除
+   - 完全に新システムに移行
+   - アダプター/ファサード削除
+
+**次のステップ**: Phase 6（完全移行）またはパフォーマンス最適化
+
+### ✅ Phase 4: サービス層実装完了
+**時刻**: 18:00
+**概要**: サービス層とエンドツーエンドテストを実装し、116個の全テストが成功。ドメイン層とインフラストラクチャ層を繋ぐアプリケーションサービスにより、完全なユースケースを実現。
+
+**実装内容**:
+- **サービス基底クラス** (domain/services/base_service.py - 89行)
+  - DomainService: サービス層の抽象基底クラス
+  - カスタム例外: ServiceError, ValidationError, NotFoundError
+  - 共通機能: ログ記録、エラーハンドリング、バリデーション
+
+- **HullPerformanceService** (domain/services/hull_performance_service.py - 359行)
+  - 船体管理: save_hull(), get_hull(), get_all_hulls(), delete_hull(), hull_exists()
+  - 性能計算: calculate_hull_performance(), calculate_equipment_effect(), calculate_complete_performance()
+  - CSV操作: import_from_csv(), export_to_csv()
+  - バッチ操作: batch_calculate_performance(), get_statistics()
+  - キャッシュ管理: clear_cache(), get_cache_info()
+  - 装備データの自動変換（Dict → Equipment）
+
+- **サービス層単体テスト** (tests/unit/test_hull_performance_service.py - 460行)
+  - 船体管理テスト 8件
+  - 性能計算テスト 5件
+  - CSV操作テスト 3件
+  - バッチ操作テスト 3件
+  - キャッシュ管理テスト 2件
+  - バリデーションテスト 5件
+  - 合計 26件のテスト
+
+- **エンドツーエンドテスト** (tests/e2e/test_complete_workflow.py - 390行)
+  - 完全なワークフローテスト: CSV → インポート → 性能計算 → エクスポート
+  - フィルタ条件を使ったワークフロー
+  - キャッシュ機能を使ったワークフロー
+  - エラーハンドリングのワークフロー
+  - 実世界シナリオ: 艦隊編成と性能評価
+  - 合計 5件のテスト
+
+**テスト結果**:
+- **Unit Tests**: Ran 98 tests in 0.033s - OK ✅
+  - Phase 1-3: 72 tests
+  - Phase 4: 26 tests (サービス層)
+- **Integration Tests**: Ran 13 tests in 0.044s - OK ✅
+- **E2E Tests**: Ran 5 tests in 0.014s - OK ✅
+- **Total**: 116 tests - 100% pass rate ✅
+
+**技術的成果**:
+- 高レベルなユースケース実装（CSV→計算→エクスポート）
+- 装備データの透過的変換（Dict → Equipment）
+- フィルタ機能による柔軟なデータ検索
+- バッチ処理による効率的な一括計算
+- 統計情報取得機能
+- 包括的なエラーハンドリング
+- 完全なE2Eワークフローテスト
+
+**次のステップ**: Phase 5（既存システムとの統合）
+
+### ✅ Phase 3: リポジトリパターン実装完了
+**時刻**: 17:00
+**概要**: リポジトリパターン、CSVコンバーター、統合テストを実装し、85個の全テストが成功。データアクセス層の抽象化により、永続化方式に依存しないドメインモデルを実現。
+
+**実装内容**:
+- **リポジトリ基底インターフェース** (infrastructure/repositories/base_repository.py - 142行)
+  - Repository[T]: ジェネリック型を使った抽象基底クラス
+  - CRUD操作: save(), find_by_id(), find_all(), delete(), exists(), count()
+  - カスタム例外: RepositoryError, EntityNotFoundError, DuplicateEntityError
+  - フィルタ条件サポート（Dict[str, Any]形式）
+
+- **HullRepository実装** (infrastructure/repositories/hull_repository.py - 251行)
+  - JSONファイルベースの永続化
+  - 2層キャッシュ戦略:
+    - メモリキャッシュ（Dict[str, Hull]）: 即時アクセス
+    - 永続キャッシュ（CacheManager統合）: ディスク永続化
+  - フィルタ検索: find_all({'country': 'JPN', 'archetype': 'DD'})
+  - キャッシュ管理: clear_cache(), get_cache_info()
+  - パフォーマンス: 100隻のバルクインポートが0.05秒未満
+
+- **CSVコンバーター** (converters/csv_to_hull_converter.py - 445行)
+  - CSV行データ → Hullエンティティ変換
+  - レガシーフォーマット完全サポート:
+    - 船殻構造ID変換（0-7 → '中世型'〜'現代型'）
+    - 装甲種別ID変換（1.0-2.0 → '装甲なし'〜'複合装甲'）
+    - 艦種コード変換（'DD' → 'DD - 駆逐艦'）
+  - エラー耐性: '#REF!', 'NULL', 空文字の自動処理
+  - 双方向変換: convert_csv_file(), export_to_csv()
+  - ID自動生成機能（カスタマイズ可能）
+
+- **統合テスト** (tests/integration/test_hull_repository_integration.py - 370行)
+  - リポジトリ基本操作テスト: 保存、検索、削除、カウント
+  - キャッシュ動作検証: メモリキャッシュ、キャッシュクリア
+  - CSV統合テスト: インポート→保存→エクスポート→再インポート
+  - パフォーマンステスト: 100隻のバルクインポート（<1秒）
+
+- **CSVコンバーター単体テスト** (tests/unit/test_csv_to_hull_converter.py - 550行)
+  - 基本変換テスト、マッピングテスト、エラー処理テスト
+  - 艦種別変換テスト: 駆逐艦、巡洋艦、戦艦、空母、潜水艦
+  - ファイルI/Oテスト: インポート、エクスポート、ラウンドトリップ
+
+**テスト結果**:
+- **Unit Tests**: Ran 72 tests in 0.007s - OK ✅
+  - Phase 1: 27 tests (効率係数)
+  - Phase 2: 28 tests (船体と計算機)
+  - Phase 3: 17 tests (CSVコンバーター)
+- **Integration Tests**: Ran 13 tests in 0.058s - OK ✅
+- **Total**: 85 tests - 100% pass rate ✅
+
+**技術的成果**:
+- ジェネリック型によるタイプセーフなリポジトリ実装
+- 2層キャッシュ戦略による高速データアクセス
+- CSV → エンティティ → JSON の完全な双方向変換パイプライン
+- 浮動小数点精度問題の解決（装甲種別マッピング）
+- レガシーシステムとの完全な互換性維持
+
+**次のステップ**: Phase 4（サービス層実装）
+
+### ✅ Phase 2: コア計算ロジック移植完了
+**時刻**: 16:00
+**概要**: 船体エンティティ、船体性能計算機、装備影響計算機を実装し、55個の全テストが成功。旧システムのHullModel.calculate_hull_performance()とHullEquipmentEffectCalculatorのロジックを新アーキテクチャで再実装。
+
+**実装内容**:
+- **船体エンティティ** (domain/entities/hull.py - 330行): Hull、ビジネスメソッド、データ変換、妥当性検証
+- **船体性能計算機** (domain/calculators/hull_calculator.py - 210行): 燃料容量逆算、表示速度計算、機関効率適用
+- **装備影響計算機** (domain/calculators/equipment_calculator.py - 240行): ペナルティ計算、装備可能重量推定
+- **統合テスト** (tests/unit/test_hull_and_calculators.py - 360行): 55個のテストケース
+
+**テスト結果**: Ran 55 tests in 0.003s - OK ✅
+
+**次のステップ**: Phase 3（リポジトリパターン実装）
+
+### ✅ Phase 1: 新システム基盤準備完了
+**時刻**: 15:30
+**概要**: 船体性能計算システムの新システム移行プロジェクト Phase 1（基盤準備）を完了。Clean Architecture + DDD原則に基づく新アーキテクチャの基礎を構築し、27個の全テストが成功。
+
+**実装内容**:
+- **ディレクトリ構造作成**: domain/, infrastructure/, converters/, tests/の完全な階層構造
+  - domain/calculators/ - 計算機インターフェース
+  - domain/entities/ - ドメインエンティティ
+  - domain/value_objects/ - イミュータブル値オブジェクト
+  - domain/services/ - ドメインサービス
+  - infrastructure/repositories/ - データアクセス層
+  - infrastructure/caching/ - キャッシュ管理
+  - converters/ - データ変換層
+  - tests/unit/, integration/, e2e/, performance/, regression/
+
+- **統一データフォーマット実装** (converters/unified_data_format.py - 277行)
+  - UnifiedHullData: CSV/JSON/HOI4間の統一船体データ構造
+  - UnifiedEquipmentData: 統一装備データ構造
+  - UnifiedPerformanceData: 統一性能データ構造
+  - 旧HullModel形式との相互変換機能（from_legacy_format, to_legacy_format）
+  - データ妥当性検証機能
+
+- **計算機インターフェース定義** (domain/calculators/base.py - 89行)
+  - PerformanceCalculator: 抽象基底クラス（calculate, validate, get_dependencies）
+  - CompositeCalculator: 複合計算機の基底クラス
+  - 依存関係管理機能
+
+- **効率係数値オブジェクト実装** (domain/value_objects/efficiency_factors.py - 180行)
+  - EngineEfficiencyFactors: 機関種別ごとの燃料消費効率係数（イミュータブル）
+    - Coal: 1.25, Diesel: 0.77, Nuclear: 0.1 等
+  - EngineRangeFactors: 航続距離効率係数
+    - Diesel: 1.3, Nuclear: 10.0 等
+  - ReductionFactorLimits: 装備コスト軽減の限界値
+    - 最大面積: 25,000m², 最大排水量: 50,000ton
+    - サイズ軽減最大30%, 重量軽減最大20%, 総合最大50%
+
+- **包括的ユニットテスト** (tests/unit/test_efficiency_factors.py - 330行)
+  - TestEngineEfficiencyFactors: 効率係数テスト（13ケース）
+  - TestEngineRangeFactors: 航続距離係数テスト（5ケース）
+  - TestReductionFactorLimits: 軽減限界値テスト（6ケース）
+  - TestEfficiencyFactorsIntegration: 統合整合性テスト（3ケース）
+
+**技術詳細**:
+- **設計原則**: Clean Architecture + Domain-Driven Design
+- **データクラス**: Pythonのdataclassを活用したイミュータブル設計
+- **テスト駆動**: 27個のユニットテストで100%カバレッジ
+- **レイヤー分離**: Presentation → Application → Domain → Infrastructure
+- **依存性逆転**: ドメイン層が下位層に依存しない設計
+
+**テスト結果**:
+```
+Ran 27 tests in 0.002s
+OK
+```
+- ✅ 全27個のテストケースが成功
+- ✅ 効率係数の正確性検証（Coal: 1.25, Diesel: 0.77）
+- ✅ イミュータブル性の保証（frozen=True）
+- ✅ デフォルトインスタンスの動作確認
+- ✅ 効率と航続距離の一貫性検証
+- ✅ 軽減限界値の妥当性確認
+
+**移行プランニング**:
+- **現行システム分析**: データフロー、依存関係を完全把握
+- **新システム設計**: アーキテクチャ原則、構造設計を策定
+- **6ステップ移行計画**: 基盤準備 → コア実装 → リポジトリ → サービス → 統合 → 完全移行
+- **リスク分析**: 7つの主要リスクと対策を定義
+- **テスト戦略**: ピラミッド型（ユニット80% + 統合15% + E2E5%）
+- **3ヶ月スケジュール**: Week 1-2完了、Week 3-12計画済み
+
+**影響範囲**:
+- 新規作成ファイル: 6ファイル（ディレクトリ構造 + 実装3 + テスト1）
+- 既存システム: 影響なし（並行運用設計）
+- 次フェーズ準備: Phase 2（コア計算ロジック移植）の基盤完成
+
+**パフォーマンス**:
+- テスト実行時間: 0.002秒（27テスト）
+- メモリ効率: イミュータブル値オブジェクトで最適化
+
+**次のステップ**:
+- Phase 2: 船体エンティティと船体性能計算機の実装
+- 船体計算機のユニットテスト作成
+- 装備影響計算機の実装
+
 ## 2025年8月2日 (金)
 
 ### ✅ 装備HOI4エクスポート機能実装
