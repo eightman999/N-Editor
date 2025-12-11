@@ -112,7 +112,8 @@ def p_color_value(p):
     if p[1] == 'HSV':
         p[0] = _hsv_to_rgb(p[3], p[4], p[5])
     else:  # RGB
-        p[0] = (p[3], p[4], p[5])
+        # Ensure RGB values are clamped to valid uint8 range (0-255)
+        p[0] = (max(0, min(255, int(p[3]))), max(0, min(255, int(p[4]))), max(0, min(255, int(p[5]))))
 
 def p_error(p):
     if p:

@@ -862,15 +862,18 @@ class MapViewer(QGraphicsView):
                 selected_palette = self._palette_region
             elif self.current_filter == "countries":
                 # 国家モードの場合、ステートの所有者の色を使用
+                max_prov_id = max(self.provinces_data_by_id.keys()) if self.provinces_data_by_id else 0
                 selected_palette = np.full(
-                    (max(self.provinces_data_by_id.keys()) + 1 if self.provinces_data_by_id else 1, 3), (50, 50, 50),
+                    (max_prov_id + 1, 3), (50, 50, 50),
                     dtype=np.uint8)
                 for state_id, state_data in self.states_data.items():
                     owner = state_data['raw_data'].get('owner', None)
                     if owner and owner in self.country_colors:
-                        color = self.country_colors[owner]['color']
+                        raw_color = self.country_colors[owner]['color']
+                        # Ensure color values are integers in the valid uint8 range (0-255)
+                        color = tuple(int(np.clip(c, 0, 255)) for c in raw_color)
                         for prov_id in state_data['provinces']:
-                            if prov_id <= max(self.provinces_data_by_id.keys()):
+                            if 0 <= prov_id <= max_prov_id:
                                 selected_palette[prov_id] = color
             else:
                 selected_palette = np.full(
