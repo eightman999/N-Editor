@@ -9,6 +9,8 @@ import logging
 import csv
 from typing import Dict, List, Any, Optional, Union
 
+from utils.file_utils import atomic_write_text
+
 # ロガーの設定
 logger = logging.getLogger(__name__)
 
@@ -338,11 +340,13 @@ class EquipmentModel:
                     if key not in header:
                         header.append(key)
 
-            # ファイルに書き込み
-            with open(self.unique_equipment_file, 'w', newline='', encoding='utf-8') as f:
+            # ファイルに書き込み（同一ディレクトリの一時ファイル経由で原子的に置換）
+            def _write_csv_rows(f):
                 writer = csv.DictWriter(f, fieldnames=header)
                 writer.writeheader()
                 writer.writerows(rows)
+
+            atomic_write_text(self.unique_equipment_file, _write_csv_rows, newline='')
 
             # メモリキャッシュとファイルキャッシュを更新
             self.equipment_cache[equipment_id] = equipment_data
@@ -466,11 +470,13 @@ class EquipmentModel:
                 logger.warning(f"装備 {equipment_id} はユニークファイルに存在しません。")
                 return False
 
-            # ファイルに書き戻し
-            with open(self.unique_equipment_file, 'w', newline='', encoding='utf-8') as f:
+            # ファイルに書き戻し（同一ディレクトリの一時ファイル経由で原子的に置換）
+            def _write_csv_rows(f):
                 writer = csv.DictWriter(f, fieldnames=header)
                 writer.writeheader()
                 writer.writerows(rows)
+
+            atomic_write_text(self.unique_equipment_file, _write_csv_rows, newline='')
 
             # メモリキャッシュからも削除
             if equipment_id in self.equipment_cache:

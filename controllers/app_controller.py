@@ -27,6 +27,7 @@ from models.equipment_model import EquipmentModel
 from models.hull_model import HullModel
 from views.nation_details_view import NationDetailsView
 from utils.path_utils import get_data_dir
+from utils.file_utils import atomic_write_text  # 追加: 原子的ファイル書き込み
 from utils.cache_manager import CacheManager  # 追加: キャッシュマネージャー
 from utils.sync_manager import SyncManager  # 追加: 同期マネージャー
 from utils.mod_data_cache_manager import MODDataCacheManager  # MOD設計データキャッシュ
@@ -1546,6 +1547,23 @@ class AppController(QObject):
 
     # 設計関連機能（残りのメソッドも同様に実装...）
 
+    def _get_design_dirs(self):
+        """設計データの検索対象ディレクトリ一覧を返す
+
+        設定された設計ディレクトリ（app_settings.design_dir）を最優先とし、
+        旧来のDocuments配下パス（get_data_dir('designs')相当）を既存データの
+        参照用フォールバックとして末尾に追加する。フォールバック取得時に
+        ディレクトリは作成しない。
+        """
+        dirs = []
+        configured_dir = getattr(self.app_settings, 'design_dir', None)
+        if configured_dir:
+            dirs.append(configured_dir)
+        legacy_dir = get_data_dir('designs', create=False)
+        if not configured_dir or os.path.normpath(legacy_dir) != os.path.normpath(configured_dir):
+            dirs.append(legacy_dir)
+        return dirs
+
     def save_design(self, design_data):
         """設計データを保存（装備の再生成とステータス再計算機能付き）"""
         try:
@@ -1602,18 +1620,20 @@ class AppController(QObject):
                 design_id = f"DESIGN_{base_id}_{int(time.time())}"
                 design_data["id"] = design_id
 
-            # 保存先ディレクトリの作成
-            base_dir = get_data_dir('designs')
+            # 保存先ディレクトリの作成（設定された設計ディレクトリを使用）
+            base_dir = self.app_settings.design_dir
             os.makedirs(base_dir, exist_ok=True)
 
             # ファイル名は設計IDを使用
             file_name = f"{design_id}.json"
             file_path = os.path.join(base_dir, file_name)
 
-            # ヘッダー付きでJSONに変換して保存
-            with open(file_path, 'w', encoding='utf-8') as f:
+            # ヘッダー付きでJSONに変換し、一時ファイル経由で原子的に保存
+            def _write_design(f):
                 f.write("@config.design\n")
                 json.dump(design_data, f, ensure_ascii=False, indent=2)
+
+            atomic_write_text(file_path, _write_design)
 
             print(f"設計データ '{design_id}' を保存しました（装備再生成済み）。")
             
@@ -1645,11 +1665,15 @@ class AppController(QObject):
             dict or None: 設計データ、存在しない場合はNone
         """
         try:
-            # 設計データを読み込み
-            designs_dir = self.app_settings.design_dir
-            file_path = os.path.join(designs_dir, f"{design_id}.json")
+            # 設計データを読み込み（設定ディレクトリ優先、旧Documents配下をフォールバック）
+            file_path = None
+            for designs_dir in self._get_design_dirs():
+                candidate = os.path.join(designs_dir, f"{design_id}.json")
+                if os.path.exists(candidate):
+                    file_path = candidate
+                    break
 
-            if not os.path.exists(file_path):
+            if file_path is None:
                 print(f"設計ID '{design_id}' のデータが見つかりません。")
                 return None
 
@@ -1688,11 +1712,11 @@ class AppController(QObject):
         """
         try:
             designs = []
-            designs_dir = self.app_settings.design_dir
 
-            # ディレクトリが存在しない場合は空リストを返す
+            # 設定ディレクトリ優先、旧Documents配下をフォールバックとして検索
             import os
-            if not os.path.exists(designs_dir):
+            designs_dirs = [d for d in self._get_design_dirs() if os.path.exists(d)]
+            if not designs_dirs:
                 return designs
 
             # キャッシュから設計一覧を読み込み試行
@@ -1704,8 +1728,17 @@ class AppController(QObject):
 
             # キャッシュミス：ファイルから読み込み
             from utils.design_file_validator import get_design_files_with_validation, load_design_file_with_validation
-            
-            valid_files = get_design_files_with_validation(designs_dir)
+
+            # 同名ファイルは設定ディレクトリ側を優先
+            seen_names = set()
+            valid_files = []
+            for designs_dir in designs_dirs:
+                for file_path in get_design_files_with_validation(designs_dir):
+                    file_name = os.path.basename(file_path)
+                    if file_name in seen_names:
+                        continue
+                    seen_names.add(file_name)
+                    valid_files.append(file_path)
             skipped_count = 0
             
             # 有効な設計ファイルのみを読み込む
@@ -1754,16 +1787,26 @@ class AppController(QObject):
             bool: 削除成功時はTrue、失敗時はFalse
         """
         try:
-            # 設計データを削除
-            designs_dir = self.app_settings.design_dir
-            file_path = os.path.join(designs_dir, f"{design_id}.json")
+            # 削除対象の設計ファイルを検索（設定ディレクトリ優先＋旧Documents配下）
+            file_paths = []
+            for designs_dir in self._get_design_dirs():
+                candidate = os.path.join(designs_dir, f"{design_id}.json")
+                if os.path.exists(candidate):
+                    file_paths.append(candidate)
 
-            if not os.path.exists(file_path):
+            if not file_paths:
                 print(f"設計ID '{design_id}' のデータが見つかりません。")
                 return False
 
+            if len(file_paths) > 1:
+                # 同名設計が複数ディレクトリに存在する場合は、片方だけ消すと
+                # もう片方が復活して見えるため、誤削除を避けて削除を拒否する
+                print(f"設計ID '{design_id}' は複数のディレクトリに重複して存在するため削除できません。"
+                      f"競合を解消してから再試行してください: {', '.join(file_paths)}")
+                return False
+
             # ファイルを削除
-            os.remove(file_path)
+            os.remove(file_paths[0])
             
             # 関連キャッシュをクリア
             if hasattr(self, 'mod_cache_manager') and self.mod_cache_manager:
@@ -1884,19 +1927,23 @@ class AppController(QObject):
         """国家の設計データを取得"""
         try:
             design_list = []
-            design_dir = os.path.join(self.app_settings.data_dir, "designs")
 
-            if not os.path.exists(design_dir):
-                return design_list
-
-            for filename in os.listdir(design_dir):
-                if not filename.endswith('.json'):
+            # 設定された設計ディレクトリを優先し、旧Documents配下をフォールバックで参照
+            seen_names = set()
+            design_files = []
+            for designs_dir in self._get_design_dirs():
+                if not os.path.exists(designs_dir):
                     continue
+                for filename in os.listdir(designs_dir):
+                    if filename.endswith('.json') and filename not in seen_names:
+                        seen_names.add(filename)
+                        design_files.append((filename, os.path.join(designs_dir, filename)))
 
-                file_path = os.path.join(design_dir, filename)
+            for filename, file_path in design_files:
                 try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        design_data = json.load(f)
+                    design_data = self.load_design_from_file(file_path)
+                    if design_data is None:
+                        continue
 
                     # 国家タグが一致するものをフィルタリング
                     if design_data.get('country') == nation_tag:
@@ -3281,23 +3328,25 @@ class AppController(QObject):
         """
         try:
             designs = []
-            designs_dir = get_data_dir('designs')
-            
-            if not os.path.exists(designs_dir):
-                logger.warning(f"設計ディレクトリが存在しません: {designs_dir}")
-                return designs
-            
-            # 設計ファイルを検索
-            for root, dirs, files in os.walk(designs_dir):
-                for file in files:
-                    if file.endswith('.json'):
-                        file_path = os.path.join(root, file)
-                        try:
-                            design_data = self.load_design_from_file(file_path)
-                            if design_data:
-                                designs.append(design_data)
-                        except Exception as e:
-                            logger.warning(f"設計ファイル読み込みエラー ({file}): {e}")
+
+            # 設定された設計ディレクトリを優先し、旧Documents配下をフォールバックで検索
+            seen_names = set()
+            for designs_dir in self._get_design_dirs():
+                if not os.path.exists(designs_dir):
+                    continue
+
+                # 設計ファイルを検索（同名ファイルは設定ディレクトリ側を優先）
+                for root, dirs, files in os.walk(designs_dir):
+                    for file in files:
+                        if file.endswith('.json') and file not in seen_names:
+                            seen_names.add(file)
+                            file_path = os.path.join(root, file)
+                            try:
+                                design_data = self.load_design_from_file(file_path)
+                                if design_data:
+                                    designs.append(design_data)
+                            except Exception as e:
+                                logger.warning(f"設計ファイル読み込みエラー ({file}): {e}")
             
             logger.info(f"設計データ取得完了: {len(designs)}件")
             return designs
@@ -3353,7 +3402,13 @@ class AppController(QObject):
         """
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
-                design_data = json.load(f)
+                first_line = f.readline()
+                if first_line.strip() == "@config.design":
+                    # @config.design ヘッダー付きファイルは残りをJSONとして読み込む
+                    design_data = json.loads(f.read())
+                else:
+                    f.seek(0)
+                    design_data = json.load(f)
             
             # 必要なフィールドが存在するかチェック
             if 'design_name' not in design_data:

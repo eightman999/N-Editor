@@ -1785,3 +1785,38 @@ self.coords_file_path = os.path.join(cache_dir, f"{mod_name}_flags_coords.json")
 ### 2025-07-22 21:57
 - 装甲計算に装甲種別係数を導入し装甲値とコストを厚さで変動
 
+
+## 2026年10月3日 (土)
+
+### ✅ 設計データ保存先ディレクトリの一貫性修正
+**時刻**: 01:39
+**概要**: `save_design` が `get_data_dir('designs')`（旧Documents配下）へ書き込む一方で `load_design`/`get_all_designs`/`delete_design` は `app_settings.design_dir`（Linuxでは `~/.local/share/navaldesignsystem/designs`）を参照しており、Linuxで保存した設計が読み込めない不具合を修正。さらに `get_all_designs` が二重定義され実効側（エクスポート用）が旧パス＋ヘッダー非対応の `load_design_from_file` を使い、`save_design` 形式のファイルを一覧できない問題、`get_nation_designs`・`views/design_view.py` の設計一覧が旧パスを参照する問題も併せて修正。
+**実装内容**:
+- `AppController._get_design_dirs()` を追加: 設定ディレクトリ優先＋旧Documents配下をフォールバック（ディレクトリ未作成で参照のみ）
+- `save_design`/`load_design`/両 `get_all_designs`/`delete_design`/`get_nation_designs` を正規ディレクトリ基準に統一（同名衝突は設定側優先、データ移行・削除は行わない）
+- `delete_design`: 同名ファイルが複数ディレクトリに存在する場合は誤削除・復活防止のため削除を拒否
+- `load_design_from_file`: `@config.design` ヘッダー行をスキップして読み込み可能化
+- `utils/path_utils.py`: `get_data_dir`/`get_user_documents_path` に `create` 引数追加（参照のみでディレクトリを作らない用途）
+**影響範囲**:
+- controllers/app_controller.py
+- views/design_view.py
+- utils/path_utils.py
+
+### ✅ unique_equipments.csv・設計JSONの原子的保存
+**時刻**: 01:39
+**概要**: `save_equipment`/`delete_equipment`/`save_design` が対象ファイルを直接上書きしており、書き込み途中の失敗（ディスク枯渇・シリアライズ例外等）で既存レコードを失う問題を修正。同一ディレクトリの一時ファイルへ書き込み後に `os.replace` で原子的に置換し、失敗時は一時ファイルを削除して元データを保持。
+**実装内容**:
+- `utils/file_utils.py` 新設: `atomic_write_text(file_path, write_func, encoding, newline)`
+- `models/equipment_model.py`: CSV書き込みを原子的置換に変更（UTF-8・`newline=''`・ヘッダー/動的列の形式は維持、失敗時にメモリ/ファイルキャッシュを更新しない）
+- `controllers/app_controller.py`: 設計JSONの `@config.design` ヘッダー付き保存を原子的置換に変更
+**影響範囲**:
+- utils/file_utils.py（新規）
+- models/equipment_model.py
+- controllers/app_controller.py
+
+### ✅ 回帰テスト追加
+**時刻**: 01:39
+**概要**: 上記修正の回帰テストを追加。`tests/unit/test_equipment_persistence.py` は一時ディレクトリ+偽HOME+テンプレートスタブで実モデルを検証（挿入/更新/削除、動的列・日本語・カンマ/改行・引用符の保持、書き込み/シリアライズ/`os.replace` 失敗時の元ファイル・キャッシュ保全、一時ファイル残存なし）。`tests/unit/test_design_persistence.py` はPyQt5非搭載環境のため `app_controller.py` の対象メソッドをAST抽出して実コードを実行し、協力オブジェクトをスタブ化して検証（保存先の一貫性、往復読込、旧パスフォールバック、同名衝突時の設定側優先、重複時削除拒否、原子的保存失敗時の保全）。
+**影響範囲**:
+- tests/unit/test_equipment_persistence.py（新規）
+- tests/unit/test_design_persistence.py（新規）

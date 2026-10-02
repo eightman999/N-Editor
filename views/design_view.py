@@ -825,16 +825,26 @@ class DesignView(QWidget):
             import os
             import json
 
-            # 設計データのディレクトリパス
-            base_dir = get_data_dir('designs')
+            # 設計データのディレクトリパス（設定ディレクトリ優先、旧Documents配下をフォールバック）
+            if self.app_controller is not None and hasattr(self.app_controller, '_get_design_dirs'):
+                design_dirs = self.app_controller._get_design_dirs()
+            else:
+                design_dirs = [get_data_dir('designs')]
 
             # ディレクトリが存在しない場合はエラー
-            if not os.path.exists(base_dir):
+            existing_dirs = [d for d in design_dirs if os.path.exists(d)]
+            if not existing_dirs:
                 QMessageBox.warning(self, "警告", "設計データのディレクトリが存在しません。")
                 return
 
-            # 設計ファイルの一覧を取得
-            design_files = [f for f in os.listdir(base_dir) if f.endswith('.json')]
+            # 設計ファイルの一覧を取得（同名ファイルは設定ディレクトリ側を優先）
+            design_files = []
+            seen_names = set()
+            for base_dir in existing_dirs:
+                for file_name in os.listdir(base_dir):
+                    if file_name.endswith('.json') and file_name not in seen_names:
+                        seen_names.add(file_name)
+                        design_files.append(os.path.join(base_dir, file_name))
 
             if not design_files:
                 QMessageBox.information(self, "情報", "保存された設計データがありません。")
@@ -859,9 +869,9 @@ class DesignView(QWidget):
             from utils.design_file_validator import load_design_file_with_validation
             skipped_count = 0
             
-            for file_name in design_files:
+            for file_path in design_files:
+                file_name = os.path.basename(file_path)
                 try:
-                    file_path = os.path.join(base_dir, file_name)
                     design_data = load_design_file_with_validation(file_path)
                     
                     if design_data is not None:
